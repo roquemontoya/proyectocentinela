@@ -40,6 +40,7 @@
             <li onclick="cargarModulo('ipp')">👷‍♂️ IPP</li>
             <li onclick="cargarModulo('pecas')">🔧 PECAS</li>
             <li onclick="cargarModulo('vecas')">⚙️ VECAS</li>
+            <li onclick="cargarModulo('adminCsv')" style="color: #38bdf8; font-weight: bold;">🛠️ CMU (Conversor Admin)</li>
         </ul>
     </nav>
     <div id="drawer-overlay" class="overlay" onclick="toggleMenu()"></div>
@@ -54,13 +55,10 @@
             <div class="card-img" style="font-size: 45px; text-align: center; margin: 15px 0;">🧯</div>
             <div class="card-title">Extintores en Planta</div>
         </div>
-        
-        <!-- NUEVA TARJETA: PULMÓN -->
         <div class="card" onclick="cargarModulo('pulmon')">
             <div class="card-img" style="font-size: 45px; text-align: center; margin: 15px 0;">🔄</div>
             <div class="card-title">Pulmón (Reserva / Recarga)</div>
         </div>
-
         <div class="card" onclick="cargarModulo('ecas')">
             <div class="card-img" style="font-size: 45px; text-align: center; margin: 15px 0;">📋</div>
             <div class="card-title">ECAS</div>
@@ -107,17 +105,17 @@
                 <input type="hidden" id="input-idch">
                 <input type="hidden" id="input-tabla">
 
-                <!-- Inspector General (Común para todos) -->
+                <!-- Inspector General -->
                 <label style="display: block; margin-bottom: 5px; font-size: 14px; font-weight: bold; color: #22c55e;">Control realizado por:</label>
                 <input type="hidden" id="input-realizo" required>
                 <div id="grid-seleccion-bombero" style="display: flex; gap: 10px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 12px; scrollbar-width: thin;">
                     <p style="color: #aaa; font-size: 13px;">Cargando personal...</p>
                 </div>
 
-                <!-- CONTENEDOR DINÁMICO (Aquí cada .js inyectará sus campos exclusivos) -->
+                <!-- CONTENEDOR DINÁMICO -->
                 <div id="contenedor-componentes-dinamicos"></div>
 
-                <!-- Observaciones y Foto (Común para todos) -->
+                <!-- Observaciones y Foto -->
                 <label style="display: block; margin-bottom: 5px; font-size: 14px;">Observaciones:</label>
                 <textarea id="input-observacion" rows="3" style="width: 100%; padding: 8px; margin-bottom: 12px; background: #2a2a2a; border: 1px solid #444; color: #fff; border-radius: 5px;" placeholder="Detalles de novedades..."></textarea>
 

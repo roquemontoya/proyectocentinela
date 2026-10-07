@@ -4,6 +4,7 @@
 
 import { cargarModuloMapa } from './mapas.js';
 import { cargarModuloPulmon } from './moduloPulmon.js';
+import { cargarModuloAdminCsv } from './moduloAdminCsv.js';
 import { abrirControlExtintor, guardarControlExtintor } from './controlesExtintores.js';
 import { abrirControlHidrante, guardarControlHidrante } from './controlesHidrantes.js';
 
@@ -17,12 +18,12 @@ window.cargarModulo = async function(moduloKey) {
     grid.style.display = 'none';
     vistaDinamica.style.display = 'block';
 
-    // ENRUTAMIENTO INTELIGENTE: ¿Mapa o Tabla?
+    // ENRUTAMIENTO INTELIGENTE
     if (moduloKey === 'pulmon') {
-        // Carga la tabla de inventario y reservas
         await cargarModuloPulmon(vistaDinamica);
+    } else if (moduloKey === 'adminCsv') {
+        await cargarModuloAdminCsv(vistaDinamica);
     } else {
-        // Carga el mapa satelital de Leaflet
         await cargarModuloMapa(moduloKey, vistaDinamica);
     }
 
@@ -36,12 +37,10 @@ window.cargarModulo = async function(moduloKey) {
 };
 
 window.irInicio = function() {
-    // Volver a mostrar las tarjetas principales y limpiar el mapa/tabla
     document.getElementById('main-content').style.display = 'grid';
     document.getElementById('vista-dinamica').style.display = 'none';
     document.getElementById('vista-dinamica').innerHTML = ''; 
     
-    // Cierra el menú lateral si está abierto
     const sideMenu = document.getElementById('side-menu');
     const overlay = document.getElementById('drawer-overlay');
     if (sideMenu && sideMenu.classList.contains('open')) {
@@ -60,11 +59,9 @@ window.toggleMenu = function() {
 
 // --- Enrutador de Formularios (Modal) ---
 
-// Esta función es llamada desde el popup del mapa o desde la tabla del pulmón
 window.abrirFormularioControl = function(tabla, dbId, idElemento) {
     const t = tabla.toLowerCase();
     
-    // Deriva la apertura del modal al archivo JS correspondiente
     if (t === 'extintores' || t === 'extintor') {
         abrirControlExtintor(dbId, idElemento);
     } else if (t === 'hidrantes' || t === 'hidrante') {
@@ -74,9 +71,8 @@ window.abrirFormularioControl = function(tabla, dbId, idElemento) {
     }
 };
 
-// Esta función captura el "Submit" del formulario y lo envía al archivo correspondiente
 window.guardarControl = function(event) {
-    event.preventDefault(); // Evita que la página se recargue
+    event.preventDefault();
     
     const tabla = document.getElementById('input-tabla').value.toLowerCase();
     
