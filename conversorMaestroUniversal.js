@@ -1,6 +1,6 @@
 // ==========================================
 // MÓDULO: CMU (Conversor Maestro Universal)
-// Sincronización Inteligente, Limpieza e Ingesta a Supabase
+// Sincronización Inteligente, Visor de Mapas e Ingesta a Supabase
 // ==========================================
 
 import { clienteSupabase } from './supabaseClient.js';
@@ -22,11 +22,26 @@ export function cargarModuloAdminCsv(contenedor) {
             
             <p style="color: #aaa; font-size: 13px; margin-bottom: 20px; line-height: 1.4;">
                 Herramienta centralizada para migrar los mapas de Google My Maps a Supabase. 
-                El motor limpia la codificación corrupta, <b>protege las marcas con primas (' , ´ , ¨)</b> y gestiona IDs secuenciales automáticos sin romper relaciones.
+                Utiliza el visor integrado para referencia visual y procesa tus CSVs protegiendo las primas y asegurando la integridad relacional.
             </p>
 
+            <!-- TARJETA: VISOR INTEGRADO DE MY MAPS -->
             <div style="background: #1e1e1e; padding: 20px; border-radius: 8px; border: 1px solid #333; margin-bottom: 20px;">
-                
+                <h4 style="color: #38bdf8; margin: 0 0 8px 0; font-size: 14px;">🗺️ Visor Integrado de My Maps (Referencia Visual)</h4>
+                <p style="color: #9ca3af; font-size: 12px; margin-bottom: 12px;">
+                    Pega el ID de tu mapa de Google (ej: <code>1AbCdeF...</code>) o la URL completa para visualizarlo aquí mismo mientras trabajas.
+                </p>
+                <div style="display: flex; gap: 10px; margin-bottom: 12px;">
+                    <input type="text" id="input-map-id" placeholder="Ej: 1abcXYZ123... o URL completa de My Maps" style="flex: 1; padding: 9px; background: #2a2a2a; border: 1px solid #444; color: #fff; border-radius: 5px; font-size: 12px;">
+                    <button id="btn-cargar-visor" style="background: #3b82f6; color: #fff; border: none; padding: 9px 16px; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: 12px; white-space: nowrap;">Cargar Visor</button>
+                </div>
+                <div id="iframe-container" style="width: 100%; height: 320px; background: #121212; border-radius: 6px; border: 1px solid #444; display: flex; align-items: center; justify-content: center; color: #666; font-size: 13px;">
+                    Ingresa el ID del mapa arriba para previsualizarlo en el visor
+                </div>
+            </div>
+
+            <!-- TARJETA: PROCESADOR Y CARGADOR DE CSV -->
+            <div style="background: #1e1e1e; padding: 20px; border-radius: 8px; border: 1px solid #333; margin-bottom: 20px;">
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
                     <div>
                         <label style="display: block; font-size: 13px; font-weight: bold; margin-bottom: 8px; color: #38bdf8;">1. Seleccionar Tabla Destino:</label>
@@ -43,7 +58,7 @@ export function cargarModuloAdminCsv(contenedor) {
                     </div>
 
                     <div>
-                        <label style="display: block; font-size: 13px; font-weight: bold; margin-bottom: 8px; color: #38bdf8;">2. Cargar CSV de My Maps:</label>
+                        <label style="display: block; font-size: 13px; font-weight: bold; margin-bottom: 8px; color: #38bdf8;">2. Cargar CSV exportado:</label>
                         <input type="file" id="admin-input-csv" accept=".csv" style="width: 100%; padding: 7px; background: #2a2a2a; border: 1px solid #444; color: #ccc; border-radius: 5px; font-size: 12px; box-sizing: border-box;">
                     </div>
                 </div>
@@ -65,6 +80,26 @@ export function cargarModuloAdminCsv(contenedor) {
         </div>
     `;
 
+    // ==========================================
+    // CONTROLADOR DEL VISOR IFRAME DE MY MAPS
+    // ==========================================
+    document.getElementById('btn-cargar-visor').addEventListener('click', () => {
+        const val = document.getElementById('input-map-id').value.trim();
+        if (!val) {
+            alert('Por favor ingresa un ID o URL de My Maps válido.');
+            return;
+        }
+
+        let mid = val;
+        if (val.includes('mid=')) {
+            const match = val.match(/mid=([a-zA-Z0-9_-]+)/);
+            if (match) mid = match[1];
+        }
+
+        const iframeContainer = document.getElementById('iframe-container');
+        iframeContainer.innerHTML = `<iframe src="https://www.google.com/maps/d/embed?mid=${mid}" width="100%" height="100%" style="border:0; border-radius: 6px;" allowfullscreen></iframe>`;
+    });
+
     let datosConvertidosGlobal = [];
 
     // ==========================================
@@ -73,7 +108,7 @@ export function cargarModuloAdminCsv(contenedor) {
     document.getElementById('btn-procesar-csv').addEventListener('click', () => {
         const fileInput = document.getElementById('admin-input-csv');
         if (!fileInput.files[0]) {
-            alert('Por favor selecciona un archivo CSV exportado de My Maps.');
+            alert('Por favor selecciona un archivo CSV descargado de My Maps.');
             return;
         }
 
@@ -171,7 +206,6 @@ export function cargarModuloAdminCsv(contenedor) {
                 listaTemporal.push(registroLimpio);
             }
 
-            // Deduplicación interna por etiqueta
             const mapaUnicos = new Map();
             listaTemporal.forEach(item => {
                 if (item.ETIQUETA) {
@@ -180,7 +214,6 @@ export function cargarModuloAdminCsv(contenedor) {
             });
             datosConvertidosGlobal = Array.from(mapaUnicos.values());
 
-            // Renderizar previsualización
             document.getElementById('admin-resultado-container').style.display = 'block';
             document.getElementById('admin-estado-texto').innerText = `¡Conversión y análisis exitoso! Registros listos:`;
             document.getElementById('admin-contador-registros').innerText = `${datosConvertidosGlobal.length} elementos únicos`;
@@ -222,7 +255,6 @@ export function cargarModuloAdminCsv(contenedor) {
         btnSubir.disabled = true;
 
         try {
-            // 1. Consultar registros existentes en Supabase para obtener IDs y el ID máximo actual
             const { data: registrosExistentes, error: errFetch } = await clienteSupabase
                 .from(tablaDestino)
                 .select('id, ETIQUETA');
@@ -239,7 +271,6 @@ export function cargarModuloAdminCsv(contenedor) {
                 });
             }
 
-            // 2. Asignar ID inteligente a cada registro (Conserva el viejo si ya existía, o asigna uno nuevo secuencial)
             const datosParaEnviar = datosConvertidosGlobal.map(item => {
                 const idExistente = mapaExistentes.get(item.ETIQUETA);
                 if (idExistente) {
@@ -252,7 +283,6 @@ export function cargarModuloAdminCsv(contenedor) {
 
             btnSubir.innerText = `Sincronizando ${datosParaEnviar.length} registros con Supabase...`;
 
-            // 3. Enviar todo mediante UPSERT basado en el ID garantizado
             const chunkSize = 500;
             for (let i = 0; i < datosParaEnviar.length; i += chunkSize) {
                 const chunk = datosParaEnviar.slice(i, i + chunkSize);
