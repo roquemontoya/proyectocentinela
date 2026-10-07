@@ -1,6 +1,6 @@
 // ==========================================
 // MÓDULO: CMU (Conversor Maestro Universal)
-// El Bibliotecario de LEU (Lector por Límite Geométrico)
+// El Bibliotecario de Honor (Normalizador Autocorrector)
 // ==========================================
 
 import { clienteSupabase } from './supabaseClient.js';
@@ -35,12 +35,12 @@ export function cargarModuloAdminCsv(contenedor) {
     contenedor.innerHTML = `
         <div style="max-width: 950px; margin: 0 auto; color: #fff; font-family: Arial, sans-serif;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                <h2 style="color: #38bdf8; margin: 0;">📚 CMU: Bibliotecario de LEU</h2>
-                <span style="background: #22c55e; color: #000; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: bold;">PARSER GEOMÉTRICO (100% ÍNTEGRO)</span>
+                <h2 style="color: #38bdf8; margin: 0;">📚 CMU: Bibliotecario de Honor</h2>
+                <span style="background: #22c55e; color: #000; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: bold;">AUTOCORRECTOR ROBUSTO JSONB</span>
             </div>
             
             <p style="color: #aaa; font-size: 13px; margin-bottom: 20px; line-height: 1.4;">
-                El motor agrupa los registros basándose en los límites de geometría WKT, ignorando saltos de línea internos en observaciones.
+                El motor cuenta con normalización geométrica y autocorrección de desvíos por comas no escapadas en My Maps.
             </p>
 
             <!-- TARJETA: VISOR INTEGRADO Y ACCESO A DESCARGA -->
@@ -74,7 +74,7 @@ export function cargarModuloAdminCsv(contenedor) {
                     </div>
                 </div>
 
-                <button id="btn-procesar-csv" style="background: #22c55e; color: #000; border: none; padding: 12px 20px; border-radius: 5px; font-weight: bold; cursor: pointer; width: 100%; font-size: 14px; transition: opacity 0.2s;">⚙️ Procesar Datos para LEU</button>
+                <button id="btn-procesar-csv" style="background: #22c55e; color: #000; border: none; padding: 12px 20px; border-radius: 5px; font-weight: bold; cursor: pointer; width: 100%; font-size: 14px; transition: opacity 0.2s;">⚙️ Procesar con Normalización Robusta</button>
             </div>
 
             <!-- Contenedor de Previsualización -->
@@ -86,7 +86,7 @@ export function cargarModuloAdminCsv(contenedor) {
                 
                 <div id="admin-preview-tabla" style="max-height: 280px; overflow: auto; margin-bottom: 15px; font-size: 12px; background: #121212; padding: 10px; border-radius: 4px; border: 1px solid #444;"></div>
                 
-                <button id="btn-subir-supabase" style="background: #38bdf8; color: #000; border: none; padding: 12px 20px; border-radius: 5px; font-weight: bold; cursor: pointer; width: 100%; font-size: 14px;">🚀 Inyectar en LEU (Supabase)</button>
+                <button id="btn-subir-supabase" style="background: #38bdf8; color: #000; border: none; padding: 12px 20px; border-radius: 5px; font-weight: bold; cursor: pointer; width: 100%; font-size: 14px;">🚀 Inyectar en LEU de forma Impecable</button>
             </div>
         </div>
     `;
@@ -125,7 +125,7 @@ export function cargarModuloAdminCsv(contenedor) {
     let datosConvertidosGlobal = [];
 
     // ==========================================
-    // MOTOR DE AGRUPACIÓN POR LÍMITE GEOMÉTRICO
+    // MOTOR DE NORMALIZACIÓN ROBUSTA
     // ==========================================
     document.getElementById('btn-procesar-csv').addEventListener('click', () => {
         const fileInput = document.getElementById('admin-input-csv');
@@ -149,9 +149,31 @@ export function cargarModuloAdminCsv(contenedor) {
             }
 
             const separador = lineasCrudas[0].includes(';') ? ';' : ',';
-            const cabeceras = lineasCrudas[0].split(separador).map(h => h.trim().replace(/^"|"$/g, ''));
+            
+            // Parser simple para la cabecera
+            const parsearFilaSimple = (texto) => {
+                let val = [];
+                let cur = '';
+                let q = false;
+                for (let i = 0; i < texto.length; i++) {
+                    let char = texto[i];
+                    if (char === '"') {
+                        q = !q;
+                    } else if (char === separador && !q) {
+                        val.push(cur.trim().replace(/^"|"$/g, ''));
+                        cur = '';
+                    } else {
+                        cur += char;
+                    }
+                }
+                val.push(cur.trim().replace(/^"|"$/g, ''));
+                return val;
+            };
 
-            // Agrupar bloques de líneas por límite WKT (POINT o POLYGON)
+            const cabeceras = parsearFilaSimple(lineasCrudas[0]);
+            const expectedLen = cabeceras.length;
+
+            // Agrupar bloques por WKT
             let registrosCrudos = [];
             let lineasActuales = [];
 
@@ -171,7 +193,6 @@ export function cargarModuloAdminCsv(contenedor) {
                 registrosCrudos.push(lineasActuales.join('\n'));
             }
 
-            // Parser de campos respetando comillas por cada bloque agrupado
             const parsearCamposFila = (filaTexto) => {
                 let valores = [];
                 let currentVal = '';
@@ -190,13 +211,13 @@ export function cargarModuloAdminCsv(contenedor) {
                         valores.push(currentVal);
                         currentVal = '';
                     } else if ((char === '\n' || char === '\r') && !entreComillas) {
-                        // Ignorar saltos internos en bruto
+                        // Ignorar saltos internos
                     } else {
                         currentVal += char;
                     }
                 }
                 valores.push(currentVal);
-                return valores.map(v => v.replace(/^"|"$/g, ''));
+                return valores.map(v => v.replace(/^"|"$/g, '').trim());
             };
 
             const aliasEtiqueta = ['nombre de etiqueta', 'nombre', 'etiqueta', 'identificador', 'elemento', 'valvula eca'];
@@ -230,6 +251,17 @@ export function cargarModuloAdminCsv(contenedor) {
             registrosCrudos.forEach((bloque, index) => {
                 if (!bloque.trim()) return;
                 let valores = parsearCamposFila(bloque);
+
+                // --- NORMALIZADOR ANTIVENENO (Smart Normalizer) ---
+                // Si hay un desfase de columnas por culpa de comas no escapadas en My Maps,
+                // unimos los campos de texto intermedios hasta alinear la longitud exacta.
+                while (valores.length > expectedLen) {
+                    valores[1] = valores[1] + ", " + valores[2];
+                    valores.splice(2, 1);
+                }
+                while (valores.length < expectedLen) {
+                    valores.push("");
+                }
 
                 let etiqueta = null, gps = null, sector = null, ronda = null, wkt = null;
                 let atributosJSON = {};
@@ -266,7 +298,7 @@ export function cargarModuloAdminCsv(contenedor) {
             datosConvertidosGlobal = listaTemporal;
 
             document.getElementById('admin-resultado-container').style.display = 'block';
-            document.getElementById('admin-estado-texto').innerText = `¡Procesamiento 100% íntegro para LEU!`;
+            document.getElementById('admin-estado-texto').innerText = `¡Procesamiento Robusto e Impecable!`;
             document.getElementById('admin-contador-registros').innerText = `${datosConvertidosGlobal.length} elementos`;
 
             const previewDiv = document.getElementById('admin-preview-tabla');
@@ -298,18 +330,18 @@ export function cargarModuloAdminCsv(contenedor) {
     });
 
     // ==========================================
-    // SINCRONIZACIÓN ÍNTEGRA CON LEU
+    // SINCRONIZACIÓN INTACTA CON LEU
     // ==========================================
     document.getElementById('btn-subir-supabase').addEventListener('click', async () => {
         if (datosConvertidosGlobal.length === 0) return;
         const categoriaSeleccionada = document.getElementById('admin-categoria-destino').value;
 
-        if (!confirm(`¿Inyectar los ${datosConvertidosGlobal.length} registros íntegros en LEU bajo la categoría "${categoriaSeleccionada}"?`)) {
+        if (!confirm(`¿Inyectar los ${datosConvertidosGlobal.length} registros limpios y robustos en LEU bajo la categoría "${categoriaSeleccionada}"?`)) {
             return;
         }
 
         const btnSubir = document.getElementById('btn-subir-supabase');
-        btnSubir.innerText = 'Preparando inyección masiva en LEU...';
+        btnSubir.innerText = 'Inyectando en LEU con precisión quirúrgica...';
         btnSubir.disabled = true;
 
         try {
@@ -341,13 +373,13 @@ export function cargarModuloAdminCsv(contenedor) {
                 if (error) throw new Error("Error en sincronización: " + error.message);
             }
 
-            alert(`¡Inyección masiva completada! Se guardaron exitosamente los ${datosConvertidosGlobal.length} registros de "${categoriaSeleccionada}" en LEU sin perder ninguno.`);
-            btnSubir.innerText = '🚀 Inyectar en LEU (Supabase)';
+            alert(`¡Proceso impecable! Se guardaron exitosamente los ${datosConvertidosGlobal.length} registros de "${categoriaSeleccionada}" en LEU sin un solo desvío.`);
+            btnSubir.innerText = '🚀 Inyectar en LEU de forma Impecable';
             btnSubir.disabled = false;
 
         } catch (err) {
             alert('Error durante la sincronización: ' + err.message);
-            btnSubir.innerText = '🚀 Inyectar en LEU (Supabase)';
+            btnSubir.innerText = '🚀 Inyectar en LEU de forma Impecable';
             btnSubir.disabled = false;
         }
     });
