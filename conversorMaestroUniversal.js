@@ -22,7 +22,7 @@ export function cargarModuloAdminCsv(contenedor) {
             
             <p style="color: #aaa; font-size: 13px; margin-bottom: 20px; line-height: 1.4;">
                 Herramienta centralizada para migrar los mapas de Google My Maps a Supabase. 
-                El motor limpia la codificación corrupta (como <b>Â°</b>), <b>protege las marcas con primas (' , ´ , ¨)</b> para evitar colisiones de equipos gemelos, y convierte las geometrías WKT automáticamente.
+                El motor limpia la codificación corrupta (tildes rotas y <b>Â°</b>), <b>protege las marcas con primas (' , ´ , ¨)</b> para evitar colisiones de equipos gemelos, y convierte las geometrías WKT automáticamente.
             </p>
 
             <div style="background: #1e1e1e; padding: 20px; border-radius: 8px; border: 1px solid #333; margin-bottom: 20px;">
@@ -95,12 +95,18 @@ export function cargarModuloAdminCsv(contenedor) {
 
             datosConvertidosGlobal = [];
 
-            // 1. Limpieza segura: Destruye basura web de Google PERO RESPETA primas (' , ´ , ¨ , ")
+            // 1. Limpieza segura: Repara tildes rotas y basura web PERO RESPETA primas (' , ´ , ¨ , ")
             const limpiarTextoSeguro = (val) => {
                 if (!val) return null;
                 let s = String(val).replace(/^"|"$/g, '').trim();
                 s = s.replace(/Â°/g, '°')
                      .replace(/Â/g, '')
+                     .replace(/Ã³/g, 'ó')
+                     .replace(/Ã¡/g, 'á')
+                     .replace(/Ã©/g, 'é')
+                     .replace(/Ã­/g, 'í')
+                     .replace(/Ãº/g, 'ú')
+                     .replace(/Ã±/g, 'ñ')
                      .replace(/\xa0/g, ' ')
                      .replace(/&nbsp;/g, ' ');
                 return s === '' ? null : s;
