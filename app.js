@@ -4,7 +4,7 @@
 
 import { cargarModuloMapa } from './mapas.js';
 import { cargarModuloPulmon } from './moduloPulmon.js';
-import { cargarModuloAdminCsv } from './moduloAdminCsv.js';
+import { cargarModuloAdminCsv } from './conversorMaestroUniversal.js'; // <-- APUNTANDO AL NOMBRE REAL DE TU ARCHIVO
 import { abrirControlExtintor, guardarControlExtintor } from './controlesExtintores.js';
 import { abrirControlHidrante, guardarControlHidrante } from './controlesHidrantes.js';
 
