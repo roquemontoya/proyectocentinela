@@ -1,6 +1,6 @@
 // ==========================================
 // MÓDULO: CMU (Conversor Maestro Universal)
-// El Bibliotecario de LEU (Sin Pérdida de Datos)
+// El Bibliotecario de LEU (Lector por Límite Geométrico)
 // ==========================================
 
 import { clienteSupabase } from './supabaseClient.js';
@@ -36,11 +36,11 @@ export function cargarModuloAdminCsv(contenedor) {
         <div style="max-width: 950px; margin: 0 auto; color: #fff; font-family: Arial, sans-serif;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                 <h2 style="color: #38bdf8; margin: 0;">📚 CMU: Bibliotecario de LEU</h2>
-                <span style="background: #22c55e; color: #000; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: bold;">MODO INTEGRO (SIN FILTROS DE ETIQUETA)</span>
+                <span style="background: #22c55e; color: #000; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: bold;">PARSER GEOMÉTRICO (100% ÍNTEGRO)</span>
             </div>
             
             <p style="color: #aaa; font-size: 13px; margin-bottom: 20px; line-height: 1.4;">
-                El motor procesa el 100% de las filas del CSV sin descartar duplicados por nombre, asegurando que ningún activo se quede fuera de LEU.
+                El motor agrupa los registros basándose en los límites de geometría WKT, ignorando saltos de línea internos en observaciones.
             </p>
 
             <!-- TARJETA: VISOR INTEGRADO Y ACCESO A DESCARGA -->
@@ -125,7 +125,7 @@ export function cargarModuloAdminCsv(contenedor) {
     let datosConvertidosGlobal = [];
 
     // ==========================================
-    // MOTOR DE LECTURA ÍNTEGRA (SIN PÉRDIDA)
+    // MOTOR DE AGRUPACIÓN POR LÍMITE GEOMÉTRICO
     // ==========================================
     document.getElementById('btn-procesar-csv').addEventListener('click', () => {
         const fileInput = document.getElementById('admin-input-csv');
@@ -141,54 +141,63 @@ export function cargarModuloAdminCsv(contenedor) {
 
         reader.onload = function(e) {
             const textoCsv = e.target.result;
+            const lineasCrudas = textoCsv.split(/\r\n|\n/);
             
-            let primeraLineaFin = textoCsv.indexOf('\n');
-            if (primeraLineaFin === -1) primeraLineaFin = textoCsv.length;
-            const primeraLinea = textoCsv.substring(0, primeraLineaFin);
-            const separador = primeraLinea.includes(';') ? ';' : ',';
-
-            let filas = [];
-            let filaActual = [];
-            let valorActual = '';
-            let entreComillas = false;
-
-            for (let i = 0; i < textoCsv.length; i++) {
-                let char = textoCsv[i];
-                let nextChar = textoCsv[i + 1];
-
-                if (char === '"') {
-                    if (entreComillas && nextChar === '"') {
-                        valorActual += '"';
-                        i++;
-                    } else {
-                        entreComillas = !entreComillas;
-                    }
-                } else if (char === separador && !entreComillas) {
-                    filaActual.push(valorActual);
-                    valorActual = '';
-                } else if ((char === '\n' || char === '\r') && !entreComillas) {
-                    if (char === '\r' && nextChar === '\n') i++;
-                    filaActual.push(valorActual);
-                    filas.push(filaActual);
-                    filaActual = [];
-                    valorActual = '';
-                } else {
-                    valorActual += char;
-                }
-            }
-            if (valorActual !== '' || filaActual.length > 0) {
-                filaActual.push(valorActual);
-                filas.push(filaActual);
-            }
-
-            filas = filas.filter(f => f.join('').trim() !== '');
-
-            if (filas.length < 2) {
-                alert('El archivo CSV está vacío o ilegible.');
+            if (lineasCrudas.length < 2) {
+                alert('El archivo CSV está vacío.');
                 return;
             }
 
-            const cabeceras = filas[0].map(h => h.trim().replace(/^"|"$/g, ''));
+            const separador = lineasCrudas[0].includes(';') ? ';' : ',';
+            const cabeceras = lineasCrudas[0].split(separador).map(h => h.trim().replace(/^"|"$/g, ''));
+
+            // Agrupar bloques de líneas por límite WKT (POINT o POLYGON)
+            let registrosCrudos = [];
+            let lineasActuales = [];
+
+            for (let i = 1; i < lineasCrudas.length; i++) {
+                let linea = lineasCrudas[i];
+                let trimLinea = linea.trim();
+                
+                if (trimLinea.startsWith('POINT') || trimLinea.startsWith('POLYGON') || trimLinea.startsWith('"POINT') || trimLinea.startsWith('"POLYGON')) {
+                    if (lineasActuales.length > 0) {
+                        registrosCrudos.push(lineasActuales.join('\n'));
+                        lineasActuales = [];
+                    }
+                }
+                lineasActuales.push(linea);
+            }
+            if (lineasActuales.length > 0) {
+                registrosCrudos.push(lineasActuales.join('\n'));
+            }
+
+            // Parser de campos respetando comillas por cada bloque agrupado
+            const parsearCamposFila = (filaTexto) => {
+                let valores = [];
+                let currentVal = '';
+                let entreComillas = false;
+                for (let c = 0; c < filaTexto.length; c++) {
+                    let char = filaTexto[c];
+                    let nextChar = filaTexto[c + 1];
+                    if (char === '"') {
+                        if (entreComillas && nextChar === '"') {
+                            currentVal += '"';
+                            c++;
+                        } else {
+                            entreComillas = !entreComillas;
+                        }
+                    } else if (char === separador && !entreComillas) {
+                        valores.push(currentVal);
+                        currentVal = '';
+                    } else if ((char === '\n' || char === '\r') && !entreComillas) {
+                        // Ignorar saltos internos en bruto
+                    } else {
+                        currentVal += char;
+                    }
+                }
+                valores.push(currentVal);
+                return valores.map(v => v.replace(/^"|"$/g, ''));
+            };
 
             const aliasEtiqueta = ['nombre de etiqueta', 'nombre', 'etiqueta', 'identificador', 'elemento', 'valvula eca'];
             const aliasGps = ['punto gps', 'puntogps', 'coordenadas', 'punto'];
@@ -218,8 +227,10 @@ export function cargarModuloAdminCsv(contenedor) {
                 return wktStr; 
             };
 
-            for (let i = 1; i < filas.length; i++) {
-                let valores = filas[i];
+            registrosCrudos.forEach((bloque, index) => {
+                if (!bloque.trim()) return;
+                let valores = parsearCamposFila(bloque);
+
                 let etiqueta = null, gps = null, sector = null, ronda = null, wkt = null;
                 let atributosJSON = {};
 
@@ -239,9 +250,9 @@ export function cargarModuloAdminCsv(contenedor) {
                     }
                 });
 
-                if (!etiqueta) etiqueta = `Sin Etiqueta Fila ${i}`;
+                if (!etiqueta) etiqueta = `Sin Etiqueta Fila ${index + 1}`;
 
-                const registroLimpio = {
+                listaTemporal.push({
                     "etiqueta": etiqueta,
                     "categoria": categoriaSeleccionada,
                     "sector": sector,
@@ -249,17 +260,13 @@ export function cargarModuloAdminCsv(contenedor) {
                     "punto_gps": gps,
                     "ubicacion_wkt": wkt ? parsearWkt(wkt) : null,
                     "atributos_tecnicos": atributosJSON
-                };
+                });
+            });
 
-                listaTemporal.push(registroLimpio);
-            }
-
-            // AQUÍ ESTABA EL FILTRO QUE BORRABA LOS DUPLICADOS. LO QUITAMOS.
-            // Ahora pasamos la lista completa tal cual viene del CSV.
             datosConvertidosGlobal = listaTemporal;
 
             document.getElementById('admin-resultado-container').style.display = 'block';
-            document.getElementById('admin-estado-texto').innerText = `¡Procesado sin pérdidas para LEU! Registros de ${categoriaSeleccionada}:`;
+            document.getElementById('admin-estado-texto').innerText = `¡Procesamiento 100% íntegro para LEU!`;
             document.getElementById('admin-contador-registros').innerText = `${datosConvertidosGlobal.length} elementos`;
 
             const previewDiv = document.getElementById('admin-preview-tabla');
@@ -306,8 +313,6 @@ export function cargarModuloAdminCsv(contenedor) {
         btnSubir.disabled = true;
 
         try {
-            // Como queremos guardar cada fila de manera independiente sin colapsar por nombre duplicado,
-            // usaremos inserción directa o mapeo por índice interno.
             let maxId = 0;
             const { data: maxRes, error: errMax } = await clienteSupabase
                 .from('leu')
@@ -319,7 +324,7 @@ export function cargarModuloAdminCsv(contenedor) {
                 maxId = maxRes[0].id || 0;
             }
 
-            const datosParaEnviar = datosConvertidosGlobal.map((item, index) => {
+            const datosParaEnviar = datosConvertidosGlobal.map((item) => {
                 maxId++;
                 return { ...item, id: maxId };
             });
@@ -331,7 +336,7 @@ export function cargarModuloAdminCsv(contenedor) {
                 const chunk = datosParaEnviar.slice(i, i + chunkSize);
                 const { error } = await clienteSupabase
                     .from('leu')
-                    .insert(chunk); // Usamos insert puro para conservar cada registro único
+                    .insert(chunk);
 
                 if (error) throw new Error("Error en sincronización: " + error.message);
             }
