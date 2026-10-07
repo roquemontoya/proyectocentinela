@@ -22,7 +22,7 @@ export function cargarModuloAdminCsv(contenedor) {
             
             <p style="color: #aaa; font-size: 13px; margin-bottom: 20px; line-height: 1.4;">
                 Herramienta centralizada para migrar los mapas de Google My Maps a Supabase. 
-                El motor limpia la codificación corrupta, <b>protege las marcas con primas (' , ´ , ¨)</b> y cruza inteligentemente los datos existentes para actualizar sin romper relaciones ni duplicar IDs.
+                El motor limpia la codificación corrupta, <b>protege las marcas con primas (' , ´ , ¨)</b> y separa inteligentemente altas y actualizaciones.
             </p>
 
             <div style="background: #1e1e1e; padding: 20px; border-radius: 8px; border: 1px solid #333; margin-bottom: 20px;">
@@ -171,7 +171,7 @@ export function cargarModuloAdminCsv(contenedor) {
                 listaTemporal.push(registroLimpio);
             }
 
-            // Deduplicación interna del CSV por etiqueta (evita duplicados exactos dentro del mismo archivo)
+            // Deduplicación interna por etiqueta
             const mapaUnicos = new Map();
             listaTemporal.forEach(item => {
                 if (item.ETIQUETA) {
@@ -207,29 +207,28 @@ export function cargarModuloAdminCsv(contenedor) {
     });
 
     // ==========================================
-    // SINCRONIZACIÓN INTELIGENTE CON SUPABASE
+    // SINCRONIZACIÓN INTELIGENTE (UPSERT / INSERT SEPARADOS)
     // ==========================================
     document.getElementById('btn-subir-supabase').addEventListener('click', async () => {
         if (datosConvertidosGlobal.length === 0) return;
         const tablaDestino = document.getElementById('admin-tabla-destino').value;
 
-        if (!confirm(`¿Estás seguro de realizar la sincronización inteligente de ${datosConvertidosGlobal.length} registros en la tabla "${tablaDestino}"?`)) {
+        if (!confirm(`¿Estás seguro de sincronizar ${datosConvertidosGlobal.length} registros en la tabla "${tablaDestino}"?`)) {
             return;
         }
 
         const btnSubir = document.getElementById('btn-subir-supabase');
-        btnSubir.innerText = 'Analizando registros actuales en Supabase...';
+        btnSubir.innerText = 'Analizando registros existentes en Supabase...';
         btnSubir.disabled = true;
 
         try {
-            // 1. PASO INTELIGENTE: Traer los registros que ya existen en la base de datos
+            // 1. Consultar registros actuales en Supabase
             const { data: registrosExistentes, error: errFetch } = await clienteSupabase
                 .from(tablaDestino)
                 .select('id, ETIQUETA');
 
             if (errFetch) throw new Error("No se pudo consultar Supabase: " + errFetch.message);
 
-            // Crear mapa rápido para comparar por ETIQUETA
             const mapaExistentes = new Map();
             if (registrosExistentes) {
                 registrosExistentes.forEach(reg => {
@@ -237,32 +236,46 @@ export function cargarModuloAdminCsv(contenedor) {
                 });
             }
 
-            // 2. CRUCE INTELIGENTE: Asignar el ID original si ya existe (para actualizar), o dejarlo libre (para insertar nuevo)
-            const datosParaEnviar = datosConvertidosGlobal.map(item => {
+            // 2. Separar en dos bandos: Actualizaciones (con ID) e Inserciones (sin ID)
+            const paraActualizar = [];
+            const paraInsertar = [];
+
+            datosConvertidosGlobal.forEach(item => {
                 const idExistente = mapaExistentes.get(item.ETIQUETA);
                 if (idExistente) {
-                    // Si ya existe en la BD, heredamos su ID original (¡Cero relaciones rotas!)
-                    return { ...item, id: idExistente };
+                    // Si ya existe, asociamos su ID exacto para actualizarlo
+                    paraActualizar.push({ ...item, id: idExistente });
+                } else {
+                    // Si es nuevo, dejamos que Supabase genere el ID automático
+                    paraInsertar.push(item);
                 }
-                // Si es nuevo, no mandamos id para que Supabase lo autogenere
-                return item;
             });
 
-            btnSubir.innerText = 'Sincronizando por bloques con Supabase...';
+            btnSubir.innerText = `Sincronizando: ${paraActualizar.length} actualizaciones, ${paraInsertar.length} nuevos...`;
 
-            // 3. ENVIAR A SUPABASE USANDO EL UPSERT POR 'id' (Que siempre es único y nativo)
             const chunkSize = 500;
-            for (let i = 0; i < datosParaEnviar.length; i += chunkSize) {
-                const chunk = datosParaEnviar.slice(i, i + chunkSize);
-                
+
+            // 3. Procesar Actualizaciones mediante UPSERT por ID
+            for (let i = 0; i < paraActualizar.length; i += chunkSize) {
+                const chunk = paraActualizar.slice(i, i + chunkSize);
                 const { error } = await clienteSupabase
                     .from(tablaDestino)
                     .upsert(chunk, { onConflict: 'id' });
 
-                if (error) throw new Error(error.message);
+                if (error) throw new Error("Error en actualización: " + error.message);
             }
 
-            alert(`¡Sincronización inteligente completada con éxito en la tabla "${tablaDestino}"! Se actualizaron los existentes y se agregaron los nuevos sin perder datos.`);
+            // 4. Procesar Inserciones mediante INSERT limpio (sin enviar id)
+            for (let i = 0; i < paraInsertar.length; i += chunkSize) {
+                const chunk = paraInsertar.slice(i, i + chunkSize);
+                const { error } = await clienteSupabase
+                    .from(tablaDestino)
+                    .insert(chunk);
+
+                if (error) throw new Error("Error en inserción: " + error.message);
+            }
+
+            alert(`¡Sincronización inteligente completada con éxito en "${tablaDestino}"!\n- Registros actualizados: ${paraActualizar.length}\n- Registros nuevos agregados: ${paraInsertar.length}`);
             btnSubir.innerText = '🚀 Sincronizar Inteligentemente con Supabase';
             btnSubir.disabled = false;
 
