@@ -1,6 +1,6 @@
 // ==========================================
 // MÓDULO: CMU (Conversor Maestro Universal)
-// El Bibliotecario de Honor (Sin Punto GPS)
+// El Bibliotecario de Honor (Con Inteligencia de Extintores)
 // ==========================================
 
 import { clienteSupabase } from './supabaseClient.js';
@@ -36,11 +36,11 @@ export function cargarModuloAdminCsv(contenedor) {
         <div style="max-width: 950px; margin: 0 auto; color: #fff; font-family: Arial, sans-serif;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                 <h2 style="color: #38bdf8; margin: 0;">📚 CMU: Bibliotecario de Honor</h2>
-                <span style="background: #22c55e; color: #000; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: bold;">MODO PURO WKT / JSONB</span>
+                <span style="background: #22c55e; color: #000; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: bold;">MODO INTELIGENTE WKT / JSONB</span>
             </div>
             
             <p style="color: #aaa; font-size: 13px; margin-bottom: 20px; line-height: 1.4;">
-                El motor procesa la categoría seleccionada enviando únicamente coordenadas decimales limpias y atributos técnicos en JSONB.
+                El motor procesa la categoría seleccionada limpiando nomenclaturas redundantes y enviando atributos técnicos en JSONB.
             </p>
 
             <!-- TARJETA: VISOR INTEGRADO Y ACCESO A DESCARGA -->
@@ -125,7 +125,7 @@ export function cargarModuloAdminCsv(contenedor) {
     let datosConvertidosGlobal = [];
 
     // ==========================================
-    // MOTOR DE NORMALIZACIÓN (SIN PUNTO GPS)
+    // MOTOR DE NORMALIZACIÓN INTELIGENTE
     // ==========================================
     document.getElementById('btn-procesar-csv').addEventListener('click', () => {
         const fileInput = document.getElementById('admin-input-csv');
@@ -277,8 +277,15 @@ export function cargarModuloAdminCsv(contenedor) {
 
                 if (!etiqueta) etiqueta = `Sin Etiqueta Fila ${index + 1}`;
 
+                // LIMPIEZA INTELIGENTE PARA EXTINTORES: 
+                // Quitamos la palabra "Extintor" redundante si el usuario lo procesa en la categoría Extintores
+                let etiquetaLimpia = etiqueta;
+                if (categoriaSeleccionada === 'Extintores') {
+                    etiquetaLimpia = etiqueta.replace(/^extintor\s*/i, '');
+                }
+
                 listaTemporal.push({
-                    "etiqueta": etiqueta,
+                    "etiqueta": etiquetaLimpia,
                     "categoria": categoriaSeleccionada,
                     "sector": sector,
                     "ronda": ronda,
@@ -290,7 +297,7 @@ export function cargarModuloAdminCsv(contenedor) {
             datosConvertidosGlobal = listaTemporal;
 
             document.getElementById('admin-resultado-container').style.display = 'block';
-            document.getElementById('admin-estado-texto').innerText = `¡Procesamiento Robusto sin GPS redundante!`;
+            document.getElementById('admin-estado-texto').innerText = `¡Procesamiento Inteligente Completado!`;
             document.getElementById('admin-contador-registros').innerText = `${datosConvertidosGlobal.length} elementos`;
 
             const previewDiv = document.getElementById('admin-preview-tabla');
@@ -300,7 +307,7 @@ export function cargarModuloAdminCsv(contenedor) {
                 #admin-preview-tabla th { background: #2a2a2a; color: #38bdf8; position: sticky; top: 0; z-index: 2; }
             </style><table><thead><tr>`;
             
-            const columnasMuestra = ['Etiqueta', 'Sector', 'Ronda', 'WKT (Decimal)', 'JSON Empaquetado'];
+            const columnasMuestra = ['Etiqueta Limpia', 'Sector', 'Ronda', 'WKT (Decimal)', 'JSON Empaquetado'];
             columnasMuestra.forEach(col => {
                 tablaHtml += `<th>${col}</th>`;
             });
@@ -328,7 +335,7 @@ export function cargarModuloAdminCsv(contenedor) {
         if (datosConvertidosGlobal.length === 0) return;
         const categoriaSeleccionada = document.getElementById('admin-categoria-destino').value;
 
-        if (!confirm(`¿Inyectar los ${datosConvertidosGlobal.length} registros de "${categoriaSeleccionada}" en LEU y sus respectivas tablas de control (si aplica)?`)) {
+        if (!confirm(`¿Inyectar los ${datosConvertidosGlobal.length} registros de "${categoriaSeleccionada}" en LEU y sus respectivas tablas de control?`)) {
             return;
         }
 
@@ -337,7 +344,6 @@ export function cargarModuloAdminCsv(contenedor) {
         btnSubir.disabled = true;
 
         try {
-            // 1. Obtener el último ID maestro para asignar los IDs en cascada
             let maxId = 0;
             const { data: maxRes, error: errMax } = await clienteSupabase
                 .from('leu')
@@ -349,18 +355,16 @@ export function cargarModuloAdminCsv(contenedor) {
                 maxId = maxRes[0].id || 0;
             }
 
-            // Arrays separados para la inyección relacional
             const arrayLEU = [];
             const arrayControlesH = [];
             const arrayControlesE = [];
 
-            // 2. Bifurcación de datos: LEU vs Controles
             datosConvertidosGlobal.forEach((item) => {
-                maxId++; // Asignamos el ID maestro manualmente
+                maxId++;
                 const idActivo = maxId;
                 const attrs = item.atributos_tecnicos;
 
-                // A. Guardamos siempre el activo base para la Enciclopedia Universal (LEU)
+                // A. Guardamos en LEU
                 arrayLEU.push({
                     id: idActivo,
                     categoria: item.categoria,
@@ -368,19 +372,18 @@ export function cargarModuloAdminCsv(contenedor) {
                     sector: item.sector, 
                     ronda: item.ronda,
                     ubicacion_wkt: item.ubicacion_wkt,
-                    atributos_tecnicos: { fuente: 'My Maps CSV', atributos_originales: attrs } // ¡CORREGIDO A LA COLUMNA REAL DE SUPABASE!
+                    atributos_tecnicos: { fuente: 'My Maps CSV', atributos_originales: attrs }
                 });
 
-                // B. Detectamos si es HIDRANTE (Buscando columnas de tu CSV "INGENIERIA- Hidrantes (6).csv")
+                // B. Detectamos HIDRANTES
                 if (attrs['Prueba 2026 Fecha'] !== undefined || attrs['Llave Alimentacion'] !== undefined) {
                     const matchNum = item.etiqueta.match(/([0-9]+)/);
                     arrayControlesH.push({
                         id_activo: idActivo,
                         idch_original: matchNum ? matchNum[1] : null,
-                        // Mapeo exacto según el CSV que me pasaste
                         prueba_anual: parseFecha(attrs['Prueba 2026 Fecha']),
                         prueba_aprobada: attrs['Prueba Aprobada SI / NO'] || null,
-                        realizo: attrs['Realizo la Prueba '] || null, // Ojo con el espacio extra del CSV
+                        realizo: attrs['Realizo la Prueba '] || null,
                         planing_prueba_mes: attrs['Planing Prueba Mes'] || null,
                         control_mensual: attrs['CONTROL MENSUAL (Mes)'] || null,
                         estado: attrs['ESTADO'] || null,
@@ -396,25 +399,38 @@ export function cargarModuloAdminCsv(contenedor) {
                         reportado_por: attrs['Reportado Por'] || null
                     });
                 }
-                // C. Detectamos si es EXTINTOR (Por categoría)
+                // C. Detectamos EXTINTORES (Mapeo inteligente y extracción de tipo)
                 else if (categoriaSeleccionada === 'Extintores') {
                     const matchNum = item.etiqueta.match(/([0-9]+)/);
+                    
+                    // Si el CSV no tiene la columna de tipo limpia, la detectamos del texto de la etiqueta o atributos
+                    let tipoDetectado = attrs['Tipo de Extintor'] || attrs['tipo'] || null;
+                    if (!tipoDetectado) {
+                        const textoCompleto = (item.etiqueta + ' ' + JSON.stringify(attrs)).toUpperCase();
+                        if (textoCompleto.includes('CO2')) tipoDetectado = 'CO2';
+                        else if (textoCompleto.includes('PQS')) tipoDetectado = 'PQS';
+                        else if (textoCompleto.includes('HALON')) tipoDetectado = 'HALON';
+                        else if (textoCompleto.includes('K')) tipoDetectado = 'K';
+                        else tipoDetectado = 'GENERAL';
+                    }
+
                     arrayControlesE.push({
                         id_activo: idActivo,
                         ide_original: matchNum ? matchNum[1] : null,
+                        tipo_extintor: tipoDetectado.trim(), // Columna dedicada para filtrar por Co2, PQS, Halon, etc.
                         estado: attrs['ESTADO'] || attrs['Estado'] || null,
-                        observacion: attrs['Observacion'] || attrs['Observaciones'] || null,
-                        realizo: attrs['Realizo'] || null
-                        // Nota: Si agregas más columnas a controles_e en Supabase, simplemente mapealas aquí de attrs[]
+                        vencimiento: parseFecha(attrs['Vencimiento']),
+                        prueba_hidraulica: attrs['Prueba Hidraulica'] || null,
+                        observacion: attrs['Observacion'] || null,
+                        control_mensual: attrs['CONTROL MENSUAL (Mes)'] || null,
+                        realizo: attrs['Control M. realizado por'] || null
                     });
                 }
-                // D. Si es cualquier otra categoría (MPR, Movil 20, etc.) no hace nada extra. 
-                // Simplemente se guarda en LEU y se ignora el paso de controles.
             });
 
             const chunkSize = 500;
 
-            // 3. Inyección Masiva en LEU (Base)
+            // 3. Inyección en LEU
             btnSubir.innerText = `Inyectando ${arrayLEU.length} activos en LEU...`;
             for (let i = 0; i < arrayLEU.length; i += chunkSize) {
                 const chunk = arrayLEU.slice(i, i + chunkSize);
@@ -422,7 +438,7 @@ export function cargarModuloAdminCsv(contenedor) {
                 if (error) throw new Error("Fallo inyectando en LEU: " + error.message);
             }
 
-            // 4. Inyección Condicional en Controles Hidrantes
+            // 4. Inyección en Controles Hidrantes
             if (arrayControlesH.length > 0) {
                 btnSubir.innerText = `Inyectando ${arrayControlesH.length} controles en controles_h...`;
                 for (let i = 0; i < arrayControlesH.length; i += chunkSize) {
@@ -432,7 +448,7 @@ export function cargarModuloAdminCsv(contenedor) {
                 }
             }
 
-            // 5. Inyección Condicional en Controles Extintores
+            // 5. Inyección en Controles Extintores
             if (arrayControlesE.length > 0) {
                 btnSubir.innerText = `Inyectando ${arrayControlesE.length} controles en controles_e...`;
                 for (let i = 0; i < arrayControlesE.length; i += chunkSize) {
@@ -442,10 +458,9 @@ export function cargarModuloAdminCsv(contenedor) {
                 }
             }
 
-            // 6. Resumen de resultados
             let msgExito = `¡Migración exitosa para la categoría "${categoriaSeleccionada}"!\n\nSe procesaron:\n- ${arrayLEU.length} Activos registrados en LEU.`;
-            if (arrayControlesH.length > 0) msgExito += `\n- ${arrayControlesH.length} Historiales vinculados a Hidrantes.`;
-            if (arrayControlesE.length > 0) msgExito += `\n- ${arrayControlesE.length} Historiales vinculados a Extintores.`;
+            if (arrayControlesH.length > 0) msgExito += `\n- ${arrayControlesH.length} Historiales de Hidrantes.`;
+            if (arrayControlesE.length > 0) msgExito += `\n- ${arrayControlesE.length} Historiales de Extintores (con tipo clasificado).`;
 
             alert(msgExito);
             btnSubir.innerText = '🚀 Inyectar en LEU y Controles (Supabase)';
@@ -459,17 +474,13 @@ export function cargarModuloAdminCsv(contenedor) {
     });
 }
 
-// Utilidad local para asegurar que las fechas vacías o inválidas se envíen como NULL a la Base de Datos
 function parseFecha(val) {
     if (!val || typeof val !== 'string' || val.trim() === '' || val.toUpperCase() === 'NULL') return null;
-    
-    // Check if format is DD/MM/YYYY
     const parts = val.split('/');
     if (parts.length === 3) {
         const parsed = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T00:00:00`);
         return isNaN(parsed.getTime()) ? null : parsed.toISOString().split('T')[0];
     }
-    
     const parsed = new Date(val);
     return isNaN(parsed.getTime()) ? null : parsed.toISOString().split('T')[0];
 }
