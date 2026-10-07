@@ -1,11 +1,10 @@
 // ==========================================
-// MÓDULO: Gestión de Pulmón y Reserva (Extintores)
+// MÓDulo: Gestión de Pulmón y Reserva (Extintores)
 // ==========================================
 
 import { clienteSupabase } from './supabaseClient.js';
 
 export async function cargarModuloPulmon(contenedor) {
-    // Configurar el contenedor para que sea una vista con scroll (sin mapa)
     contenedor.style.width = '100%';
     contenedor.style.padding = '20px';
     contenedor.style.boxSizing = 'border-box';
@@ -13,9 +12,9 @@ export async function cargarModuloPulmon(contenedor) {
     contenedor.style.height = 'calc(100vh - 65px)';
     contenedor.style.backgroundColor = '#121212';
     
-    contenedor.innerHTML = `<div style="text-align: center; color: #fff; font-family: Arial; padding: 40px; font-size: 16px;">🔄 Cargando inventario del Pulmón...</div>`;
+    contenedor.innerHTML = `<div style="text-align: center; color: #fff; font-family: Arial; padding: 40px; font-size: 16px;">🔄 Cargando inventario del Pulmón y Recargas...</div>`;
 
-    // 1. Traer todos los extintores que NO estén en planta (que estén en pulmón o recarga)
+    // 1. Traer todos los extintores que NO estén en planta
     const { data, error } = await clienteSupabase
         .from('Extintores')
         .select('*')
@@ -26,7 +25,6 @@ export async function cargarModuloPulmon(contenedor) {
         return;
     }
 
-    // Normalizar por si hay textos en minúsculas/mayúsculas o acentos
     const inventario = (data || []).filter(item => {
         const prp = item.PRP ? item.PRP.toLowerCase() : '';
         return prp.includes('pulmon') || prp.includes('pulmón') || prp.includes('recarga');
@@ -36,11 +34,11 @@ export async function cargarModuloPulmon(contenedor) {
     const totalRecarga = inventario.filter(i => (i.PRP || '').toLowerCase().includes('recarga')).length;
 
     let html = `
-        <div style="max-width: 1000px; margin: 0 auto; color: #fff; font-family: Arial, sans-serif;">
+        <div style="max-width: 1100px; margin: 0 auto; color: #fff; font-family: Arial, sans-serif;">
             
             <!-- Encabezado y Contadores -->
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
-                <h2 style="margin: 0; color: #38bdf8;">📦 Inventario de Pulmón y Recarga</h2>
+                <h2 style="margin: 0; color: #38bdf8;">📦 Inventario de Pulmón y Retorno de Recarga</h2>
                 <div style="display: flex; gap: 15px;">
                     <span style="background: #22c55e; color: #000; padding: 6px 12px; border-radius: 5px; font-weight: bold; font-size: 14px;">En Pulmón: ${totalPulmon}</span>
                     <span style="background: #eab308; color: #000; padding: 6px 12px; border-radius: 5px; font-weight: bold; font-size: 14px;">En Recarga: ${totalRecarga}</span>
@@ -52,14 +50,14 @@ export async function cargarModuloPulmon(contenedor) {
 
             <!-- Tabla de Datos -->
             <div style="overflow-x: auto; background: #1e1e1e; border: 1px solid #333; border-radius: 8px;">
-                <table style="width: 100%; border-collapse: collapse; min-width: 600px;">
+                <table style="width: 100%; border-collapse: collapse; min-width: 700px;">
                     <thead>
                         <tr style="background: #2a2a2a; border-bottom: 2px solid #444;">
                             <th style="padding: 14px; text-align: left; color: #aaa; font-size: 13px;">ETIQUETA / ID</th>
                             <th style="padding: 14px; text-align: left; color: #aaa; font-size: 13px;">TIPO</th>
                             <th style="padding: 14px; text-align: left; color: #aaa; font-size: 13px;">VENCIMIENTO</th>
                             <th style="padding: 14px; text-align: left; color: #aaa; font-size: 13px;">ESTADO (PRP)</th>
-                            <th style="padding: 14px; text-align: center; color: #aaa; font-size: 13px;">ACCIÓN</th>
+                            <th style="padding: 14px; text-align: center; color: #aaa; font-size: 13px;">ACCIONES DE RETORNO / STOCK</th>
                         </tr>
                     </thead>
                     <tbody id="tabla-body-pulmon">
@@ -74,11 +72,19 @@ export async function cargarModuloPulmon(contenedor) {
             const vencimiento = ext.Vencimiento || 'N/D';
             const prp = ext.PRP || 'N/D';
             
-            let colorPrp = '#22c55e'; // Verde para Pulmón
-            if (prp.toLowerCase().includes('recarga')) colorPrp = '#eab308'; // Amarillo para Recarga
+            let colorPrp = '#22c55e'; 
+            if (prp.toLowerCase().includes('recarga')) colorPrp = '#eab308';
 
-            // Atributo 'data-texto' invisible para el motor de búsqueda
             const textoBusqueda = `${etiqueta} ${tipo} ${vencimiento} ${prp}`.toLowerCase();
+
+            // Botón dinámico según el estado PRP
+            let botonAccion = '';
+            if (prp.toLowerCase().includes('recarga')) {
+                // Si está en recarga, el botón permite registrar que el proveedor lo devolvió al pulmón
+                botonAccion = `
+                    <button onclick="window.marcarRecibidoPulmon('${ext.id}', '${etiqueta.replace(/'/g, "\\'")}')" style="background: #eab308; color: #000; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px; margin-right: 5px;">📥 Recibido de Recarga</button>
+                `;
+            }
 
             html += `
                 <tr class="fila-pulmon" data-texto="${textoBusqueda}" style="border-bottom: 1px solid #333; transition: background 0.2s;">
@@ -89,7 +95,8 @@ export async function cargarModuloPulmon(contenedor) {
                         <span style="background: ${colorPrp}; color: #000; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold;">${prp.toUpperCase()}</span>
                     </td>
                     <td style="padding: 14px; text-align: center;">
-                        <button onclick="window.abrirFormularioControl('Extintores', '${ext.id}', '${etiqueta.replace(/'/g, "\\'")}')" style="background: #2a2a2a; color: #fff; border: 1px solid #555; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; transition: 0.2s;">✏️ Auditar</button>
+                        ${botonAccion}
+                        <button onclick="window.abrirFormularioControl('Extintores', '${ext.id}', '${etiqueta.replace(/'/g, "\\'")}')" style="background: #2a2a2a; color: #fff; border: 1px solid #555; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;">✏️ Auditar</button>
                     </td>
                 </tr>
             `;
@@ -105,7 +112,7 @@ export async function cargarModuloPulmon(contenedor) {
 
     contenedor.innerHTML = html;
 
-    // 2. Lógica del buscador en tiempo real
+    // Buscador en tiempo real
     const buscador = document.getElementById('buscador-pulmon');
     if (buscador) {
         buscador.addEventListener('input', (e) => {
@@ -122,3 +129,29 @@ export async function cargarModuloPulmon(contenedor) {
         });
     }
 }
+
+// ==========================================
+// FUNCIÓN INVERSA: El proveedor trae el extintor recargado
+// ==========================================
+window.marcarRecibidoPulmon = async function(dbId, etiqueta) {
+    if (!confirm(`¿Confirmar que el extintor "${etiqueta}" ha regresado de la recarga y pasa a stock disponible en el Pulmón?`)) {
+        return;
+    }
+
+    try {
+        const { error } = await clienteSupabase
+            .from('Extintores')
+            .update({ PRP: 'En Pulmon', EstadoReferencia: 'Operativo' })
+            .eq('id', dbId);
+
+        if (error) throw new Error(error.message);
+
+        alert(`¡Éxito! El extintor ${etiqueta} ya figura nuevamente en el Pulmón listo para ser utilizado.`);
+        
+        // Recargar la vista del pulmón
+        window.cargarModulo('pulmon');
+
+    } catch (err) {
+        alert('Error al actualizar el estado: ' + err.message);
+    }
+};
