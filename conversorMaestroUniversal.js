@@ -86,7 +86,7 @@ export function cargarModuloAdminCsv(contenedor) {
                 
                 <div id="admin-preview-tabla" style="max-height: 280px; overflow: auto; margin-bottom: 15px; font-size: 12px; background: #121212; padding: 10px; border-radius: 4px; border: 1px solid #444;"></div>
                 
-                <button id="btn-subir-supabase" style="background: #38bdf8; color: #000; border: none; padding: 12px 20px; border-radius: 5px; font-weight: bold; cursor: pointer; width: 100%; font-size: 14px;">🚀 Inyectar en LEU (Supabase)</button>
+                <button id="btn-subir-supabase" style="background: #38bdf8; color: #000; border: none; padding: 12px 20px; border-radius: 5px; font-weight: bold; cursor: pointer; width: 100%; font-size: 14px;">🚀 Inyectar en LEU y Controles (Supabase)</button>
             </div>
         </div>
     `;
@@ -322,21 +322,22 @@ export function cargarModuloAdminCsv(contenedor) {
     });
 
     // ==========================================
-    // SINCRONIZACIÓN CON LEU
+    // SINCRONIZACIÓN BIFURCADA (LEU + CONTROLES)
     // ==========================================
     document.getElementById('btn-subir-supabase').addEventListener('click', async () => {
         if (datosConvertidosGlobal.length === 0) return;
         const categoriaSeleccionada = document.getElementById('admin-categoria-destino').value;
 
-        if (!confirm(`¿Inyectar los ${datosConvertidosGlobal.length} registros de "${categoriaSeleccionada}" en LEU?`)) {
+        if (!confirm(`¿Inyectar los ${datosConvertidosGlobal.length} registros de "${categoriaSeleccionada}" en LEU y sus respectivas tablas de control (si aplica)?`)) {
             return;
         }
 
         const btnSubir = document.getElementById('btn-subir-supabase');
-        btnSubir.innerText = 'Inyectando hidrantes en LEU...';
+        btnSubir.innerText = 'Consultando base de datos...';
         btnSubir.disabled = true;
 
         try {
+            // 1. Obtener el último ID maestro para asignar los IDs en cascada
             let maxId = 0;
             const { data: maxRes, error: errMax } = await clienteSupabase
                 .from('leu')
@@ -348,31 +349,123 @@ export function cargarModuloAdminCsv(contenedor) {
                 maxId = maxRes[0].id || 0;
             }
 
-            const datosParaEnviar = datosConvertidosGlobal.map((item) => {
-                maxId++;
-                return { ...item, id: maxId };
+            // Arrays separados para la inyección relacional
+            const arrayLEU = [];
+            const arrayControlesH = [];
+            const arrayControlesE = [];
+
+            // 2. Bifurcación de datos: LEU vs Controles
+            datosConvertidosGlobal.forEach((item) => {
+                maxId++; // Asignamos el ID maestro manualmente
+                const idActivo = maxId;
+                const attrs = item.atributos_tecnicos;
+
+                // A. Guardamos siempre el activo base para la Enciclopedia Universal (LEU)
+                arrayLEU.push({
+                    id: idActivo,
+                    categoria: item.categoria,
+                    etiqueta: item.etiqueta,
+                    wkt: item.ubicacion_wkt,
+                    metadata: { fuente: 'My Maps CSV', atributos_originales: attrs }
+                });
+
+                // B. Detectamos si es HIDRANTE (Buscando columnas típicas en sus atributos)
+                if (attrs['PRUEBAANUAL'] !== undefined || attrs['LlaveAlimentacion'] !== undefined) {
+                    const matchNum = item.etiqueta.match(/([0-9]+)/);
+                    arrayControlesH.push({
+                        id_activo: idActivo,
+                        idch_original: matchNum ? matchNum[1] : null,
+                        tipo_control: attrs['TipoControl'] || null,
+                        prueba_anual: parseFecha(attrs['PRUEBAANUAL']),
+                        prueba_aprobada: attrs['PruebaAprobada'] || null,
+                        realizo: attrs['Realizo'] || null,
+                        planing_prueba_mes: attrs['PlaningPruebaMes'] || attrs['PlaningPruebasMes'] || null,
+                        control_mensual: attrs['CONTROLMENSUAL'] || null,
+                        estado: attrs['ESTADO'] || attrs['Estado'] || null,
+                        llave_alimentacion: attrs['LlaveAlimentacion'] || null,
+                        detalle_llave_alimentacion: attrs['DetalleLlaveAlimentacion'] || null,
+                        llave_teatro_derecho: attrs['LlaveTeatroDerecho'] || null,
+                        detalle_t_derecho: attrs['DetalleTDerecho'] || null,
+                        llave_teatro_izquierdo: attrs['LlaveTeatroIzquierdo'] || null,
+                        detalle_t_izquierdo: attrs['DetalleTIzquierdo'] || null,
+                        pintura: attrs['Pintura'] || null,
+                        gabinete: attrs['Gabinete'] || null,
+                        limpieza: attrs['Limpieza'] || null,
+                        engrasado: attrs['Engrasado'] || null,
+                        observacion: attrs['Observacion'] || null,
+                        anomalias: attrs['ANOMALIAS'] || attrs['Anomalias'] || null,
+                        reportado_fecha: parseFecha(attrs['ReportadoFecha']),
+                        reportado_por: attrs['ReportadoPor'] || null,
+                        foto: attrs['Foto'] || null,
+                        fecha_foto: parseFecha(attrs['FechaFoto'])
+                    });
+                }
+                // C. Detectamos si es EXTINTOR (Por categoría)
+                else if (categoriaSeleccionada === 'Extintores') {
+                    const matchNum = item.etiqueta.match(/([0-9]+)/);
+                    arrayControlesE.push({
+                        id_activo: idActivo,
+                        ide_original: matchNum ? matchNum[1] : null,
+                        estado: attrs['ESTADO'] || attrs['Estado'] || null,
+                        observacion: attrs['Observacion'] || attrs['Observaciones'] || null,
+                        realizo: attrs['Realizo'] || null
+                        // Nota: Si agregas más columnas a controles_e en Supabase, simplemente mapealas aquí de attrs[]
+                    });
+                }
+                // D. Si es cualquier otra categoría (MPR, Movil 20, etc.) no hace nada extra. 
+                // Simplemente se guarda en LEU y se ignora el paso de controles.
             });
 
-            btnSubir.innerText = `Sincronizando ${datosParaEnviar.length} registros con LEU...`;
-
             const chunkSize = 500;
-            for (let i = 0; i < datosParaEnviar.length; i += chunkSize) {
-                const chunk = datosParaEnviar.slice(i, i + chunkSize);
-                const { error } = await clienteSupabase
-                    .from('leu')
-                    .insert(chunk);
 
-                if (error) throw new Error("Error en sincronización: " + error.message);
+            // 3. Inyección Masiva en LEU (Base)
+            btnSubir.innerText = `Inyectando ${arrayLEU.length} activos en LEU...`;
+            for (let i = 0; i < arrayLEU.length; i += chunkSize) {
+                const chunk = arrayLEU.slice(i, i + chunkSize);
+                const { error } = await clienteSupabase.from('leu').insert(chunk);
+                if (error) throw new Error("Fallo inyectando en LEU: " + error.message);
             }
 
-            alert(`¡Hidrantes guardados con éxito! Se inyectaron ${datosConvertidosGlobal.length} registros de "${categoriaSeleccionada}" en LEU.`);
-            btnSubir.innerText = '🚀 Inyectar en LEU (Supabase)';
+            // 4. Inyección Condicional en Controles Hidrantes
+            if (arrayControlesH.length > 0) {
+                btnSubir.innerText = `Inyectando ${arrayControlesH.length} controles en controles_h...`;
+                for (let i = 0; i < arrayControlesH.length; i += chunkSize) {
+                    const chunk = arrayControlesH.slice(i, i + chunkSize);
+                    const { error } = await clienteSupabase.from('controles_h').insert(chunk);
+                    if (error) throw new Error("Fallo inyectando en controles_h: " + error.message);
+                }
+            }
+
+            // 5. Inyección Condicional en Controles Extintores
+            if (arrayControlesE.length > 0) {
+                btnSubir.innerText = `Inyectando ${arrayControlesE.length} controles en controles_e...`;
+                for (let i = 0; i < arrayControlesE.length; i += chunkSize) {
+                    const chunk = arrayControlesE.slice(i, i + chunkSize);
+                    const { error } = await clienteSupabase.from('controles_e').insert(chunk);
+                    if (error) throw new Error("Fallo inyectando en controles_e: " + error.message);
+                }
+            }
+
+            // 6. Resumen de resultados
+            let msgExito = `¡Migración exitosa para la categoría "${categoriaSeleccionada}"!\n\nSe procesaron:\n- ${arrayLEU.length} Activos registrados en LEU.`;
+            if (arrayControlesH.length > 0) msgExito += `\n- ${arrayControlesH.length} Historiales vinculados a Hidrantes.`;
+            if (arrayControlesE.length > 0) msgExito += `\n- ${arrayControlesE.length} Historiales vinculados a Extintores.`;
+
+            alert(msgExito);
+            btnSubir.innerText = '🚀 Inyectar en LEU y Controles (Supabase)';
             btnSubir.disabled = false;
 
         } catch (err) {
-            alert('Error durante la sincronización: ' + err.message);
-            btnSubir.innerText = '🚀 Inyectar en LEU (Supabase)';
+            alert('❌ Ocurrió un error crítico:\n' + err.message);
+            btnSubir.innerText = '🚀 Inyectar en LEU y Controles (Supabase)';
             btnSubir.disabled = false;
         }
     });
+}
+
+// Utilidad local para asegurar que las fechas vacías o inválidas se envíen como NULL a la Base de Datos
+function parseFecha(val) {
+    if (!val || typeof val !== 'string' || val.trim() === '' || val.toUpperCase() === 'NULL') return null;
+    const parsed = new Date(val);
+    return isNaN(parsed.getTime()) ? null : parsed.toISOString().split('T')[0];
 }
