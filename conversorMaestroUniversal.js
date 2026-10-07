@@ -184,8 +184,22 @@ export function cargarModuloAdminCsv(contenedor) {
             for (let i = 1; i < lineas.length; i++) {
                 if (!lineas[i].trim()) continue;
 
-                // Prevenir comas dentro de comillas (Regex CSV clásico)
-                const valores = lineas[i].match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || lineas[i].split(separador);
+                // Parseador CSV blindado (respeta espacios y comas dentro de comillas)
+                let valores = [];
+                let inQuotes = false;
+                let currentVal = '';
+                for (let c = 0; c < lineas[i].length; c++) {
+                    let char = lineas[i][c];
+                    if (char === '"') {
+                        inQuotes = !inQuotes; // Alternar estado de comillas
+                    } else if (char === separador && !inQuotes) {
+                        valores.push(currentVal);
+                        currentVal = '';
+                    } else {
+                        currentVal += char;
+                    }
+                }
+                valores.push(currentVal); // Empujar el último valor de la fila
                 
                 let etiqueta = null, gps = null, sector = null, ronda = null, wkt = null;
                 let atributosJSON = {};
