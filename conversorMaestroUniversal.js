@@ -22,7 +22,7 @@ export function cargarModuloAdminCsv(contenedor) {
             
             <p style="color: #aaa; font-size: 13px; margin-bottom: 20px; line-height: 1.4;">
                 Herramienta centralizada para migrar los mapas de Google My Maps a Supabase. 
-                El motor limpia la codificación corrupta, <b>protege las marcas con primas (' , ´ , ¨)</b> y gestiona altas y actualizaciones de forma blindada.
+                El motor limpia la codificación corrupta, <b>protege las marcas con primas (' , ´ , ¨)</b> y gestiona IDs secuenciales automáticos sin romper relaciones.
             </p>
 
             <div style="background: #1e1e1e; padding: 20px; border-radius: 8px; border: 1px solid #333; margin-bottom: 20px;">
@@ -207,7 +207,7 @@ export function cargarModuloAdminCsv(contenedor) {
     });
 
     // ==========================================
-    // SINCRONIZACIÓN INTELIGENTE (UPSERT / INSERT BLINDADO)
+    // SINCRONIZACIÓN INTELIGENTE CON ID SECUENCIAL
     // ==========================================
     document.getElementById('btn-subir-supabase').addEventListener('click', async () => {
         if (datosConvertidosGlobal.length === 0) return;
@@ -218,11 +218,11 @@ export function cargarModuloAdminCsv(contenedor) {
         }
 
         const btnSubir = document.getElementById('btn-subir-supabase');
-        btnSubir.innerText = 'Analizando registros existentes en Supabase...';
+        btnSubir.innerText = 'Analizando registros y calculando IDs...';
         btnSubir.disabled = true;
 
         try {
-            // 1. Consultar registros actualizados en Supabase
+            // 1. Consultar registros existentes en Supabase para obtener IDs y el ID máximo actual
             const { data: registrosExistentes, error: errFetch } = await clienteSupabase
                 .from(tablaDestino)
                 .select('id, ETIQUETA');
@@ -230,52 +230,40 @@ export function cargarModuloAdminCsv(contenedor) {
             if (errFetch) throw new Error("No se pudo consultar Supabase: " + errFetch.message);
 
             const mapaExistentes = new Map();
+            let maxId = 0;
+
             if (registrosExistentes) {
                 registrosExistentes.forEach(reg => {
                     if (reg.ETIQUETA) mapaExistentes.set(reg.ETIQUETA, reg.id);
+                    if (reg.id && reg.id > maxId) maxId = reg.id;
                 });
             }
 
-            // 2. Separar limpiamente: Actualizaciones (con ID) e Inserciones (sin rastro de id)
-            const paraActualizar = [];
-            const paraInsertar = [];
-
-            datosConvertidosGlobal.forEach(item => {
+            // 2. Asignar ID inteligente a cada registro (Conserva el viejo si ya existía, o asigna uno nuevo secuencial)
+            const datosParaEnviar = datosConvertidosGlobal.map(item => {
                 const idExistente = mapaExistentes.get(item.ETIQUETA);
                 if (idExistente) {
-                    paraActualizar.push({ ...item, id: idExistente });
+                    return { ...item, id: idExistente };
                 } else {
-                    const limpio = { ...item };
-                    delete limpio.id; // Nos aseguramos de borrar cualquier rastro de ID para que Supabase lo autogenere
-                    paraInsertar.push(limpio);
+                    maxId++;
+                    return { ...item, id: maxId };
                 }
             });
 
-            btnSubir.innerText = `Sincronizando: ${paraActualizar.length} actualizaciones, ${paraInsertar.length} nuevos...`;
+            btnSubir.innerText = `Sincronizando ${datosParaEnviar.length} registros con Supabase...`;
 
+            // 3. Enviar todo mediante UPSERT basado en el ID garantizado
             const chunkSize = 500;
-
-            // 3. Procesar Actualizaciones mediante UPSERT por ID
-            for (let i = 0; i < paraActualizar.length; i += chunkSize) {
-                const chunk = paraActualizar.slice(i, i + chunkSize);
+            for (let i = 0; i < datosParaEnviar.length; i += chunkSize) {
+                const chunk = datosParaEnviar.slice(i, i + chunkSize);
                 const { error } = await clienteSupabase
                     .from(tablaDestino)
                     .upsert(chunk, { onConflict: 'id' });
 
-                if (error) throw new Error("Error en actualización: " + error.message);
+                if (error) throw new Error("Error en sincronización: " + error.message);
             }
 
-            // 4. Procesar Inserciones mediante INSERT limpio
-            for (let i = 0; i < paraInsertar.length; i += chunkSize) {
-                const chunk = paraInsertar.slice(i, i + chunkSize);
-                const { error } = await clienteSupabase
-                    .from(tablaDestino)
-                    .insert(chunk);
-
-                if (error) throw new Error("Error en inserción: " + error.message);
-            }
-
-            alert(`¡Sincronización inteligente completada con éxito en "${tablaDestino}"!\n- Registros actualizados: ${paraActualizar.length}\n- Registros nuevos agregados: ${paraInsertar.length}`);
+            alert(`¡Sincronización inteligente completada con éxito en la tabla "${tablaDestino}"! Se procesaron ${datosParaEnviar.length} registros manteniendo la integridad.`);
             btnSubir.innerText = '🚀 Sincronizar Inteligentemente con Supabase';
             btnSubir.disabled = false;
 
