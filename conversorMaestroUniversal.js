@@ -1,6 +1,6 @@
 // ==========================================
 // MÓDULO: CMU (Conversor Maestro Universal)
-// El Bibliotecario de Honor (Con Inteligencia de Extintores)
+// El Bibliotecario de Honor (Mapeo Exacto Supabase)
 // ==========================================
 
 import { clienteSupabase } from './supabaseClient.js';
@@ -278,7 +278,6 @@ export function cargarModuloAdminCsv(contenedor) {
                 if (!etiqueta) etiqueta = `Sin Etiqueta Fila ${index + 1}`;
 
                 // LIMPIEZA INTELIGENTE PARA EXTINTORES: 
-                // Quitamos la palabra "Extintor" redundante si el usuario lo procesa en la categoría Extintores
                 let etiquetaLimpia = etiqueta;
                 if (categoriaSeleccionada === 'Extintores') {
                     etiquetaLimpia = etiqueta.replace(/^extintor\s*/i, '');
@@ -399,11 +398,10 @@ export function cargarModuloAdminCsv(contenedor) {
                         reportado_por: attrs['Reportado Por'] || null
                     });
                 }
-                // C. Detectamos EXTINTORES (Mapeo inteligente y extracción de tipo)
+                // C. Detectamos EXTINTORES (Mapeo exacto con las columnas de tu tabla controles_e)
                 else if (categoriaSeleccionada === 'Extintores') {
                     const matchNum = item.etiqueta.match(/([0-9]+)/);
                     
-                    // Si el CSV no tiene la columna de tipo limpia, la detectamos del texto de la etiqueta o atributos
                     let tipoDetectado = attrs['Tipo de Extintor'] || attrs['tipo'] || null;
                     if (!tipoDetectado) {
                         const textoCompleto = (item.etiqueta + ' ' + JSON.stringify(attrs)).toUpperCase();
@@ -415,15 +413,17 @@ export function cargarModuloAdminCsv(contenedor) {
                     }
 
                     arrayControlesE.push({
-                        id_activo: idActivo,
-                        ide_original: matchNum ? matchNum[1] : null,
-                        tipo_extintor: tipoDetectado.trim(), // Columna dedicada para filtrar por Co2, PQS, Halon, etc.
-                        estado: attrs['ESTADO'] || attrs['Estado'] || null,
+                        id_extintor: matchNum ? parseInt(matchNum[1], 10) : null,
+                        nombreequetiqueta: item.etiqueta,
+                        puntogps: attrs['Punto GPS'] || null,
+                        sector: item.sector,
+                        ronda: item.ronda,
+                        controlmensual: attrs['CONTROL MENSUAL (Mes)'] || null,
+                        controlrealizadopor: attrs['Control M. realizado por'] || attrs['Realizo'] || null,
+                        tipoextintor: tipoDetectado ? tipoDetectado.trim() : 'GENERAL',
                         vencimiento: parseFecha(attrs['Vencimiento']),
-                        prueba_hidraulica: attrs['Prueba Hidraulica'] || null,
-                        observacion: attrs['Observacion'] || null,
-                        control_mensual: attrs['CONTROL MENSUAL (Mes)'] || null,
-                        realizo: attrs['Control M. realizado por'] || null
+                        pruebahidraulica: attrs['Prueba Hidraulica'] || null,
+                        observacion: attrs['Observacion'] || null
                     });
                 }
             });
