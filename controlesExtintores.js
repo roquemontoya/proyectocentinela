@@ -1,9 +1,11 @@
 // ==========================================
-// MÓDULO: Controles de Extintores (Estrictamente CSV y Lógica de Reemplazo)
+// MÓDULO: Controles de Extintores (Lógica Avanzada de Reemplazo / Swap)
 // ==========================================
 
 import { clienteSupabase } from './supabaseClient.js';
 import { cargarBomberosEnModal, cerrarFormularioControl, subirFotoStorage } from './controlesBase.js';
+
+let inventarioPulmon = []; // Almacenará el stock disponible en tiempo real
 
 function preCalcularEstadoExtintor(fechaStr, estadoReferencia) {
     if (estadoReferencia && String(estadoReferencia).toLowerCase().includes('anomalo')) return 'Vencido';
@@ -53,11 +55,20 @@ export async function abrirControlExtintor(dbId, idElemento) {
     document.getElementById('input-idch').value = idElemento;
     document.getElementById('input-tabla').value = 'Extintores';
 
+    // 1. Consultar datos actuales del extintor
     const { data: extData } = await clienteSupabase
         .from('Extintores')
         .select('*')
         .eq('id', dbId)
         .single();
+
+    // 2. Consultar el stock disponible en el Pulmón
+    const { data: pulmonData } = await clienteSupabase
+        .from('Extintores')
+        .select('*')
+        .eq('PRP', 'En Pulmon');
+        
+    inventarioPulmon = pulmonData || [];
 
     const datos = extData || {};
     const estadoSugerido = preCalcularEstadoExtintor(datos.Vencimiento, datos.EstadoReferencia);
@@ -94,15 +105,43 @@ function renderizarFormularioExtintorHTML(ext, estadoSugerido) {
     const parteReferencia = ext.Referencia || ext.referencia || '';
     const parteSector = ext.Sector || ext.sector || '';
     
-    const nombreCombinado = [parteEtiqueta, parteReferencia, parteSector]
-        .filter(val => val && String(val).trim() !== '')
-        .join(' - ');
+    const nombreCombinado = [parteEtiqueta, parteReferencia, parteSector].filter(val => val && String(val).trim() !== '').join(' - ');
 
     const tipoVal = String(ext.TipoExtintor || ext['Tipo de Extintor'] || '').toLowerCase();
     let selPQS = (tipoVal.includes('pqs') || tipoVal.includes('polvo')) ? 'selected' : '';
     let selCO2 = (tipoVal.includes('co2') || tipoVal.includes('carbono')) ? 'selected' : '';
     let selHalon = (tipoVal.includes('halon') || tipoVal.includes('halón')) ? 'selected' : '';
     let selK = (tipoVal === 'k' || tipoVal.includes('tipo k') || tipoVal.includes('acetato')) ? 'selected' : '';
+
+    // ==========================================
+    // LÓGICA DE COMPATIBILIDAD (EL FILTRO INTELIGENTE)
+    // ==========================================
+    let opcionesReemplazo = '<option value="">Seleccione un equipo de reserva...</option>';
+    
+    const disponibles = inventarioPulmon.filter(p => {
+        const t = String(p.TipoExtintor || p['Tipo de Extintor'] || '').toLowerCase();
+        
+        // PQS se reemplaza por PQS o Co2
+        if (selPQS) return t.includes('pqs') || t.includes('polvo') || t.includes('co2') || t.includes('carbono');
+        // Co2 se reemplaza por Co2
+        if (selCO2) return t.includes('co2') || t.includes('carbono');
+        // Halon se reemplaza por Halon
+        if (selHalon) return t.includes('halon') || t.includes('halón');
+        // Tipo K se reemplaza por Tipo K
+        if (selK) return t === 'k' || t.includes('tipo k') || t.includes('acetato');
+        
+        return true; // Si no detectamos el tipo original, mostramos todos por seguridad
+    });
+
+    if (disponibles.length === 0) {
+        opcionesReemplazo = '<option value="">⚠️ No hay equipos compatibles en el Pulmón</option>';
+    } else {
+        disponibles.forEach(p => {
+            const etiq = p.Etiquetas || p.etiquetas || p.NombreEtiqueta || p.NombreDeEtiqueta || `ID ${p.id}`;
+            const tipo = p.TipoExtintor || p['Tipo de Extintor'] || 'N/D';
+            opcionesReemplazo += `<option value="${p.id}">${etiq} - ${tipo} (Venc: ${p.Vencimiento || 'N/D'})</option>`;
+        });
+    }
 
     contenedorComponentes.innerHTML = `
         <label style="display: block; font-size: 14px; margin-bottom: 5px; color: #22c55e; font-weight: bold;">Estado del Extintor:</label>
@@ -112,10 +151,13 @@ function renderizarFormularioExtintorHTML(ext, estadoSugerido) {
             <option value="Vencido" ${estadoSugerido === 'Vencido' ? 'selected' : ''}>Vencido (Reemplazo)</option>
         </select>
 
+        <!-- Bloque de reemplazo interactivo (Swap) -->
         <div id="seccion-reemplazo" style="display: ${estadoSugerido === 'Vencido' ? 'block' : 'none'}; background: #2a1515; padding: 12px; border-radius: 6px; border: 1px dashed #ef4444; margin-bottom: 12px;">
-            <h4 style="margin: 0 0 10px 0; color: #ef4444; font-size: 14px;">🚨 Reemplazo de Equipo Requerido</h4>
-            <label style="display: block; font-size: 12px; color: #ff8888; font-weight: bold;">Nueva Etiqueta / ID del Equipo Instalado:</label>
-            <input type="text" id="input-nuevo-id-etiqueta" placeholder="Ej: EXT-88 (Obligatorio para trazabilidad)" style="width: 100%; padding: 6px; background: #1e1e1e; border: 1px solid #ef4444; color: #fff; border-radius: 4px; font-size: 12px;">
+            <h4 style="margin: 0 0 10px 0; color: #ef4444; font-size: 14px;">🚨 Asignar Reemplazo del Pulmón</h4>
+            <label style="display: block; font-size: 12px; color: #ff8888; font-weight: bold; margin-bottom: 5px;">Equipo a instalar (Filtro automático aplicado):</label>
+            <select id="input-nuevo-id-reemplazo" style="width: 100%; padding: 8px; background: #1e1e1e; border: 1px solid #ef4444; color: #fff; border-radius: 4px; font-size: 12px;">
+                ${opcionesReemplazo}
+            </select>
         </div>
 
         <fieldset style="border: 1px solid #38bdf8; border-radius: 5px; padding: 12px; margin-bottom: 12px; background: #182830;">
@@ -165,24 +207,35 @@ function renderizarFormularioExtintorHTML(ext, estadoSugerido) {
 export async function guardarControlExtintor(event) {
     event.preventDefault();
     
-    const btnSubmit = document.querySelector('button[type="submit"]');
-    const textoOriginal = btnSubmit.innerText;
-    btnSubmit.innerText = 'Guardando...';
-    btnSubmit.disabled = true;
-    
     const dbId = document.getElementById('input-id-db').value; 
     const realizo = document.getElementById('input-realizo').value; 
     const observacion = document.getElementById('input-observacion').value;
     const fotoInput = document.getElementById('input-foto').files[0];
     const condicion = document.getElementById('input-condicion-extintor').value;
-    const nuevoIdEtiqueta = document.getElementById('input-nuevo-id-etiqueta') ? document.getElementById('input-nuevo-id-etiqueta').value : '';
+    
+    // Obtenemos el ID del equipo seleccionado del pulmón
+    const selectReemplazo = document.getElementById('input-nuevo-id-reemplazo');
+    const idReemplazo = selectReemplazo ? selectReemplazo.value : '';
+    let etiquetaReemplazo = '';
 
     if (!realizo) {
         alert('Por favor selecciona un inspector haciendo clic en su foto.');
-        btnSubmit.innerText = textoOriginal;
-        btnSubmit.disabled = false;
         return;
     }
+
+    if (condicion === 'Vencido' && !idReemplazo) {
+        alert('Debes seleccionar un equipo de reemplazo compatible desde el Pulmón.');
+        return;
+    }
+
+    if (condicion === 'Vencido' && idReemplazo) {
+        etiquetaReemplazo = selectReemplazo.options[selectReemplazo.selectedIndex].text;
+    }
+
+    const btnSubmit = document.querySelector('button[type="submit"]');
+    const textoOriginal = btnSubmit.innerText;
+    btnSubmit.innerText = 'Realizando Enroque...';
+    btnSubmit.disabled = true;
 
     try {
         const fotoUrl = await subirFotoStorage(fotoInput);
@@ -202,11 +255,12 @@ export async function guardarControlExtintor(event) {
 
         if (condicion === 'Vencido') {
             estadoRef = 'Anómalo';
-            observacionFinal = `[REEMPLAZADO] Equipo dado de baja por vencimiento u otra anomalía. Nuevo equipo instalado: (${nuevoIdEtiqueta || 'Sin ID'}). ${observacionFinal}`.trim();
+            observacionFinal = `[REEMPLAZADO / SWAP] El equipo fue dado de baja y enviado a recarga. Se instaló en su lugar: ${etiquetaReemplazo}. ${observacionFinal}`.trim();
         } else if (condicion === 'Por Vencer') {
             estadoRef = 'Observado';
         }
 
+        // 1. Guardar el registro de control (Siempre asociado al equipo que estamos auditando)
         const registroNuevo = {
             "id_extintor": Number(dbId),
             "NombreEtiqueta": nombreEtiquetaVal || null,
@@ -223,41 +277,66 @@ export async function guardarControlExtintor(event) {
             "FechaFoto": fechaHoy
         };
 
-        const { error: insertError } = await clienteSupabase
-            .from('Controles_E')
-            .insert([registroNuevo]);
-
+        const { error: insertError } = await clienteSupabase.from('Controles_E').insert([registroNuevo]);
         if (insertError) throw new Error(insertError.message);
 
-        // Se incluye 'Foto: fotoUrl' para que el mapa la lea automáticamente
-        const datosActualizacionPadre = {
-            NombreEtiqueta: (condicion === 'Vencido' && nuevoIdEtiqueta) ? nuevoIdEtiqueta : nombreEtiquetaVal,
-            PuntoGPS: puntoGpsVal,
-            Sector: sectorVal,
-            Ronda: rondaVal,
-            TipoExtintor: tipoExtintorVal,
-            Vencimiento: vencimientoVal,
-            PruebaHidraulica: pruebaHidraulicaVal,
-            EstadoReferencia: estadoRef,
-            Foto: fotoUrl 
-        };
+        // 2. LÓGICA DE ROTACIÓN (EL ENROQUE / SWAP EN LA BASE DE DATOS)
+        if (condicion === 'Vencido' && idReemplazo) {
+            
+            // A. El equipo VIEJO sale de la planta, pierde sus coordenadas GPS y se va a Recarga
+            const { error: errViejo } = await clienteSupabase.from('Extintores').update({
+                NombreEtiqueta: nombreEtiquetaVal,
+                TipoExtintor: tipoExtintorVal,
+                Vencimiento: vencimientoVal,
+                EstadoReferencia: 'Anómalo',
+                PRP: 'En Recarga',  // <--- Automáticamente enviado a recarga
+                PuntoGPS: null,     // <--- Borramos su GPS para que desaparezca
+                Sector: null
+            }).eq('id', dbId);
 
-        const { error: updateError } = await clienteSupabase
-            .from('Extintores')
-            .update(datosActualizacionPadre) 
-            .eq('id', dbId);
+            if (errViejo) throw new Error("Error actualizando equipo viejo: " + errViejo.message);
 
-        if (updateError) console.error("Error al actualizar la tabla padre Extintores:", updateError);
+            // B. El equipo NUEVO sale del pulmón, entra a la planta, hereda las coordenadas y recibe la foto
+            const { error: errNuevo } = await clienteSupabase.from('Extintores').update({
+                EstadoReferencia: 'Operativo',
+                PRP: 'En Planta',   // <--- Ingresa a la planta oficialmente
+                PuntoGPS: puntoGpsVal, // Hereda el GPS exacto
+                Sector: sectorVal,     // Hereda el Sector
+                Ronda: rondaVal,
+                Foto: fotoUrl          // Se le asigna la foto de la instalación
+            }).eq('id', idReemplazo);
+
+            if (errNuevo) throw new Error("Error ingresando equipo nuevo a planta: " + errNuevo.message);
+
+        } else {
+            // Actualización Normal (No hubo reemplazo)
+            const { error: updateError } = await clienteSupabase.from('Extintores').update({
+                NombreEtiqueta: nombreEtiquetaVal,
+                PuntoGPS: puntoGpsVal,
+                Sector: sectorVal,
+                Ronda: rondaVal,
+                TipoExtintor: tipoExtintorVal,
+                Vencimiento: vencimientoVal,
+                PruebaHidraulica: pruebaHidraulicaVal,
+                EstadoReferencia: estadoRef,
+                Foto: fotoUrl 
+            }).eq('id', dbId);
+
+            if (updateError) console.error("Error al actualizar la tabla padre:", updateError);
+        }
 
         localStorage.setItem('centinela_inspector', realizo);
         btnSubmit.innerText = textoOriginal;
         btnSubmit.disabled = false;
         cerrarFormularioControl();
 
-        window.cargarModulo('extintores');
+        // Refrescamos la vista (Si estábamos en el pulmón, recargamos la tabla, si no, el mapa)
+        const vistaDinamica = document.getElementById('vista-dinamica');
+        const moduloActual = vistaDinamica.querySelector('table') ? 'pulmon' : 'extintores';
+        window.cargarModulo(moduloActual);
 
     } catch (err) {
-        alert('Error al guardar el control de extintor: ' + err.message);
+        alert('Error al guardar el control: ' + err.message);
         btnSubmit.innerText = textoOriginal;
         btnSubmit.disabled = false;
     }
