@@ -22,20 +22,23 @@ export function cargarModuloAdminCsv(contenedor) {
             
             <p style="color: #aaa; font-size: 13px; margin-bottom: 20px; line-height: 1.4;">
                 Herramienta centralizada para migrar los mapas de Google My Maps a Supabase. 
-                Utiliza el visor integrado para referencia visual y procesa tus CSVs protegiendo las primas y asegurando la integridad relacional.
+                Utiliza el visor de referencia y procesa tus CSVs protegiendo las primas y asegurando la integridad relacional.
             </p>
 
-            <!-- TARJETA: VISOR INTEGRADO DE MY MAPS -->
+            <!-- TARJETA: VISOR INTEGRADO Y ACCESO A DESCARGA -->
             <div style="background: #1e1e1e; padding: 20px; border-radius: 8px; border: 1px solid #333; margin-bottom: 20px;">
-                <h4 style="color: #38bdf8; margin: 0 0 8px 0; font-size: 14px;">🗺️ Visor Integrado de My Maps (Referencia Visual)</h4>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <h4 style="color: #38bdf8; margin: 0; font-size: 14px;">🗺️ Visor de Referencia Visual</h4>
+                    <a id="btn-ir-editor" href="https://www.google.com/maps/d/" target="_blank" style="background: #2563eb; color: #fff; padding: 6px 12px; border-radius: 4px; text-decoration: none; font-size: 11px; font-weight: bold; display: none;">📥 Abrir Editor para Descargar CSV</a>
+                </div>
                 <p style="color: #9ca3af; font-size: 12px; margin-bottom: 12px;">
-                    Pega el ID de tu mapa de Google (ej: <code>1AbCdeF...</code>) o la URL completa para visualizarlo aquí mismo mientras trabajas.
+                    Pega el ID o la URL de tu mapa para visualizarlo. Si necesitas descargar el CSV actualizado, usa el botón azul de la derecha (requiere sesión de Google).
                 </p>
                 <div style="display: flex; gap: 10px; margin-bottom: 12px;">
                     <input type="text" id="input-map-id" placeholder="Ej: 1abcXYZ123... o URL completa de My Maps" style="flex: 1; padding: 9px; background: #2a2a2a; border: 1px solid #444; color: #fff; border-radius: 5px; font-size: 12px;">
                     <button id="btn-cargar-visor" style="background: #3b82f6; color: #fff; border: none; padding: 9px 16px; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: 12px; white-space: nowrap;">Cargar Visor</button>
                 </div>
-                <div id="iframe-container" style="width: 100%; height: 320px; background: #121212; border-radius: 6px; border: 1px solid #444; display: flex; align-items: center; justify-content: center; color: #666; font-size: 13px;">
+                <div id="iframe-container" style="width: 100%; height: 300px; background: #121212; border-radius: 6px; border: 1px solid #444; display: flex; align-items: center; justify-content: center; color: #666; font-size: 13px;">
                     Ingresa el ID del mapa arriba para previsualizarlo en el visor
                 </div>
             </div>
@@ -81,7 +84,7 @@ export function cargarModuloAdminCsv(contenedor) {
     `;
 
     // ==========================================
-    // CONTROLADOR DEL VISOR IFRAME DE MY MAPS
+    // CONTROLADOR DEL VISOR Y ACCESO A EDITOR
     // ==========================================
     document.getElementById('btn-cargar-visor').addEventListener('click', () => {
         const val = document.getElementById('input-map-id').value.trim();
@@ -98,6 +101,11 @@ export function cargarModuloAdminCsv(contenedor) {
 
         const iframeContainer = document.getElementById('iframe-container');
         iframeContainer.innerHTML = `<iframe src="https://www.google.com/maps/d/embed?mid=${mid}" width="100%" height="100%" style="border:0; border-radius: 6px;" allowfullscreen></iframe>`;
+
+        // Activar el botón directo para ir a descargar el CSV en el editor de Google
+        const btnEditor = document.getElementById('btn-ir-editor');
+        btnEditor.href = `https://www.google.com/maps/d/edit?mid=${mid}`;
+        btnEditor.style.display = 'inline-block';
     });
 
     let datosConvertidosGlobal = [];
@@ -293,7 +301,7 @@ export function cargarModuloAdminCsv(contenedor) {
                 if (error) throw new Error("Error en sincronización: " + error.message);
             }
 
-            alert(`¡Sincronización inteligente completada con éxito en la tabla "${tablaDestino}"! Se procesaron ${datosParaEnviar.length} registros manteniendo la integridad.`);
+            alert(`¡Sincronización inteligente completada con éxito en la tabla "${tablaDestino}"! Se procesaron ${datosConvertidosGlobal.length} registros manteniendo la integridad.`);
             btnSubir.innerText = '🚀 Sincronizar Inteligentemente con Supabase';
             btnSubir.disabled = false;
 
