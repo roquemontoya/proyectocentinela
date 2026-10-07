@@ -365,39 +365,35 @@ export function cargarModuloAdminCsv(contenedor) {
                     id: idActivo,
                     categoria: item.categoria,
                     etiqueta: item.etiqueta,
-                    wkt: item.ubicacion_wkt,
-                    metadata: { fuente: 'My Maps CSV', atributos_originales: attrs }
+                    sector: item.sector, 
+                    ronda: item.ronda,
+                    ubicacion_wkt: item.ubicacion_wkt,
+                    atributos_tecnicos: { fuente: 'My Maps CSV', atributos_originales: attrs } // ¡CORREGIDO A LA COLUMNA REAL DE SUPABASE!
                 });
 
-                // B. Detectamos si es HIDRANTE (Buscando columnas típicas en sus atributos)
-                if (attrs['PRUEBAANUAL'] !== undefined || attrs['LlaveAlimentacion'] !== undefined) {
+                // B. Detectamos si es HIDRANTE (Buscando columnas de tu CSV "INGENIERIA- Hidrantes (6).csv")
+                if (attrs['Prueba 2026 Fecha'] !== undefined || attrs['Llave Alimentacion'] !== undefined) {
                     const matchNum = item.etiqueta.match(/([0-9]+)/);
                     arrayControlesH.push({
                         id_activo: idActivo,
                         idch_original: matchNum ? matchNum[1] : null,
-                        tipo_control: attrs['TipoControl'] || null,
-                        prueba_anual: parseFecha(attrs['PRUEBAANUAL']),
-                        prueba_aprobada: attrs['PruebaAprobada'] || null,
-                        realizo: attrs['Realizo'] || null,
-                        planing_prueba_mes: attrs['PlaningPruebaMes'] || attrs['PlaningPruebasMes'] || null,
-                        control_mensual: attrs['CONTROLMENSUAL'] || null,
-                        estado: attrs['ESTADO'] || attrs['Estado'] || null,
-                        llave_alimentacion: attrs['LlaveAlimentacion'] || null,
-                        detalle_llave_alimentacion: attrs['DetalleLlaveAlimentacion'] || null,
-                        llave_teatro_derecho: attrs['LlaveTeatroDerecho'] || null,
-                        detalle_t_derecho: attrs['DetalleTDerecho'] || null,
-                        llave_teatro_izquierdo: attrs['LlaveTeatroIzquierdo'] || null,
-                        detalle_t_izquierdo: attrs['DetalleTIzquierdo'] || null,
-                        pintura: attrs['Pintura'] || null,
-                        gabinete: attrs['Gabinete'] || null,
-                        limpieza: attrs['Limpieza'] || null,
-                        engrasado: attrs['Engrasado'] || null,
+                        // Mapeo exacto según el CSV que me pasaste
+                        prueba_anual: parseFecha(attrs['Prueba 2026 Fecha']),
+                        prueba_aprobada: attrs['Prueba Aprobada SI / NO'] || null,
+                        realizo: attrs['Realizo la Prueba '] || null, // Ojo con el espacio extra del CSV
+                        planing_prueba_mes: attrs['Planing Prueba Mes'] || null,
+                        control_mensual: attrs['CONTROL MENSUAL (Mes)'] || null,
+                        estado: attrs['ESTADO'] || null,
+                        llave_alimentacion: attrs['Llave Alimentacion'] || null,
+                        detalle_llave_alimentacion: attrs['Detalle Llave Alimentacion'] || null,
+                        llave_teatro_derecho: attrs['Llave Teatro Derecho'] || null,
+                        detalle_t_derecho: attrs['Detalle T. Derecho'] || null,
+                        llave_teatro_izquierdo: attrs['Llave Teatro Izquierdo'] || null,
+                        detalle_t_izquierdo: attrs['Detalle T Izquierdo'] || null,
                         observacion: attrs['Observacion'] || null,
-                        anomalias: attrs['ANOMALIAS'] || attrs['Anomalias'] || null,
-                        reportado_fecha: parseFecha(attrs['ReportadoFecha']),
-                        reportado_por: attrs['ReportadoPor'] || null,
-                        foto: attrs['Foto'] || null,
-                        fecha_foto: parseFecha(attrs['FechaFoto'])
+                        anomalias: attrs['ANOMALIAS SI / NO'] || null,
+                        reportado_fecha: parseFecha(attrs['Reportado Fecha']),
+                        reportado_por: attrs['Reportado Por'] || null
                     });
                 }
                 // C. Detectamos si es EXTINTOR (Por categoría)
@@ -466,6 +462,14 @@ export function cargarModuloAdminCsv(contenedor) {
 // Utilidad local para asegurar que las fechas vacías o inválidas se envíen como NULL a la Base de Datos
 function parseFecha(val) {
     if (!val || typeof val !== 'string' || val.trim() === '' || val.toUpperCase() === 'NULL') return null;
+    
+    // Check if format is DD/MM/YYYY
+    const parts = val.split('/');
+    if (parts.length === 3) {
+        const parsed = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T00:00:00`);
+        return isNaN(parsed.getTime()) ? null : parsed.toISOString().split('T')[0];
+    }
+    
     const parsed = new Date(val);
     return isNaN(parsed.getTime()) ? null : parsed.toISOString().split('T')[0];
 }
