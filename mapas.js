@@ -191,25 +191,26 @@ export async function cargarModuloMapa(moduloKey, contenedor) {
             }
 
             // ==========================================
-            // EXTRACCIÓN ROBUSTA DE LA FOTO (CON IMAGEN POR DEFECTO)
+            // EXTRACCIÓN ROBUSTA DE FOTO CON FALLBACK SVG NATIVO
             // ==========================================
             let fotoUrl = item.Foto || item.foto || item.FOTO || item.Imagen || item.imagen || null;
             
-            // Imagen por defecto (Placeholder)
-            let imgFinal = 'https://via.placeholder.com/200x110/2a2a2a/aaaaaa?text=Sin+Foto+Registrada';
+            // Gráficos SVG incrustados en Base64 (No requieren internet)
+            const svgSinFoto = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='100'><rect width='200' height='100' fill='%231e1e1e'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='%23888888' font-family='Arial, sans-serif' font-size='13'>📷 Sin Foto Registrada</text></svg>";
+            const svgError = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='100'><rect width='200' height='100' fill='%232a1515'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='%23ef4444' font-family='Arial, sans-serif' font-size='13'>⚠️ Error al cargar imagen</text></svg>";
+            
+            let imgFinal = svgSinFoto;
             
             if (fotoUrl) {
                 imgFinal = fotoUrl;
                 if (!imgFinal.startsWith('http') && !imgFinal.startsWith('data:')) {
-                    // Si solo se guardó el nombre del archivo, construimos la ruta completa
                     imgFinal = `https://zgzhudcdxoentmfgdncf.supabase.co/storage/v1/object/public/fotos-controles/${imgFinal}`;
                 }
             }
 
-            // Inyectamos SIEMPRE el contenedor de la imagen
             let htmlFoto = `
                 <div style="margin-bottom: 8px; text-align: center; width: 100%;">
-                    <img src="${imgFinal}" style="width: 100%; height: 100px; object-fit: cover; border-radius: 4px; border: 1px solid #444; background: #1e1e1e;" onerror="this.src='https://via.placeholder.com/200x110/2a2a2a/ef4444?text=Error+de+Carga'">
+                    <img src="${imgFinal}" style="width: 100%; height: 100px; object-fit: cover; border-radius: 4px; border: 1px solid #444; background: #1e1e1e;" onerror="this.src='${svgError}'">
                 </div>
             `;
 
