@@ -22,7 +22,7 @@ export function cargarModuloAdminCsv(contenedor) {
             
             <p style="color: #aaa; font-size: 13px; margin-bottom: 20px; line-height: 1.4;">
                 Herramienta centralizada para migrar los mapas de Google My Maps a Supabase. 
-                El motor limpia la codificación corrupta, <b>protege las marcas con primas (' , ´ , ¨)</b> y separa inteligentemente altas y actualizaciones.
+                El motor limpia la codificación corrupta, <b>protege las marcas con primas (' , ´ , ¨)</b> y gestiona altas y actualizaciones de forma blindada.
             </p>
 
             <div style="background: #1e1e1e; padding: 20px; border-radius: 8px; border: 1px solid #333; margin-bottom: 20px;">
@@ -207,7 +207,7 @@ export function cargarModuloAdminCsv(contenedor) {
     });
 
     // ==========================================
-    // SINCRONIZACIÓN INTELIGENTE (UPSERT / INSERT SEPARADOS)
+    // SINCRONIZACIÓN INTELIGENTE (UPSERT / INSERT BLINDADO)
     // ==========================================
     document.getElementById('btn-subir-supabase').addEventListener('click', async () => {
         if (datosConvertidosGlobal.length === 0) return;
@@ -222,7 +222,7 @@ export function cargarModuloAdminCsv(contenedor) {
         btnSubir.disabled = true;
 
         try {
-            // 1. Consultar registros actuales en Supabase
+            // 1. Consultar registros actualizados en Supabase
             const { data: registrosExistentes, error: errFetch } = await clienteSupabase
                 .from(tablaDestino)
                 .select('id, ETIQUETA');
@@ -236,18 +236,18 @@ export function cargarModuloAdminCsv(contenedor) {
                 });
             }
 
-            // 2. Separar en dos bandos: Actualizaciones (con ID) e Inserciones (sin ID)
+            // 2. Separar limpiamente: Actualizaciones (con ID) e Inserciones (sin rastro de id)
             const paraActualizar = [];
             const paraInsertar = [];
 
             datosConvertidosGlobal.forEach(item => {
                 const idExistente = mapaExistentes.get(item.ETIQUETA);
                 if (idExistente) {
-                    // Si ya existe, asociamos su ID exacto para actualizarlo
                     paraActualizar.push({ ...item, id: idExistente });
                 } else {
-                    // Si es nuevo, dejamos que Supabase genere el ID automático
-                    paraInsertar.push(item);
+                    const limpio = { ...item };
+                    delete limpio.id; // Nos aseguramos de borrar cualquier rastro de ID para que Supabase lo autogenere
+                    paraInsertar.push(limpio);
                 }
             });
 
@@ -265,7 +265,7 @@ export function cargarModuloAdminCsv(contenedor) {
                 if (error) throw new Error("Error en actualización: " + error.message);
             }
 
-            // 4. Procesar Inserciones mediante INSERT limpio (sin enviar id)
+            // 4. Procesar Inserciones mediante INSERT limpio
             for (let i = 0; i < paraInsertar.length; i += chunkSize) {
                 const chunk = paraInsertar.slice(i, i + chunkSize);
                 const { error } = await clienteSupabase
