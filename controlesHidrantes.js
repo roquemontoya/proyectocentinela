@@ -46,19 +46,14 @@ export async function abrirControlHidrante(dbId, idElemento) {
     document.getElementById('input-idch').value = idElemento;
     document.getElementById('input-tabla').value = 'hidrantes';
     
-    // Configurar título y RESTABLECER color a verde por defecto
     if (titulo) {
         titulo.innerText = `Control Hidrante: ${idElemento}`;
         titulo.style.color = '#22c55e'; 
     }
 
-    // 1. Inyectamos SÓLO los campos de Hidrantes (incluyendo los antiguos generales)
     renderizarFormularioHidranteHTML();
-    
-    // 2. Cargamos bomberos SÓLO después de inyectar, para que encuentre las cajas dinámicas de anomalías
     await cargarBomberosEnModal();
     
-    // 3. Inicializamos los valores por defecto
     const inputTipo = document.getElementById('input-tipocontrol');
     if (inputTipo) {
         inputTipo.value = 'Mensual';
@@ -89,7 +84,6 @@ function renderizarFormularioHidranteHTML() {
     if (!contenedorComponentes) return;
 
     contenedorComponentes.innerHTML = `
-        <!-- BLOQUE TIPO DE CONTROL -->
         <label style="display: block; margin-bottom: 5px; font-size: 14px; font-weight: bold; color: #22c55e;">Tipo de Control:</label>
         <select id="input-tipocontrol" onchange="cambiarTipoControl()" required style="width: 100%; padding: 8px; margin-bottom: 12px; background: #2a2a2a; border: 1px solid #444; color: #fff; border-radius: 5px;">
             <option value="Mensual">Mensual</option>
@@ -97,7 +91,6 @@ function renderizarFormularioHidranteHTML() {
             <option value="A Solicitud">A Solicitud</option>
         </select>
 
-        <!-- ESTADO GENERAL -->
         <label style="display: block; margin-bottom: 5px; font-size: 14px;">Estado General:</label>
         <select id="input-estado" onchange="verificarEstadoControl()" required style="width: 100%; padding: 8px; margin-bottom: 12px; background: #2a2a2a; border: 1px solid #444; color: #fff; border-radius: 5px;">
             <option value="Operativo">Operativo</option>
@@ -105,7 +98,6 @@ function renderizarFormularioHidranteHTML() {
             <option value="Anomalo">Anómalo</option>
         </select>
 
-        <!-- BLOQUE ANOMALIA -->
         <div id="bloque-anomalia" style="display: none; background: #2a1515; padding: 12px; border-radius: 6px; margin-bottom: 12px; border: 1px dashed #ef4444;">
             <h4 style="margin: 0 0 10px 0; color: #ef4444; font-size: 14px;">🚨 Registro de Anomalía (Fuera de Servicio)</h4>
             
@@ -130,7 +122,6 @@ function renderizarFormularioHidranteHTML() {
             </div>
         </div>
 
-        <!-- BLOQUE ANUAL -->
         <div id="bloque-anual" style="display: none; background: #252525; padding: 10px; border-radius: 6px; margin-bottom: 12px; border: 1px dashed #444;">
             <h4 style="margin: 0 0 10px 0; color: #38bdf8; font-size: 14px;">Parámetros de Prueba Anual / Solicitud</h4>
             
@@ -229,7 +220,6 @@ export async function guardarControlHidrante(event) {
     const dbId = document.getElementById('input-id-db').value; 
     const idch = document.getElementById('input-idch').value;
     
-    // Obtener los valores dinámicos
     const tipoControl = document.getElementById('input-tipocontrol') ? document.getElementById('input-tipocontrol').value : 'Mensual';
     const estado = document.getElementById('input-estado') ? document.getElementById('input-estado').value : 'Operativo'; 
     const realizo = document.getElementById('input-realizo').value;
@@ -321,9 +311,10 @@ export async function guardarControlHidrante(event) {
 
         if (insertError) throw new Error(insertError.message);
 
+        // Se incluye 'Foto: fotoUrl' para que el mapa muestre la foto del último control automáticamente
         const { error: updateError } = await clienteSupabase
             .from('hidrantes')
-            .update({ EstadoReferencia: estado }) 
+            .update({ EstadoReferencia: estado, Foto: fotoUrl }) 
             .eq('id', dbId);
 
         if (updateError) console.error("Error al actualizar la tabla padre hidrantes:", updateError);
