@@ -191,29 +191,34 @@ export async function cargarModuloMapa(moduloKey, contenedor) {
             }
 
             // ==========================================
-            // EXTRACCIÓN ROBUSTA DE LA FOTO (PROPIEDAD DIRECTA)
+            // EXTRACCIÓN ROBUSTA DE LA FOTO (CON IMAGEN POR DEFECTO)
             // ==========================================
             let fotoUrl = item.Foto || item.foto || item.FOTO || item.Imagen || item.imagen || null;
-            let htmlFoto = '';
+            
+            // Imagen por defecto (Placeholder)
+            let imgFinal = 'https://via.placeholder.com/200x110/2a2a2a/aaaaaa?text=Sin+Foto+Registrada';
             
             if (fotoUrl) {
-                let imgFinal = fotoUrl;
-                if (!imgFinal.startsWith('http')) {
+                imgFinal = fotoUrl;
+                if (!imgFinal.startsWith('http') && !imgFinal.startsWith('data:')) {
+                    // Si solo se guardó el nombre del archivo, construimos la ruta completa
                     imgFinal = `https://zgzhudcdxoentmfgdncf.supabase.co/storage/v1/object/public/fotos-controles/${imgFinal}`;
                 }
-                htmlFoto = `
-                    <div style="margin-bottom: 6px; text-align: center;">
-                        <img src="${imgFinal}" style="width: 100%; max-height: 100px; object-fit: cover; border-radius: 4px; border: 1px solid #ccc;" onerror="this.style.display='none'">
-                    </div>
-                `;
             }
+
+            // Inyectamos SIEMPRE el contenedor de la imagen
+            let htmlFoto = `
+                <div style="margin-bottom: 8px; text-align: center; width: 100%;">
+                    <img src="${imgFinal}" style="width: 100%; height: 100px; object-fit: cover; border-radius: 4px; border: 1px solid #444; background: #1e1e1e;" onerror="this.src='https://via.placeholder.com/200x110/2a2a2a/ef4444?text=Error+de+Carga'">
+                </div>
+            `;
 
             const popupContent = `
                 <div style="font-family: Arial, sans-serif; color: #333; min-width: 180px; max-width: 210px;">
                     <div style="font-weight: bold; font-size: 13px; margin-bottom: 4px; color: #111;">${idElemento}</div>
-                    <div style="font-size: 11px; margin-bottom: 4px; color: #555;">Sector: ${item.Sector || 'N/D'}</div>
+                    <div style="font-size: 11px; margin-bottom: 6px; color: #555;">Sector: ${item.Sector || 'N/D'}</div>
                     ${extraInfo}
-                    <div style="font-size: 11px; margin-bottom: 6px; display: flex; align-items: center; gap: 5px;">
+                    <div style="font-size: 11px; margin-bottom: 8px; display: flex; align-items: center; gap: 5px;">
                         Estado: ${pastillaHtml}
                     </div>
                     ${htmlFoto}
