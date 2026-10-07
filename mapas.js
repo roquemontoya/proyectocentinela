@@ -191,27 +191,19 @@ export async function cargarModuloMapa(moduloKey, contenedor) {
             }
 
             // ==========================================
-            // DETECTOR UNIVERSAL DE FOTO PARA EL POPUP
+            // EXTRACCIÓN ROBUSTA DE LA FOTO (PROPIEDAD DIRECTA)
             // ==========================================
-            let fotoUrl = null;
-            const itemKeys = Object.keys(item);
-            for (let k of itemKeys) {
-                const lk = k.toLowerCase();
-                if (lk === 'foto' || lk === 'imagen' || lk === 'image' || lk === 'fotografia' || lk === 'url_foto') {
-                    if (item[k]) fotoUrl = item[k];
-                }
-            }
-
+            let fotoUrl = item.Foto || item.foto || item.FOTO || item.Imagen || item.imagen || null;
             let htmlFoto = '';
+            
             if (fotoUrl) {
                 let imgFinal = fotoUrl;
                 if (!imgFinal.startsWith('http')) {
-                    // Si la foto está en almacenamiento general o en el bucket del módulo
                     imgFinal = `https://zgzhudcdxoentmfgdncf.supabase.co/storage/v1/object/public/fotos-controles/${imgFinal}`;
                 }
                 htmlFoto = `
                     <div style="margin-bottom: 6px; text-align: center;">
-                        <img src="${imgFinal}" style="width: 100%; max-height: 110px; object-fit: cover; border-radius: 4px; border: 1px solid #ccc;" onerror="this.style.display='none'">
+                        <img src="${imgFinal}" style="width: 100%; max-height: 100px; object-fit: cover; border-radius: 4px; border: 1px solid #ccc;" onerror="this.style.display='none'">
                     </div>
                 `;
             }
