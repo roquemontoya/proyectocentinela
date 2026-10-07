@@ -1,9 +1,24 @@
 // ==========================================
 // MÓDULO: CMU (Conversor Maestro Universal)
-// Sincronización Inteligente, Visor de Mapas e Ingesta a Supabase
+// Sincronización Inteligente, Diccionario de Mapas e Ingesta a Supabase
 // ==========================================
 
 import { clienteSupabase } from './supabaseClient.js';
+
+// =========================================================================
+// DICCIONARIO DE MAPAS CONFIGURABLES
+// Para agregar un nuevo mapa en el futuro, solo añade una línea aquí abajo
+// formato: "NombreVisible": { tabla: "NombreTablaSupabase", mid: "ID_DE_MY_MAPS" }
+// =========================================================================
+const MAPAS_CONFIG = {
+    "Extintores": { tabla: "Extintores", mid: "1SoiI--YYaSL7UJs7cZjk8qxIHNjmVrM" },
+    "Movil 20": { tabla: "Movil 20", mid: "1lNpPuI3-4IjII_ZIf6rTL76Jk3oums0" },
+    "Ingenieria": { tabla: "Ingenieria", mid: "1-kh06uxnaCx9AOEaVC6g80VeZ5A_ePg" },
+    "MPR": { tabla: "MPR", mid: "1FI54CKve2s3E4nKQ4PQQ5M6ABn2vvno" },
+    "Seguridad PC Abril - Julio": { tabla: "Seguridad PC Abril - Julio", mid: "1DtM0jSm04nXrpB1efrCl6hLxAxtDzxo" },
+    "Prevencion": { tabla: "Prevencion", mid: "1IGbD2Xi2_6zmccPikavfTDX8b0OvkjU" },
+    "Seguridad Relevamiento": { tabla: "Seguridad Relevamiento", mid: "16r_aJ_eYHovLnmweQo6v1Ly_6J_y22k" }
+};
 
 export function cargarModuloAdminCsv(contenedor) {
     contenedor.style.width = '100%';
@@ -12,6 +27,12 @@ export function cargarModuloAdminCsv(contenedor) {
     contenedor.style.overflowY = 'auto';
     contenedor.style.height = 'calc(100vh - 65px)';
     contenedor.style.backgroundColor = '#121212';
+
+    // Generar opciones del select dinámicamente desde el diccionario
+    let opcionesSelectHtml = '';
+    for (const [nombre, config] of Object.entries(MAPAS_CONFIG)) {
+        opcionesSelectHtml += `<option value="${config.tabla}">${nombre}</option>`;
+    }
 
     contenedor.innerHTML = `
         <div style="max-width: 950px; margin: 0 auto; color: #fff; font-family: Arial, sans-serif;">
@@ -22,24 +43,24 @@ export function cargarModuloAdminCsv(contenedor) {
             
             <p style="color: #aaa; font-size: 13px; margin-bottom: 20px; line-height: 1.4;">
                 Herramienta centralizada para migrar los mapas de Google My Maps a Supabase. 
-                Utiliza el visor de referencia y procesa tus CSVs protegiendo las primas y asegurando la integridad relacional.
+                Selecciona la tabla destino para cargar su visor y enlace de edición al instante.
             </p>
 
             <!-- TARJETA: VISOR INTEGRADO Y ACCESO A DESCARGA -->
             <div style="background: #1e1e1e; padding: 20px; border-radius: 8px; border: 1px solid #333; margin-bottom: 20px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                    <h4 style="color: #38bdf8; margin: 0; font-size: 14px;">🗺️ Visor de Referencia Visual</h4>
-                    <a id="btn-ir-editor" href="https://www.google.com/maps/d/" target="_blank" style="background: #2563eb; color: #fff; padding: 6px 12px; border-radius: 4px; text-decoration: none; font-size: 11px; font-weight: bold; display: none;">📥 Abrir Editor para Descargar CSV</a>
+                    <h4 style="color: #38bdf8; margin: 0; font-size: 14px;">🗺️ Visor de Referencia Visual y Acceso a Editor</h4>
+                    <a id="btn-ir-editor" href="https://www.google.com/maps/d/" target="_blank" style="background: #2563eb; color: #fff; padding: 6px 12px; border-radius: 4px; text-decoration: none; font-size: 11px; font-weight: bold;">📥 Abrir Editor para Descargar CSV</a>
                 </div>
                 <p style="color: #9ca3af; font-size: 12px; margin-bottom: 12px;">
-                    Pega el ID o la URL de tu mapa para visualizarlo. Si necesitas descargar el CSV actualizado, usa el botón azul de la derecha (requiere sesión de Google).
+                    Al cambiar de tabla abajo, el mapa se cargará automáticamente aquí. Usa el botón azul para abrir el editor de Google si necesitas descargar el CSV actualizado.
                 </p>
                 <div style="display: flex; gap: 10px; margin-bottom: 12px;">
-                    <input type="text" id="input-map-id" placeholder="Ej: 1abcXYZ123... o URL completa de My Maps" style="flex: 1; padding: 9px; background: #2a2a2a; border: 1px solid #444; color: #fff; border-radius: 5px; font-size: 12px;">
+                    <input type="text" id="input-map-id" placeholder="ID o URL de My Maps (autocompletable)" style="flex: 1; padding: 9px; background: #2a2a2a; border: 1px solid #444; color: #fff; border-radius: 5px; font-size: 12px;">
                     <button id="btn-cargar-visor" style="background: #3b82f6; color: #fff; border: none; padding: 9px 16px; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: 12px; white-space: nowrap;">Cargar Visor</button>
                 </div>
                 <div id="iframe-container" style="width: 100%; height: 300px; background: #121212; border-radius: 6px; border: 1px solid #444; display: flex; align-items: center; justify-content: center; color: #666; font-size: 13px;">
-                    Ingresa el ID del mapa arriba para previsualizarlo en el visor
+                    Cargando mapa...
                 </div>
             </div>
 
@@ -49,14 +70,7 @@ export function cargarModuloAdminCsv(contenedor) {
                     <div>
                         <label style="display: block; font-size: 13px; font-weight: bold; margin-bottom: 8px; color: #38bdf8;">1. Seleccionar Tabla Destino:</label>
                         <select id="admin-tabla-destino" style="width: 100%; padding: 10px; background: #2a2a2a; border: 1px solid #444; color: #fff; border-radius: 5px; font-size: 13px;">
-                            <option value="Extintores">Extintores</option>
-                            <option value="hidrantes">Hidrantes</option>
-                            <option value="ecas">ECAS</option>
-                            <option value="valvulas">Válvulas</option>
-                            <option value="vecas">VECAS</option>
-                            <option value="pecas">PECAS</option>
-                            <option value="ipp">IPP</option>
-                            <option value="Bomberos">Bomberos</option>
+                            ${opcionesSelectHtml}
                         </select>
                     </div>
 
@@ -84,29 +98,54 @@ export function cargarModuloAdminCsv(contenedor) {
     `;
 
     // ==========================================
-    // CONTROLADOR DEL VISOR Y ACCESO A EDITOR
+    // FUNCIÓN PARA CARGAR EL VISOR Y ACTUALIZAR ENLACES
     // ==========================================
-    document.getElementById('btn-cargar-visor').addEventListener('click', () => {
-        const val = document.getElementById('input-map-id').value.trim();
-        if (!val) {
-            alert('Por favor ingresa un ID o URL de My Maps válido.');
-            return;
+    const actualizarVisorPorTabla = (tablaSeleccionada) => {
+        let midEncontrado = "";
+        
+        // Buscar el mid correspondiente a la tabla seleccionada en el diccionario
+        for (const [nombre, config] of Object.entries(MAPAS_CONFIG)) {
+            if (config.tabla === tablaSeleccionada) {
+                midEncontrado = config.mid;
+                break;
+            }
         }
 
+        if (!midEncontrado) return;
+
+        // Rellenar el input de texto visualmente
+        document.getElementById('input-map-id').value = midEncontrado;
+
+        // Cargar el iframe
+        const iframeContainer = document.getElementById('iframe-container');
+        iframeContainer.innerHTML = `<iframe src="https://www.google.com/maps/d/embed?mid=${midEncontrado}" width="100%" height="100%" style="border:0; border-radius: 6px;" allowfullscreen></iframe>`;
+
+        // Actualizar el botón de enlace al editor de Google
+        const btnEditor = document.getElementById('btn-ir-editor');
+        btnEditor.href = `https://www.google.com/maps/d/edit?mid=${midEncontrado}`;
+    };
+
+    // Evento al cambiar de tabla en el select
+    document.getElementById('admin-tabla-destino').addEventListener('change', (e) => {
+        actualizarVisorPorTabla(e.target.value);
+    });
+
+    // Botón manual de recarga de visor por si pegan otro ID personalizado
+    document.getElementById('btn-cargar-visor').addEventListener('click', () => {
+        const val = document.getElementById('input-map-id').value.trim();
+        if (!val) return;
         let mid = val;
         if (val.includes('mid=')) {
             const match = val.match(/mid=([a-zA-Z0-9_-]+)/);
             if (match) mid = match[1];
         }
-
-        const iframeContainer = document.getElementById('iframe-container');
-        iframeContainer.innerHTML = `<iframe src="https://www.google.com/maps/d/embed?mid=${mid}" width="100%" height="100%" style="border:0; border-radius: 6px;" allowfullscreen></iframe>`;
-
-        // Activar el botón directo para ir a descargar el CSV en el editor de Google
-        const btnEditor = document.getElementById('btn-ir-editor');
-        btnEditor.href = `https://www.google.com/maps/d/edit?mid=${mid}`;
-        btnEditor.style.display = 'inline-block';
+        document.getElementById('iframe-container').innerHTML = `<iframe src="https://www.google.com/maps/d/embed?mid=${mid}" width="100%" height="100%" style="border:0; border-radius: 6px;" allowfullscreen></iframe>`;
+        document.getElementById('btn-ir-editor').href = `https://www.google.com/maps/d/edit?mid=${mid}`;
     });
+
+    // Cargar por defecto el mapa de la primera tabla seleccionada al abrir el módulo
+    const tablaInicial = document.getElementById('admin-tabla-destino').value;
+    actualizarVisorPorTabla(tablaInicial);
 
     let datosConvertidosGlobal = [];
 
