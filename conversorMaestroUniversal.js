@@ -1,6 +1,6 @@
 // ==========================================
 // MÓDULO: CMU (Conversor Maestro Universal)
-// El Bibliotecario de Honor (Normalizador Autocorrector)
+// El Bibliotecario de Honor (Sin Punto GPS)
 // ==========================================
 
 import { clienteSupabase } from './supabaseClient.js';
@@ -36,11 +36,11 @@ export function cargarModuloAdminCsv(contenedor) {
         <div style="max-width: 950px; margin: 0 auto; color: #fff; font-family: Arial, sans-serif;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                 <h2 style="color: #38bdf8; margin: 0;">📚 CMU: Bibliotecario de Honor</h2>
-                <span style="background: #22c55e; color: #000; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: bold;">AUTOCORRECTOR ROBUSTO JSONB</span>
+                <span style="background: #22c55e; color: #000; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: bold;">MODO PURO WKT / JSONB</span>
             </div>
             
             <p style="color: #aaa; font-size: 13px; margin-bottom: 20px; line-height: 1.4;">
-                El motor cuenta con normalización geométrica y autocorrección de desvíos por comas no escapadas en My Maps.
+                El motor procesa la categoría seleccionada enviando únicamente coordenadas decimales limpias y atributos técnicos en JSONB.
             </p>
 
             <!-- TARJETA: VISOR INTEGRADO Y ACCESO A DESCARGA -->
@@ -74,7 +74,7 @@ export function cargarModuloAdminCsv(contenedor) {
                     </div>
                 </div>
 
-                <button id="btn-procesar-csv" style="background: #22c55e; color: #000; border: none; padding: 12px 20px; border-radius: 5px; font-weight: bold; cursor: pointer; width: 100%; font-size: 14px; transition: opacity 0.2s;">⚙️ Procesar con Normalización Robusta</button>
+                <button id="btn-procesar-csv" style="background: #22c55e; color: #000; border: none; padding: 12px 20px; border-radius: 5px; font-weight: bold; cursor: pointer; width: 100%; font-size: 14px; transition: opacity 0.2s;">⚙️ Procesar Datos para LEU</button>
             </div>
 
             <!-- Contenedor de Previsualización -->
@@ -86,7 +86,7 @@ export function cargarModuloAdminCsv(contenedor) {
                 
                 <div id="admin-preview-tabla" style="max-height: 280px; overflow: auto; margin-bottom: 15px; font-size: 12px; background: #121212; padding: 10px; border-radius: 4px; border: 1px solid #444;"></div>
                 
-                <button id="btn-subir-supabase" style="background: #38bdf8; color: #000; border: none; padding: 12px 20px; border-radius: 5px; font-weight: bold; cursor: pointer; width: 100%; font-size: 14px;">🚀 Inyectar en LEU de forma Impecable</button>
+                <button id="btn-subir-supabase" style="background: #38bdf8; color: #000; border: none; padding: 12px 20px; border-radius: 5px; font-weight: bold; cursor: pointer; width: 100%; font-size: 14px;">🚀 Inyectar en LEU (Supabase)</button>
             </div>
         </div>
     `;
@@ -125,7 +125,7 @@ export function cargarModuloAdminCsv(contenedor) {
     let datosConvertidosGlobal = [];
 
     // ==========================================
-    // MOTOR DE NORMALIZACIÓN ROBUSTA
+    // MOTOR DE NORMALIZACIÓN (SIN PUNTO GPS)
     // ==========================================
     document.getElementById('btn-procesar-csv').addEventListener('click', () => {
         const fileInput = document.getElementById('admin-input-csv');
@@ -150,7 +150,6 @@ export function cargarModuloAdminCsv(contenedor) {
 
             const separador = lineasCrudas[0].includes(';') ? ';' : ',';
             
-            // Parser simple para la cabecera
             const parsearFilaSimple = (texto) => {
                 let val = [];
                 let cur = '';
@@ -173,7 +172,6 @@ export function cargarModuloAdminCsv(contenedor) {
             const cabeceras = parsearFilaSimple(lineasCrudas[0]);
             const expectedLen = cabeceras.length;
 
-            // Agrupar bloques por WKT
             let registrosCrudos = [];
             let lineasActuales = [];
 
@@ -221,7 +219,6 @@ export function cargarModuloAdminCsv(contenedor) {
             };
 
             const aliasEtiqueta = ['nombre de etiqueta', 'nombre', 'etiqueta', 'identificador', 'elemento', 'valvula eca'];
-            const aliasGps = ['punto gps', 'puntogps', 'coordenadas', 'punto'];
             const aliasSector = ['sector', 'departamento'];
             const aliasRonda = ['ronda', 'uet'];
             const aliasWkt = ['wkt', 'geom'];
@@ -252,9 +249,6 @@ export function cargarModuloAdminCsv(contenedor) {
                 if (!bloque.trim()) return;
                 let valores = parsearCamposFila(bloque);
 
-                // --- NORMALIZADOR ANTIVENENO (Smart Normalizer) ---
-                // Si hay un desfase de columnas por culpa de comas no escapadas en My Maps,
-                // unimos los campos de texto intermedios hasta alinear la longitud exacta.
                 while (valores.length > expectedLen) {
                     valores[1] = valores[1] + ", " + valores[2];
                     valores.splice(2, 1);
@@ -263,7 +257,7 @@ export function cargarModuloAdminCsv(contenedor) {
                     valores.push("");
                 }
 
-                let etiqueta = null, gps = null, sector = null, ronda = null, wkt = null;
+                let etiqueta = null, sector = null, ronda = null, wkt = null;
                 let atributosJSON = {};
 
                 cabeceras.forEach((cab, idx) => {
@@ -273,7 +267,6 @@ export function cargarModuloAdminCsv(contenedor) {
                     let cabMin = cab.toLowerCase();
 
                     if (aliasEtiqueta.includes(cabMin) && !etiqueta) etiqueta = valor;
-                    else if (aliasGps.includes(cabMin) && !gps) gps = valor;
                     else if (aliasSector.includes(cabMin) && !sector) sector = valor;
                     else if (aliasRonda.includes(cabMin) && !ronda) ronda = valor;
                     else if (aliasWkt.includes(cabMin) && !wkt) wkt = valor;
@@ -289,7 +282,6 @@ export function cargarModuloAdminCsv(contenedor) {
                     "categoria": categoriaSeleccionada,
                     "sector": sector,
                     "ronda": ronda,
-                    "punto_gps": gps,
                     "ubicacion_wkt": wkt ? parsearWkt(wkt) : null,
                     "atributos_tecnicos": atributosJSON
                 });
@@ -298,7 +290,7 @@ export function cargarModuloAdminCsv(contenedor) {
             datosConvertidosGlobal = listaTemporal;
 
             document.getElementById('admin-resultado-container').style.display = 'block';
-            document.getElementById('admin-estado-texto').innerText = `¡Procesamiento Robusto e Impecable!`;
+            document.getElementById('admin-estado-texto').innerText = `¡Procesamiento Robusto sin GPS redundante!`;
             document.getElementById('admin-contador-registros').innerText = `${datosConvertidosGlobal.length} elementos`;
 
             const previewDiv = document.getElementById('admin-preview-tabla');
@@ -330,18 +322,18 @@ export function cargarModuloAdminCsv(contenedor) {
     });
 
     // ==========================================
-    // SINCRONIZACIÓN INTACTA CON LEU
+    // SINCRONIZACIÓN CON LEU
     // ==========================================
     document.getElementById('btn-subir-supabase').addEventListener('click', async () => {
         if (datosConvertidosGlobal.length === 0) return;
         const categoriaSeleccionada = document.getElementById('admin-categoria-destino').value;
 
-        if (!confirm(`¿Inyectar los ${datosConvertidosGlobal.length} registros limpios y robustos en LEU bajo la categoría "${categoriaSeleccionada}"?`)) {
+        if (!confirm(`¿Inyectar los ${datosConvertidosGlobal.length} registros de "${categoriaSeleccionada}" en LEU?`)) {
             return;
         }
 
         const btnSubir = document.getElementById('btn-subir-supabase');
-        btnSubir.innerText = 'Inyectando en LEU con precisión quirúrgica...';
+        btnSubir.innerText = 'Inyectando hidrantes en LEU...';
         btnSubir.disabled = true;
 
         try {
@@ -373,13 +365,13 @@ export function cargarModuloAdminCsv(contenedor) {
                 if (error) throw new Error("Error en sincronización: " + error.message);
             }
 
-            alert(`¡Proceso impecable! Se guardaron exitosamente los ${datosConvertidosGlobal.length} registros de "${categoriaSeleccionada}" en LEU sin un solo desvío.`);
-            btnSubir.innerText = '🚀 Inyectar en LEU de forma Impecable';
+            alert(`¡Hidrantes guardados con éxito! Se inyectaron ${datosConvertidosGlobal.length} registros de "${categoriaSeleccionada}" en LEU.`);
+            btnSubir.innerText = '🚀 Inyectar en LEU (Supabase)';
             btnSubir.disabled = false;
 
         } catch (err) {
             alert('Error durante la sincronización: ' + err.message);
-            btnSubir.innerText = '🚀 Inyectar en LEU de forma Impecable';
+            btnSubir.innerText = '🚀 Inyectar en LEU (Supabase)';
             btnSubir.disabled = false;
         }
     });
