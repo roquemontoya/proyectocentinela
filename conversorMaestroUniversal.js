@@ -1,6 +1,6 @@
 // ==========================================
 // MÓDULO: CMU (Conversor Maestro Universal)
-// El Bibliotecario de LEU (Parseador Invulnerable)
+// El Bibliotecario de LEU (Sin Pérdida de Datos)
 // ==========================================
 
 import { clienteSupabase } from './supabaseClient.js';
@@ -36,12 +36,11 @@ export function cargarModuloAdminCsv(contenedor) {
         <div style="max-width: 950px; margin: 0 auto; color: #fff; font-family: Arial, sans-serif;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                 <h2 style="color: #38bdf8; margin: 0;">📚 CMU: Bibliotecario de LEU</h2>
-                <span style="background: #ef4444; color: #fff; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: bold;">PARSER INVULNERABLE JSONB</span>
+                <span style="background: #22c55e; color: #000; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: bold;">MODO INTEGRO (SIN FILTROS DE ETIQUETA)</span>
             </div>
             
             <p style="color: #aaa; font-size: 13px; margin-bottom: 20px; line-height: 1.4;">
-                El motor ahora inyecta datos directamente a <b>La Enciclopedia Universal (LEU)</b>. 
-                Equipado con un lector de matriz que resiste saltos de línea dentro de las observaciones sin romper la base de datos.
+                El motor procesa el 100% de las filas del CSV sin descartar duplicados por nombre, asegurando que ningún activo se quede fuera de LEU.
             </p>
 
             <!-- TARJETA: VISOR INTEGRADO Y ACCESO A DESCARGA -->
@@ -126,7 +125,7 @@ export function cargarModuloAdminCsv(contenedor) {
     let datosConvertidosGlobal = [];
 
     // ==========================================
-    // MOTOR DE LECTURA TIPO MATRIZ (INVULNERABLE)
+    // MOTOR DE LECTURA ÍNTEGRA (SIN PÉRDIDA)
     // ==========================================
     document.getElementById('btn-procesar-csv').addEventListener('click', () => {
         const fileInput = document.getElementById('admin-input-csv');
@@ -143,7 +142,6 @@ export function cargarModuloAdminCsv(contenedor) {
         reader.onload = function(e) {
             const textoCsv = e.target.result;
             
-            // Detectar separador
             let primeraLineaFin = textoCsv.indexOf('\n');
             if (primeraLineaFin === -1) primeraLineaFin = textoCsv.length;
             const primeraLinea = textoCsv.substring(0, primeraLineaFin);
@@ -154,23 +152,22 @@ export function cargarModuloAdminCsv(contenedor) {
             let valorActual = '';
             let entreComillas = false;
 
-            // Procesador letra por letra (resiste saltos de línea dentro de texto)
             for (let i = 0; i < textoCsv.length; i++) {
                 let char = textoCsv[i];
                 let nextChar = textoCsv[i + 1];
 
                 if (char === '"') {
                     if (entreComillas && nextChar === '"') {
-                        valorActual += '"'; // Es una comilla escapada ("")
-                        i++; // Saltamos la siguiente
+                        valorActual += '"';
+                        i++;
                     } else {
-                        entreComillas = !entreComillas; // Entramos o salimos de una frase
+                        entreComillas = !entreComillas;
                     }
                 } else if (char === separador && !entreComillas) {
                     filaActual.push(valorActual);
                     valorActual = '';
                 } else if ((char === '\n' || char === '\r') && !entreComillas) {
-                    if (char === '\r' && nextChar === '\n') i++; // Saltar Windows break
+                    if (char === '\r' && nextChar === '\n') i++;
                     filaActual.push(valorActual);
                     filas.push(filaActual);
                     filaActual = [];
@@ -184,7 +181,6 @@ export function cargarModuloAdminCsv(contenedor) {
                 filas.push(filaActual);
             }
 
-            // Filtrar filas completamente vacías al final del archivo
             filas = filas.filter(f => f.join('').trim() !== '');
 
             if (filas.length < 2) {
@@ -192,10 +188,8 @@ export function cargarModuloAdminCsv(contenedor) {
                 return;
             }
 
-            // Extraer cabeceras y limpiar sus nombres
             const cabeceras = filas[0].map(h => h.trim().replace(/^"|"$/g, ''));
 
-            // Aliases Universales
             const aliasEtiqueta = ['nombre de etiqueta', 'nombre', 'etiqueta', 'identificador', 'elemento', 'valvula eca'];
             const aliasGps = ['punto gps', 'puntogps', 'coordenadas', 'punto'];
             const aliasSector = ['sector', 'departamento'];
@@ -235,7 +229,6 @@ export function cargarModuloAdminCsv(contenedor) {
 
                     let cabMin = cab.toLowerCase();
 
-                    // Clasificación Dinámica
                     if (aliasEtiqueta.includes(cabMin) && !etiqueta) etiqueta = valor;
                     else if (aliasGps.includes(cabMin) && !gps) gps = valor;
                     else if (aliasSector.includes(cabMin) && !sector) sector = valor;
@@ -261,32 +254,35 @@ export function cargarModuloAdminCsv(contenedor) {
                 listaTemporal.push(registroLimpio);
             }
 
-            // Deduplicación por Etiqueta
-            const mapaUnicos = new Map();
-            listaTemporal.forEach(item => mapaUnicos.set(item.etiqueta, item));
-            datosConvertidosGlobal = Array.from(mapaUnicos.values());
+            // AQUÍ ESTABA EL FILTRO QUE BORRABA LOS DUPLICADOS. LO QUITAMOS.
+            // Ahora pasamos la lista completa tal cual viene del CSV.
+            datosConvertidosGlobal = listaTemporal;
 
             document.getElementById('admin-resultado-container').style.display = 'block';
-            document.getElementById('admin-estado-texto').innerText = `¡Procesado para LEU! Registros de ${categoriaSeleccionada}:`;
+            document.getElementById('admin-estado-texto').innerText = `¡Procesado sin pérdidas para LEU! Registros de ${categoriaSeleccionada}:`;
             document.getElementById('admin-contador-registros').innerText = `${datosConvertidosGlobal.length} elementos`;
 
             const previewDiv = document.getElementById('admin-preview-tabla');
-            let tablaHtml = `<table style="width: 100%; border-collapse: collapse; color: #ccc;"><thead><tr style="background: #2a2a2a;">`;
+            let tablaHtml = `<style>
+                #admin-preview-tabla table { width: 100%; border-collapse: collapse; color: #ccc; }
+                #admin-preview-tabla th, #admin-preview-tabla td { border: 1px solid #444; padding: 6px; text-align: left; }
+                #admin-preview-tabla th { background: #2a2a2a; color: #38bdf8; position: sticky; top: 0; z-index: 2; }
+            </style><table><thead><tr>`;
             
             const columnasMuestra = ['Etiqueta', 'Sector', 'Ronda', 'WKT (Decimal)', 'JSON Empaquetado'];
             columnasMuestra.forEach(col => {
-                tablaHtml += `<th style="border: 1px solid #444; padding: 6px; text-align: left;">${col}</th>`;
+                tablaHtml += `<th>${col}</th>`;
             });
             tablaHtml += `</tr></thead><tbody>`;
 
-            datosConvertidosGlobal.slice(0, 15).forEach(row => {
+            datosConvertidosGlobal.slice(0, 20).forEach(row => {
                 const jsonCorto = JSON.stringify(row.atributos_tecnicos).substring(0, 50) + '...';
                 tablaHtml += `<tr>
-                    <td style="border: 1px solid #444; padding: 6px;">${row.etiqueta || ''}</td>
-                    <td style="border: 1px solid #444; padding: 6px;">${row.sector || ''}</td>
-                    <td style="border: 1px solid #444; padding: 6px;">${row.ronda || ''}</td>
-                    <td style="border: 1px solid #444; padding: 6px; color: #eab308;">${row.ubicacion_wkt || ''}</td>
-                    <td style="border: 1px solid #444; padding: 6px; color: #38bdf8; font-family: monospace;">${jsonCorto}</td>
+                    <td>${row.etiqueta || ''}</td>
+                    <td>${row.sector || ''}</td>
+                    <td>${row.ronda || ''}</td>
+                    <td style="color: #eab308;">${row.ubicacion_wkt || ''}</td>
+                    <td style="color: #38bdf8; font-family: monospace;">${jsonCorto}</td>
                 </tr>`;
             });
             tablaHtml += `</tbody></table>`;
@@ -295,45 +291,37 @@ export function cargarModuloAdminCsv(contenedor) {
     });
 
     // ==========================================
-    // SINCRONIZACIÓN INTELIGENTE CON LEU
+    // SINCRONIZACIÓN ÍNTEGRA CON LEU
     // ==========================================
     document.getElementById('btn-subir-supabase').addEventListener('click', async () => {
         if (datosConvertidosGlobal.length === 0) return;
         const categoriaSeleccionada = document.getElementById('admin-categoria-destino').value;
 
-        if (!confirm(`¿Inyectar ${datosConvertidosGlobal.length} registros en LEU bajo la categoría "${categoriaSeleccionada}"?`)) {
+        if (!confirm(`¿Inyectar los ${datosConvertidosGlobal.length} registros íntegros en LEU bajo la categoría "${categoriaSeleccionada}"?`)) {
             return;
         }
 
         const btnSubir = document.getElementById('btn-subir-supabase');
-        btnSubir.innerText = 'Analizando Archivos de LEU...';
+        btnSubir.innerText = 'Preparando inyección masiva en LEU...';
         btnSubir.disabled = true;
 
         try {
-            const { data: registrosExistentes, error: errFetch } = await clienteSupabase
-                .from('leu')
-                .select('id, etiqueta');
-
-            if (errFetch) throw new Error("No se pudo consultar LEU: " + errFetch.message);
-
-            const mapaExistentes = new Map();
+            // Como queremos guardar cada fila de manera independiente sin colapsar por nombre duplicado,
+            // usaremos inserción directa o mapeo por índice interno.
             let maxId = 0;
+            const { data: maxRes, error: errMax } = await clienteSupabase
+                .from('leu')
+                .select('id')
+                .order('id', { ascending: false })
+                .limit(1);
 
-            if (registrosExistentes) {
-                registrosExistentes.forEach(reg => {
-                    if (reg.etiqueta) mapaExistentes.set(reg.etiqueta, reg.id);
-                    if (reg.id && reg.id > maxId) maxId = reg.id;
-                });
+            if (!errMax && maxRes && maxRes.length > 0) {
+                maxId = maxRes[0].id || 0;
             }
 
-            const datosParaEnviar = datosConvertidosGlobal.map(item => {
-                const idExistente = mapaExistentes.get(item.etiqueta);
-                if (idExistente) {
-                    return { ...item, id: idExistente };
-                } else {
-                    maxId++;
-                    return { ...item, id: maxId };
-                }
+            const datosParaEnviar = datosConvertidosGlobal.map((item, index) => {
+                maxId++;
+                return { ...item, id: maxId };
             });
 
             btnSubir.innerText = `Sincronizando ${datosParaEnviar.length} registros con LEU...`;
@@ -343,12 +331,12 @@ export function cargarModuloAdminCsv(contenedor) {
                 const chunk = datosParaEnviar.slice(i, i + chunkSize);
                 const { error } = await clienteSupabase
                     .from('leu')
-                    .upsert(chunk, { onConflict: 'id' });
+                    .insert(chunk); // Usamos insert puro para conservar cada registro único
 
                 if (error) throw new Error("Error en sincronización: " + error.message);
             }
 
-            alert(`¡Conocimiento guardado en LEU! Se procesaron ${datosConvertidosGlobal.length} registros de "${categoriaSeleccionada}".`);
+            alert(`¡Inyección masiva completada! Se guardaron exitosamente los ${datosConvertidosGlobal.length} registros de "${categoriaSeleccionada}" en LEU sin perder ninguno.`);
             btnSubir.innerText = '🚀 Inyectar en LEU (Supabase)';
             btnSubir.disabled = false;
 
