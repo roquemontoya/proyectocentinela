@@ -1,6 +1,6 @@
 // ==========================================
 // MÓDULO: CMU (Conversor Maestro Universal)
-// El Bibliotecario de LEU (La Enciclopedia Universal)
+// El Bibliotecario de LEU (Parseador Invulnerable)
 // ==========================================
 
 import { clienteSupabase } from './supabaseClient.js';
@@ -36,12 +36,12 @@ export function cargarModuloAdminCsv(contenedor) {
         <div style="max-width: 950px; margin: 0 auto; color: #fff; font-family: Arial, sans-serif;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                 <h2 style="color: #38bdf8; margin: 0;">📚 CMU: Bibliotecario de LEU</h2>
-                <span style="background: #ef4444; color: #fff; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: bold;">ADMINISTRACIÓN INTELIGENTE JSONB</span>
+                <span style="background: #ef4444; color: #fff; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: bold;">PARSER INVULNERABLE JSONB</span>
             </div>
             
             <p style="color: #aaa; font-size: 13px; margin-bottom: 20px; line-height: 1.4;">
                 El motor ahora inyecta datos directamente a <b>La Enciclopedia Universal (LEU)</b>. 
-                Los campos básicos se mapean solos, y cualquier columna extra en el CSV se empaquetará dinámicamente en formato JSONB sin romper la base de datos.
+                Equipado con un lector de matriz que resiste saltos de línea dentro de las observaciones sin romper la base de datos.
             </p>
 
             <!-- TARJETA: VISOR INTEGRADO Y ACCESO A DESCARGA -->
@@ -126,7 +126,7 @@ export function cargarModuloAdminCsv(contenedor) {
     let datosConvertidosGlobal = [];
 
     // ==========================================
-    // MOTOR DE LIMPIEZA Y EMPAQUETADO JSONB
+    // MOTOR DE LECTURA TIPO MATRIZ (INVULNERABLE)
     // ==========================================
     document.getElementById('btn-procesar-csv').addEventListener('click', () => {
         const fileInput = document.getElementById('admin-input-csv');
@@ -142,17 +142,60 @@ export function cargarModuloAdminCsv(contenedor) {
 
         reader.onload = function(e) {
             const textoCsv = e.target.result;
-            const lineas = textoCsv.split(/\r\n|\n/);
             
-            if (lineas.length < 2) {
-                alert('El archivo CSV está vacío.');
+            // Detectar separador
+            let primeraLineaFin = textoCsv.indexOf('\n');
+            if (primeraLineaFin === -1) primeraLineaFin = textoCsv.length;
+            const primeraLinea = textoCsv.substring(0, primeraLineaFin);
+            const separador = primeraLinea.includes(';') ? ';' : ',';
+
+            let filas = [];
+            let filaActual = [];
+            let valorActual = '';
+            let entreComillas = false;
+
+            // Procesador letra por letra (resiste saltos de línea dentro de texto)
+            for (let i = 0; i < textoCsv.length; i++) {
+                let char = textoCsv[i];
+                let nextChar = textoCsv[i + 1];
+
+                if (char === '"') {
+                    if (entreComillas && nextChar === '"') {
+                        valorActual += '"'; // Es una comilla escapada ("")
+                        i++; // Saltamos la siguiente
+                    } else {
+                        entreComillas = !entreComillas; // Entramos o salimos de una frase
+                    }
+                } else if (char === separador && !entreComillas) {
+                    filaActual.push(valorActual);
+                    valorActual = '';
+                } else if ((char === '\n' || char === '\r') && !entreComillas) {
+                    if (char === '\r' && nextChar === '\n') i++; // Saltar Windows break
+                    filaActual.push(valorActual);
+                    filas.push(filaActual);
+                    filaActual = [];
+                    valorActual = '';
+                } else {
+                    valorActual += char;
+                }
+            }
+            if (valorActual !== '' || filaActual.length > 0) {
+                filaActual.push(valorActual);
+                filas.push(filaActual);
+            }
+
+            // Filtrar filas completamente vacías al final del archivo
+            filas = filas.filter(f => f.join('').trim() !== '');
+
+            if (filas.length < 2) {
+                alert('El archivo CSV está vacío o ilegible.');
                 return;
             }
 
-            const separador = lineas[0].includes(';') ? ';' : ',';
-            const cabeceras = lineas[0].split(separador).map(h => h.trim().replace(/^"|"$/g, ''));
+            // Extraer cabeceras y limpiar sus nombres
+            const cabeceras = filas[0].map(h => h.trim().replace(/^"|"$/g, ''));
 
-            // Aliases para identificar las columnas maestras
+            // Aliases Universales
             const aliasEtiqueta = ['nombre de etiqueta', 'nombre', 'etiqueta', 'identificador', 'elemento', 'valvula eca'];
             const aliasGps = ['punto gps', 'puntogps', 'coordenadas', 'punto'];
             const aliasSector = ['sector', 'departamento'];
@@ -163,7 +206,7 @@ export function cargarModuloAdminCsv(contenedor) {
 
             const limpiarTextoSeguro = (val) => {
                 if (!val) return null;
-                let s = String(val).replace(/^"|"$/g, '').trim();
+                let s = String(val).trim();
                 s = s.replace(/Â°/g, '°').replace(/Â/g, '').replace(/Ã³/g, 'ó').replace(/Ã¡/g, 'á')
                  .replace(/Ã©/g, 'é').replace(/Ã­/g, 'í').replace(/Ãº/g, 'ú').replace(/Ã±/g, 'ñ')
                  .replace(/\xa0/g, ' ');
@@ -176,55 +219,33 @@ export function cargarModuloAdminCsv(contenedor) {
                 if (match) {
                     const lon = parseFloat(match[1]);
                     const lat = parseFloat(match[2]);
-                    return `${lat}, ${lon}`; // Formato limpio
+                    return `${lat}, ${lon}`;
                 }
-                return wktStr; // Si es un poligono, lo devuelve tal cual
+                return wktStr; 
             };
 
-            for (let i = 1; i < lineas.length; i++) {
-                if (!lineas[i].trim()) continue;
-
-                // Parseador CSV blindado (respeta espacios y comas dentro de comillas)
-                let valores = [];
-                let inQuotes = false;
-                let currentVal = '';
-                for (let c = 0; c < lineas[i].length; c++) {
-                    let char = lineas[i][c];
-                    if (char === '"') {
-                        inQuotes = !inQuotes; // Alternar estado de comillas
-                    } else if (char === separador && !inQuotes) {
-                        valores.push(currentVal);
-                        currentVal = '';
-                    } else {
-                        currentVal += char;
-                    }
-                }
-                valores.push(currentVal); // Empujar el último valor de la fila
-                
+            for (let i = 1; i < filas.length; i++) {
+                let valores = filas[i];
                 let etiqueta = null, gps = null, sector = null, ronda = null, wkt = null;
                 let atributosJSON = {};
 
                 cabeceras.forEach((cab, idx) => {
-                    let valBruto = valores[idx] ? valores[idx].replace(/^"|"$/g, '') : '';
-                    let valor = limpiarTextoSeguro(valBruto);
-                    
+                    let valor = limpiarTextoSeguro(valores[idx]);
                     if (!valor) return;
 
                     let cabMin = cab.toLowerCase();
 
-                    // Clasificador Dinámico
+                    // Clasificación Dinámica
                     if (aliasEtiqueta.includes(cabMin) && !etiqueta) etiqueta = valor;
                     else if (aliasGps.includes(cabMin) && !gps) gps = valor;
                     else if (aliasSector.includes(cabMin) && !sector) sector = valor;
                     else if (aliasRonda.includes(cabMin) && !ronda) ronda = valor;
                     else if (aliasWkt.includes(cabMin) && !wkt) wkt = valor;
                     else {
-                        // Si no es un campo maestro, ES UN ATRIBUTO TÉCNICO -> Se va al JSON
                         atributosJSON[cab] = valor;
                     }
                 });
 
-                // Si no tiene etiqueta, usamos un fallback temporal
                 if (!etiqueta) etiqueta = `Sin Etiqueta Fila ${i}`;
 
                 const registroLimpio = {
@@ -234,7 +255,7 @@ export function cargarModuloAdminCsv(contenedor) {
                     "ronda": ronda,
                     "punto_gps": gps,
                     "ubicacion_wkt": wkt ? parsearWkt(wkt) : null,
-                    "atributos_tecnicos": atributosJSON // Empaquetado mágico
+                    "atributos_tecnicos": atributosJSON
                 };
 
                 listaTemporal.push(registroLimpio);
@@ -252,18 +273,19 @@ export function cargarModuloAdminCsv(contenedor) {
             const previewDiv = document.getElementById('admin-preview-tabla');
             let tablaHtml = `<table style="width: 100%; border-collapse: collapse; color: #ccc;"><thead><tr style="background: #2a2a2a;">`;
             
-            const columnasMuestra = ['Etiqueta', 'Sector', 'Ronda', 'JSON Empaquetado'];
+            const columnasMuestra = ['Etiqueta', 'Sector', 'Ronda', 'WKT (Decimal)', 'JSON Empaquetado'];
             columnasMuestra.forEach(col => {
                 tablaHtml += `<th style="border: 1px solid #444; padding: 6px; text-align: left;">${col}</th>`;
             });
             tablaHtml += `</tr></thead><tbody>`;
 
-            datosConvertidosGlobal.slice(0, 10).forEach(row => {
+            datosConvertidosGlobal.slice(0, 15).forEach(row => {
                 const jsonCorto = JSON.stringify(row.atributos_tecnicos).substring(0, 50) + '...';
                 tablaHtml += `<tr>
                     <td style="border: 1px solid #444; padding: 6px;">${row.etiqueta || ''}</td>
                     <td style="border: 1px solid #444; padding: 6px;">${row.sector || ''}</td>
                     <td style="border: 1px solid #444; padding: 6px;">${row.ronda || ''}</td>
+                    <td style="border: 1px solid #444; padding: 6px; color: #eab308;">${row.ubicacion_wkt || ''}</td>
                     <td style="border: 1px solid #444; padding: 6px; color: #38bdf8; font-family: monospace;">${jsonCorto}</td>
                 </tr>`;
             });
@@ -288,7 +310,6 @@ export function cargarModuloAdminCsv(contenedor) {
         btnSubir.disabled = true;
 
         try {
-            // Consultamos LEU para buscar IDs existentes y el MaxID
             const { data: registrosExistentes, error: errFetch } = await clienteSupabase
                 .from('leu')
                 .select('id, etiqueta');
@@ -305,7 +326,6 @@ export function cargarModuloAdminCsv(contenedor) {
                 });
             }
 
-            // Asignamos ID inteligente garantizando que no viajen Nulos
             const datosParaEnviar = datosConvertidosGlobal.map(item => {
                 const idExistente = mapaExistentes.get(item.etiqueta);
                 if (idExistente) {
@@ -318,7 +338,6 @@ export function cargarModuloAdminCsv(contenedor) {
 
             btnSubir.innerText = `Sincronizando ${datosParaEnviar.length} registros con LEU...`;
 
-            // Inyectamos todo usando UPSERT a la tabla 'leu'
             const chunkSize = 500;
             for (let i = 0; i < datosParaEnviar.length; i += chunkSize) {
                 const chunk = datosParaEnviar.slice(i, i + chunkSize);
