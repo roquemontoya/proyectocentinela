@@ -45,7 +45,12 @@ export async function abrirControlHidrante(dbId, idElemento) {
     document.getElementById('input-id-db').value = dbId;
     document.getElementById('input-idch').value = idElemento;
     document.getElementById('input-tabla').value = 'hidrantes';
-    if (titulo) titulo.innerText = `Control Hidrante: ${idElemento}`;
+    
+    // Configurar título y RESTABLECER color a verde por defecto
+    if (titulo) {
+        titulo.innerText = `Control Hidrante: ${idElemento}`;
+        titulo.style.color = '#22c55e'; 
+    }
 
     // 1. Inyectamos SÓLO los campos de Hidrantes (incluyendo los antiguos generales)
     renderizarFormularioHidranteHTML();

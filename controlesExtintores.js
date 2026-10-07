@@ -53,7 +53,6 @@ export async function abrirControlExtintor(dbId, idElemento) {
     document.getElementById('input-id-db').value = dbId;
     document.getElementById('input-idch').value = idElemento;
     document.getElementById('input-tabla').value = 'Extintores';
-    if (titulo) titulo.innerText = `Control Extintor: ${idElemento}`;
 
     // Consultar datos actuales del extintor (Padre)
     const { data: extData } = await clienteSupabase
@@ -62,20 +61,41 @@ export async function abrirControlExtintor(dbId, idElemento) {
         .eq('id', dbId)
         .single();
 
-    renderizarFormularioExtintorHTML(extData || {});
+    const datos = extData || {};
+    const estadoSugerido = preCalcularEstadoExtintor(datos.Vencimiento, datos.EstadoReferencia);
+
+    // ==========================================
+    // TÍTULO DINÁMICO Y COLOREADO
+    // ==========================================
+    if (titulo) {
+        let colorTitulo = '#22c55e'; // Verde (Vigente por defecto)
+        if (estadoSugerido === 'Por Vencer') colorTitulo = '#eab308'; // Amarillo
+        if (estadoSugerido === 'Vencido') colorTitulo = '#ef4444'; // Rojo
+
+        const tipoStr = datos.TipoExtintor || datos['Tipo de Extintor'] || '';
+        const nroStr = datos.Etiquetas || datos.etiquetas || datos.NombreEtiqueta || datos.NombreDeEtiqueta || idElemento;
+        const sectorStr = datos.Sector || datos.sector || '';
+
+        let tituloArmado = 'Control del Extintor';
+        if (tipoStr) tituloArmado += ` ${tipoStr}`;
+        if (nroStr) tituloArmado += ` Nro: ${nroStr}`;
+        if (sectorStr) tituloArmado += ` - ${sectorStr}`;
+
+        titulo.innerText = tituloArmado.trim();
+        titulo.style.color = colorTitulo;
+    }
+
+    renderizarFormularioExtintorHTML(datos, estadoSugerido);
     await cargarBomberosEnModal();
 
     if (modal) modal.style.display = 'flex';
 }
 
-function renderizarFormularioExtintorHTML(ext) {
+function renderizarFormularioExtintorHTML(ext, estadoSugerido) {
     const contenedorComponentes = document.getElementById('contenedor-componentes-dinamicos');
     if (!contenedorComponentes) return;
 
-    // Calculamos qué estado debería tener preseleccionado
-    const estadoSugerido = preCalcularEstadoExtintor(ext.Vencimiento, ext.EstadoReferencia);
-
-    // LÓGICA DE COMBINACIÓN: Etiquetas + Referencia + Sector
+    // LÓGICA DE COMBINACIÓN: Etiquetas + Referencia + Sector (Para el campo de solo lectura)
     const parteEtiqueta = ext.Etiquetas || ext.etiquetas || ext.NombreEtiqueta || ext.NombreDeEtiqueta || '';
     const parteReferencia = ext.Referencia || ext.referencia || '';
     const parteSector = ext.Sector || ext.sector || '';
@@ -84,10 +104,7 @@ function renderizarFormularioExtintorHTML(ext) {
         .filter(val => val && String(val).trim() !== '')
         .join(' - ');
 
-    // ==========================================
     // LÓGICA INTELIGENTE: TIPO DE EXTINTOR
-    // ==========================================
-    // Detectamos si ya había un dato guardado e intentamos coincidirlo con las 4 opciones
     const tipoVal = String(ext.TipoExtintor || ext['Tipo de Extintor'] || '').toLowerCase();
     let selPQS = (tipoVal.includes('pqs') || tipoVal.includes('polvo')) ? 'selected' : '';
     let selCO2 = (tipoVal.includes('co2') || tipoVal.includes('carbono')) ? 'selected' : '';
