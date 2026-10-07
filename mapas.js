@@ -101,6 +101,17 @@ export async function cargarModuloMapa(moduloKey, contenedor) {
     let bounds = [];
 
     (data || []).forEach(item => {
+        // ==========================================
+        // FILTRO PRP: Ocultar del mapa lo que no esté en planta
+        // ==========================================
+        if (config.tabla.toLowerCase() === 'extintores' || config.tabla.toLowerCase() === 'extintor') {
+            // Asumimos que si no tiene valor (null), es un extintor viejo que está En Planta
+            const estadoPRP = item.PRP ? String(item.PRP).trim().toLowerCase() : 'en planta';
+            
+            // Si no dice "en planta" (ej: "en pulmon", "en recarga"), NO lo dibujamos en el mapa
+            if (estadoPRP !== 'en planta') return; 
+        }
+
         const coords = extraerCoordenadas(item);
         
         if (coords) {
