@@ -1,6 +1,6 @@
 // ==========================================
 // MÓDULO: CMU (Conversor Maestro Universal)
-// Importación, Limpieza e Ingesta de My Maps a Supabase
+// Sincronización Inteligente, Limpieza e Ingesta a Supabase
 // ==========================================
 
 import { clienteSupabase } from './supabaseClient.js';
@@ -17,12 +17,12 @@ export function cargarModuloAdminCsv(contenedor) {
         <div style="max-width: 950px; margin: 0 auto; color: #fff; font-family: Arial, sans-serif;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                 <h2 style="color: #38bdf8; margin: 0;">🌐 CMU (Conversor Maestro Universal)</h2>
-                <span style="background: #ef4444; color: #fff; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: bold;">ADMINISTRACIÓN</span>
+                <span style="background: #ef4444; color: #fff; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: bold;">ADMINISTRACIÓN INTELIGENTE</span>
             </div>
             
             <p style="color: #aaa; font-size: 13px; margin-bottom: 20px; line-height: 1.4;">
                 Herramienta centralizada para migrar los mapas de Google My Maps a Supabase. 
-                El motor limpia la codificación corrupta (tildes rotas y <b>Â°</b>), <b>protege las marcas con primas (' , ´ , ¨)</b> para evitar colisiones de equipos gemelos, y convierte las geometrías WKT automáticamente.
+                El motor limpia la codificación corrupta, <b>protege las marcas con primas (' , ´ , ¨)</b> y cruza inteligentemente los datos existentes para actualizar sin romper relaciones ni duplicar IDs.
             </p>
 
             <div style="background: #1e1e1e; padding: 20px; border-radius: 8px; border: 1px solid #333; margin-bottom: 20px;">
@@ -60,7 +60,7 @@ export function cargarModuloAdminCsv(contenedor) {
                 
                 <div id="admin-preview-tabla" style="max-height: 280px; overflow: auto; margin-bottom: 15px; font-size: 12px; background: #121212; padding: 10px; border-radius: 4px; border: 1px solid #444;"></div>
                 
-                <button id="btn-subir-supabase" style="background: #38bdf8; color: #000; border: none; padding: 12px 20px; border-radius: 5px; font-weight: bold; cursor: pointer; width: 100%; font-size: 14px;">🚀 Sincronizar Masivamente con Supabase</button>
+                <button id="btn-subir-supabase" style="background: #38bdf8; color: #000; border: none; padding: 12px 20px; border-radius: 5px; font-weight: bold; cursor: pointer; width: 100%; font-size: 14px;">🚀 Sincronizar Inteligentemente con Supabase</button>
             </div>
         </div>
     `;
@@ -78,7 +78,6 @@ export function cargarModuloAdminCsv(contenedor) {
         }
 
         const reader = new FileReader();
-        // ISO-8859-1 preserva acentos y caracteres latinos originales de My Maps
         reader.readAsText(fileInput.files[0], 'ISO-8859-1');
 
         reader.onload = function(e) {
@@ -93,9 +92,8 @@ export function cargarModuloAdminCsv(contenedor) {
             const separador = lineas[0].includes(';') ? ';' : ',';
             const cabeceras = lineas[0].split(separador).map(h => h.trim().replace(/^"|"$/g, ''));
 
-            datosConvertidosGlobal = [];
+            let listaTemporal = [];
 
-            // 1. Limpieza segura: Repara tildes rotas y basura web PERO RESPETA primas (' , ´ , ¨ , ")
             const limpiarTextoSeguro = (val) => {
                 if (!val) return null;
                 let s = String(val).replace(/^"|"$/g, '').trim();
@@ -112,7 +110,6 @@ export function cargarModuloAdminCsv(contenedor) {
                 return s === '' ? null : s;
             };
 
-            // 2. Buscador flexible de campos (independiente de cómo los haya nombrado el mapa)
             const buscarCampo = (fila, nombresPosibles) => {
                 for (let nombre of nombresPosibles) {
                     if (fila[nombre] !== undefined && fila[nombre] !== '') {
@@ -122,7 +119,6 @@ export function cargarModuloAdminCsv(contenedor) {
                 return null;
             };
 
-            // 3. Extractor de coordenadas WKT (POINT lon lat)
             const parsearWkt = (wktStr) => {
                 if (!wktStr) return { lat: null, lon: null, ubicacion: null };
                 const match = String(wktStr).match(/POINT\s*\(\s*([-\d.]+)\s+([-\d.]+)\s*\)/i);
@@ -137,14 +133,12 @@ export function cargarModuloAdminCsv(contenedor) {
             for (let i = 1; i < lineas.length; i++) {
                 if (!lineas[i].trim()) continue;
 
-                // Parseo básico de la línea CSV
                 const valores = lineas[i].split(separador).map(v => v.replace(/^"|"$/g, ''));
                 let filaOriginal = {};
                 cabeceras.forEach((cab, idx) => {
                     filaOriginal[cab] = valores[idx] !== undefined ? valores[idx] : '';
                 });
 
-                // Extracción de campos clave usando criterios flexibles
                 const etiqueta = buscarCampo(filaOriginal, ['Nombre de etiqueta', 'Nombre', 'ETIQUETA', 'Identificador', 'Elemento']);
                 const puntoGps = buscarCampo(filaOriginal, ['Punto GPS', 'PuntoGPS', 'Coordenadas']);
                 const sector = buscarCampo(filaOriginal, ['Sector', 'SECTOR']);
@@ -158,7 +152,6 @@ export function cargarModuloAdminCsv(contenedor) {
                 
                 const wktData = parsearWkt(filaOriginal['WKT'] || filaOriginal['geom'] || '');
 
-                // Construcción del objeto unificado para Supabase
                 const registroLimpio = {
                     "fid": i,
                     "ETIQUETA": etiqueta,
@@ -172,16 +165,25 @@ export function cargarModuloAdminCsv(contenedor) {
                     "PH": ph ? parseFloat(ph) : null,
                     "Observacion": observacion,
                     "UBICACION": wktData.ubicacion,
-                    "PRP": "En Planta" // Estado inicial predeterminado para planta
+                    "PRP": "En Planta"
                 };
 
-                datosConvertidosGlobal.push(registroLimpio);
+                listaTemporal.push(registroLimpio);
             }
 
-            // Renderizar tabla de previsualización
+            // Deduplicación interna del CSV por etiqueta (evita duplicados exactos dentro del mismo archivo)
+            const mapaUnicos = new Map();
+            listaTemporal.forEach(item => {
+                if (item.ETIQUETA) {
+                    mapaUnicos.set(item.ETIQUETA, item);
+                }
+            });
+            datosConvertidosGlobal = Array.from(mapaUnicos.values());
+
+            // Renderizar previsualización
             document.getElementById('admin-resultado-container').style.display = 'block';
-            document.getElementById('admin-estado-texto').innerText = `¡Conversión exitosa! Vista previa de registros limpios:`;
-            document.getElementById('admin-contador-registros').innerText = `${datosConvertidosGlobal.length} elementos encontrados`;
+            document.getElementById('admin-estado-texto').innerText = `¡Conversión y análisis exitoso! Registros listos:`;
+            document.getElementById('admin-contador-registros').innerText = `${datosConvertidosGlobal.length} elementos únicos`;
 
             const previewDiv = document.getElementById('admin-preview-tabla');
             let tablaHtml = `<table style="width: 100%; border-collapse: collapse; color: #ccc;"><thead><tr style="background: #2a2a2a;">`;
@@ -205,41 +207,68 @@ export function cargarModuloAdminCsv(contenedor) {
     });
 
     // ==========================================
-    // SINCRONIZACIÓN MASIVA CON SUPABASE
+    // SINCRONIZACIÓN INTELIGENTE CON SUPABASE
     // ==========================================
     document.getElementById('btn-subir-supabase').addEventListener('click', async () => {
         if (datosConvertidosGlobal.length === 0) return;
         const tablaDestino = document.getElementById('admin-tabla-destino').value;
 
-        if (!confirm(`¿Estás seguro de sincronizar ${datosConvertidosGlobal.length} registros limpios en la tabla "${tablaDestino}" de Supabase?`)) {
+        if (!confirm(`¿Estás seguro de realizar la sincronización inteligente de ${datosConvertidosGlobal.length} registros en la tabla "${tablaDestino}"?`)) {
             return;
         }
 
         const btnSubir = document.getElementById('btn-subir-supabase');
-        btnSubir.innerText = 'Subiendo por bloques a Supabase...';
+        btnSubir.innerText = 'Analizando registros actuales en Supabase...';
         btnSubir.disabled = true;
 
         try {
-            // Inserción en bloques de 500 registros para evitar límites de la API
+            // 1. PASO INTELIGENTE: Traer los registros que ya existen en la base de datos
+            const { data: registrosExistentes, error: errFetch } = await clienteSupabase
+                .from(tablaDestino)
+                .select('id, ETIQUETA');
+
+            if (errFetch) throw new Error("No se pudo consultar Supabase: " + errFetch.message);
+
+            // Crear mapa rápido para comparar por ETIQUETA
+            const mapaExistentes = new Map();
+            if (registrosExistentes) {
+                registrosExistentes.forEach(reg => {
+                    if (reg.ETIQUETA) mapaExistentes.set(reg.ETIQUETA, reg.id);
+                });
+            }
+
+            // 2. CRUCE INTELIGENTE: Asignar el ID original si ya existe (para actualizar), o dejarlo libre (para insertar nuevo)
+            const datosParaEnviar = datosConvertidosGlobal.map(item => {
+                const idExistente = mapaExistentes.get(item.ETIQUETA);
+                if (idExistente) {
+                    // Si ya existe en la BD, heredamos su ID original (¡Cero relaciones rotas!)
+                    return { ...item, id: idExistente };
+                }
+                // Si es nuevo, no mandamos id para que Supabase lo autogenere
+                return item;
+            });
+
+            btnSubir.innerText = 'Sincronizando por bloques con Supabase...';
+
+            // 3. ENVIAR A SUPABASE USANDO EL UPSERT POR 'id' (Que siempre es único y nativo)
             const chunkSize = 500;
-            for (let i = 0; i < datosConvertidosGlobal.length; i += chunkSize) {
-                const chunk = datosConvertidosGlobal.slice(i, i + chunkSize);
+            for (let i = 0; i < datosParaEnviar.length; i += chunkSize) {
+                const chunk = datosParaEnviar.slice(i, i + chunkSize);
                 
-                // Usamos upsert tomando 'ETIQUETA' como conflicto para actualizar sin borrar las primas ni duplicar
                 const { error } = await clienteSupabase
                     .from(tablaDestino)
-                    .upsert(chunk, { onConflict: 'ETIQUETA' });
+                    .upsert(chunk, { onConflict: 'id' });
 
                 if (error) throw new Error(error.message);
             }
 
-            alert(`¡Sincronización completada con éxito en la tabla "${tablaDestino}"!`);
-            btnSubir.innerText = '🚀 Sincronizar Masivamente con Supabase';
+            alert(`¡Sincronización inteligente completada con éxito en la tabla "${tablaDestino}"! Se actualizaron los existentes y se agregaron los nuevos sin perder datos.`);
+            btnSubir.innerText = '🚀 Sincronizar Inteligentemente con Supabase';
             btnSubir.disabled = false;
 
         } catch (err) {
             alert('Error durante la sincronización: ' + err.message);
-            btnSubir.innerText = '🚀 Sincronizar Masivamente con Supabase';
+            btnSubir.innerText = '🚀 Sincronizar Inteligentemente con Supabase';
             btnSubir.disabled = false;
         }
     });
