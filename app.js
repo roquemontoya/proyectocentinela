@@ -1,83 +1,90 @@
 // ==========================================
-// MÓDULO PRINCIPAL: Orquestador (app.js)
+// MÓDULO PRINCIPAL: Enrutador y Control de UI (app.js)
 // ==========================================
 
 import { cargarModuloMapa } from './mapas.js';
-import { cargarModuloBomberos } from './bomberos.js';
-import { abrirControlHidrante, guardarControlHidrante, cambiarTipoControl, verificarDetalleLlave } from './controlesHidrantes.js';
+import { cargarModuloPulmon } from './moduloPulmon.js';
 import { abrirControlExtintor, guardarControlExtintor } from './controlesExtintores.js';
-import { verificarEstadoControl, cerrarFormularioControl } from './controlesBase.js';
+import { abrirControlHidrante, guardarControlHidrante } from './controlesHidrantes.js';
 
-// Control del menú lateral (hamburguesa)
-window.toggleMenu = function() {
-    const drawer = document.getElementById('side-menu');
-    const overlay = document.getElementById('drawer-overlay');
-    if (drawer && overlay) {
-        drawer.classList.toggle('open');
-        overlay.classList.toggle('active');
-    }
-};
+// --- Navegación de Vistas ---
 
-// Volver al Home principal
-window.irInicio = function() {
-    const mainContent = document.getElementById('main-content');
-    const vistaDinamica = document.getElementById('vista-dinamica');
-    
-    if (mainContent) mainContent.style.display = 'grid';
-    if (vistaDinamica) vistaDinamica.style.display = 'none';
-    
-    const drawer = document.getElementById('side-menu');
-    if (drawer && drawer.classList.contains('open')) {
-        window.toggleMenu();
-    }
-};
-
-// Orquestador principal de módulos al hacer clic en los botones
 window.cargarModulo = async function(moduloKey) {
-    const drawer = document.getElementById('side-menu');
-    if (drawer && drawer.classList.contains('open')) {
-        window.toggleMenu();
-    }
+    const grid = document.getElementById('main-content');
+    const vistaDinamica = document.getElementById('vista-dinamica');
 
-    const mainContent = document.getElementById('main-content');
-    const contenedor = document.getElementById('vista-dinamica');
+    // Ocultar pantalla de inicio (tarjetas) y mostrar vista dinámica
+    grid.style.display = 'none';
+    vistaDinamica.style.display = 'block';
 
-    if (mainContent) mainContent.style.display = 'none';
-    if (contenedor) {
-        contenedor.style.display = 'block';
-    }
-
-    if (moduloKey === 'bomberos') {
-        await cargarModuloBomberos(contenedor);
+    // ENRUTAMIENTO INTELIGENTE: ¿Mapa o Tabla?
+    if (moduloKey === 'pulmon') {
+        // Carga la tabla de inventario y reservas
+        await cargarModuloPulmon(vistaDinamica);
     } else {
-        await cargarModuloMapa(moduloKey, contenedor);
+        // Carga el mapa satelital de Leaflet
+        await cargarModuloMapa(moduloKey, vistaDinamica);
+    }
+
+    // Cierra el menú lateral (drawer) de forma automática si estaba abierto
+    const sideMenu = document.getElementById('side-menu');
+    const overlay = document.getElementById('drawer-overlay');
+    if (sideMenu && sideMenu.classList.contains('open')) {
+        sideMenu.classList.remove('open');
+        if (overlay) overlay.classList.remove('open');
     }
 };
 
-// Enrutador global para abrir el formulario según la tabla
+window.irInicio = function() {
+    // Volver a mostrar las tarjetas principales y limpiar el mapa/tabla
+    document.getElementById('main-content').style.display = 'grid';
+    document.getElementById('vista-dinamica').style.display = 'none';
+    document.getElementById('vista-dinamica').innerHTML = ''; 
+    
+    // Cierra el menú lateral si está abierto
+    const sideMenu = document.getElementById('side-menu');
+    const overlay = document.getElementById('drawer-overlay');
+    if (sideMenu && sideMenu.classList.contains('open')) {
+        sideMenu.classList.remove('open');
+        if (overlay) overlay.classList.remove('open');
+    }
+};
+
+window.toggleMenu = function() {
+    const sideMenu = document.getElementById('side-menu');
+    const overlay = document.getElementById('drawer-overlay');
+    sideMenu.classList.toggle('open');
+    overlay.classList.toggle('open');
+};
+
+
+// --- Enrutador de Formularios (Modal) ---
+
+// Esta función es llamada desde el popup del mapa o desde la tabla del pulmón
 window.abrirFormularioControl = function(tabla, dbId, idElemento) {
-    const tablaLower = tabla.toLowerCase();
-    if (tablaLower === 'hidrantes') {
-        abrirControlHidrante(dbId, idElemento);
-    } else if (tablaLower === 'extintores' || tablaLower === 'extintor') {
+    const t = tabla.toLowerCase();
+    
+    // Deriva la apertura del modal al archivo JS correspondiente
+    if (t === 'extintores' || t === 'extintor') {
         abrirControlExtintor(dbId, idElemento);
+    } else if (t === 'hidrantes' || t === 'hidrante') {
+        abrirControlHidrante(dbId, idElemento);
     } else {
-        alert(`Módulo de control para ${tabla} aún no implementado.`);
+        alert(`El módulo de controles para ${tabla.toUpperCase()} se encuentra en desarrollo.`);
     }
 };
 
-// Enrutador global para guardar según la tabla activa
+// Esta función captura el "Submit" del formulario y lo envía al archivo correspondiente
 window.guardarControl = function(event) {
+    event.preventDefault(); // Evita que la página se recargue
+    
     const tabla = document.getElementById('input-tabla').value.toLowerCase();
-    if (tabla === 'hidrantes') {
-        guardarControlHidrante(event);
-    } else if (tabla === 'extintores' || tabla === 'extintor') {
+    
+    if (tabla === 'extintores' || tabla === 'extintor') {
         guardarControlExtintor(event);
+    } else if (tabla === 'hidrantes' || tabla === 'hidrante') {
+        guardarControlHidrante(event);
+    } else {
+        alert(`La función de guardado para ${tabla.toUpperCase()} aún no está implementada.`);
     }
 };
-
-// Exponer funciones auxiliares al objeto global window
-window.cambiarTipoControl = cambiarTipoControl;
-window.verificarDetalleLlave = verificarDetalleLlave;
-window.verificarEstadoControl = verificarEstadoControl;
-window.cerrarFormularioControl = cerrarFormularioControl;

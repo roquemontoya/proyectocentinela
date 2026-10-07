@@ -32,11 +32,12 @@
         </div>
         <ul class="drawer-list">
             <li onclick="cargarModulo('ecas')">📋 ECAS</li>
-            <li onclick="cargarModulo('extintores')">🧯 Extintores</li>
+            <li onclick="cargarModulo('extintores')">🧯 Extintores en Planta</li>
+            <li onclick="cargarModulo('pulmon')">📦 Pulmón / Reserva</li>
             <li onclick="cargarModulo('hidrantes')">🚰 Hidrantes</li>
             <li onclick="cargarModulo('valvulas')">⚙️ Válvulas</li>
             <li onclick="cargarModulo('bomberos')">👨‍🚒 Personal / Bomberos</li>
-            <li onclick="cargarModulo('ipp')">📦 IPP</li>
+            <li onclick="cargarModulo('ipp')">👷‍♂️ IPP</li>
             <li onclick="cargarModulo('pecas')">🔧 PECAS</li>
             <li onclick="cargarModulo('vecas')">⚙️ VECAS</li>
         </ul>
@@ -51,8 +52,15 @@
         </div>
         <div class="card" onclick="cargarModulo('extintores')">
             <div class="card-img" style="font-size: 45px; text-align: center; margin: 15px 0;">🧯</div>
-            <div class="card-title">Extintores</div>
+            <div class="card-title">Extintores en Planta</div>
         </div>
+        
+        <!-- NUEVA TARJETA: PULMÓN -->
+        <div class="card" onclick="cargarModulo('pulmon')">
+            <div class="card-img" style="font-size: 45px; text-align: center; margin: 15px 0;">🔄</div>
+            <div class="card-title">Pulmón (Reserva / Recarga)</div>
+        </div>
+
         <div class="card" onclick="cargarModulo('ecas')">
             <div class="card-img" style="font-size: 45px; text-align: center; margin: 15px 0;">📋</div>
             <div class="card-title">ECAS</div>
@@ -74,12 +82,12 @@
             <div class="card-title">Personal / Bomberos</div>
         </div>
         <div class="card" onclick="cargarModulo('ipp')">
-            <div class="card-img" style="font-size: 45px; text-align: center; margin: 15px 0;">📦</div>
+            <div class="card-img" style="font-size: 45px; text-align: center; margin: 15px 0;">👷‍♂️</div>
             <div class="card-title">IPP</div>
         </div>
     </main>
 
-    <!-- Contenedor dinámico para mapas -->
+    <!-- Contenedor dinámico para mapas o tablas -->
     <div id="vista-dinamica" class="dynamic-container" style="display: none;"></div>
 
     <!-- Scripts -->
