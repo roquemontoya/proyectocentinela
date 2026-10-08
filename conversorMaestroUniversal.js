@@ -484,24 +484,18 @@ export function cargarModuloAdminCsv(contenedor) {
                         ) {
                             const parte = filas[indiceFin];
 
-                            // Reparación segura: las líneas de continuación deben aportar
-                            // únicamente texto en la primera columna.
-                            const hayDatosFueraDeDescripcion = Array.isArray(parte) &&
-                                parte.slice(1).some(valor => !esTextoVacio(valor));
+                            // En estos CSV las líneas de descripción también pueden contener
+                            // comas sin entrecomillar. Papa Parse las reparte en varias columnas.
+                            // Como ya estamos dentro de un bloque delimitado inequívocamente por WKT,
+                            // recomponemos la línea concatenando sus campos físicos con comas.
+                            const camposTexto = Array.isArray(parte)
+                                ? parte
+                                    .map(valor => valor === null || valor === undefined ? '' : String(valor).trim())
+                                    .filter(valor => valor !== '')
+                                : [];
 
-                            if (hayDatosFueraDeDescripcion) {
-                                return {
-                                    fila: null,
-                                    indiceFin,
-                                    segura: false,
-                                    motivo: 'IPP: la continuación de la descripción en la fila ' +
-                                        (indiceFin + 2) +
-                                        ' contiene datos fuera de la primera columna; reparación no determinista.'
-                                };
-                            }
-
-                            if (!esTextoVacio(parte?.[0])) {
-                                partesDescripcion.push(String(parte[0]).trim());
+                            if (camposTexto.length > 0) {
+                                partesDescripcion.push(camposTexto.join(', '));
                             }
 
                             indiceFin++;
