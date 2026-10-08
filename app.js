@@ -5,29 +5,21 @@
 import { cargarModuloAdminCsv } from './conversorMaestroUniversal.js';
 import { cargarModuloGestorTablas } from './gestorTablas.js';
 
-// 1. FUNCIÓN GLOBAL ROBUSTA PARA EL MENÚ LATERAL (Tres rayitas)
+// 1. CONTROL DEL DRAWER LATERAL
+// index.html define #side-menu.side-drawer y #drawer-overlay.overlay.
+// style.css controla la apertura mediante .open y .active respectivamente.
 window.toggleMenu = function() {
-    // Buscar la barra lateral por cualquier selector posible en el proyecto
-    const sidebar = document.querySelector('.sidebar') || 
-                    document.querySelector('aside') || 
-                    document.querySelector('#sidebar') || 
-                    document.querySelector('.modules-sidebar') || 
-                    document.querySelector('[class*="sidebar"]') ||
-                    document.querySelector('[class*="menu"]');
-    
-    if (sidebar) {
-        // Alternar visibilidad de forma directa y segura
-        const currentDisplay = window.getComputedStyle(sidebar).display;
-        if (currentDisplay === 'none' || sidebar.style.display === 'none') {
-            sidebar.style.display = 'block';
-            sidebar.style.width = '260px';
-        } else {
-            sidebar.style.display = 'none';
-        }
-        sidebar.classList.toggle('active');
-        sidebar.classList.toggle('open');
-    } else {
-        console.error("❌ No se encontró la barra lateral en el DOM.");
+    const menu = document.getElementById('side-menu');
+    const overlay = document.getElementById('drawer-overlay');
+
+    if (!menu) {
+        console.error('❌ No se encontró #side-menu en el DOM.');
+        return;
+    }
+
+    const isOpen = menu.classList.toggle('open');
+    if (overlay) {
+        overlay.classList.toggle('active', isOpen);
     }
 };
 
