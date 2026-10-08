@@ -365,6 +365,17 @@ export function cargarModuloAdminCsv(contenedor) {
                             }
 
                             filaOriginal = sinVaciosFinales;
+
+                            // Si al eliminar únicamente campos vacíos sobrantes la fila
+                            // quedó exactamente en el tamaño canónico, ya es una fila normal.
+                            if (filaOriginal.length === COLUMNAS_ESPERADAS) {
+                                return {
+                                    fila: filaOriginal,
+                                    reparada: false,
+                                    motivo: null,
+                                    tipoReparacion: null
+                                };
+                            }
                         }
 
                         // CASO 1: Punto GPS decimal partido por una coma no entrecomillada.
