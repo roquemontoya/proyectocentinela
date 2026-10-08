@@ -384,12 +384,69 @@ export function cargarModuloAdminCsv(contenedor) {
                             .test(String(valor).trim());
                     };
 
+                    // Algunas exportaciones CSV llegan con el WKT POLYGON/GEOMETRYCOLLECTION
+                    // sin comillas. Papa Parse entonces divide el WKT en varias columnas porque
+                    // contiene comas internas. Esta reparación recompone exclusivamente el WKT
+                    // usando el balance de paréntesis y luego deja intactos nombre + descripción.
+                    const recomponerWktIppSiEstaPartido = (fila) => {
+                        if (
+                            categoriaDetectadaGlobal !== 'IPP (Macro Sectores)' ||
+                            !Array.isArray(fila) ||
+                            fila.length === 0 ||
+                            esTextoVacio(fila[0])
+                        ) {
+                            return null;
+                        }
+
+                        // Caso normal: Papa Parse ya entregó el WKT completo en fila[0].
+                        if (wktEsValido(fila[0])) {
+                            return [...fila];
+                        }
+
+                        const primerCampo = String(fila[0]).trim();
+                        if (!/^(?:SRID=\\d+;)?(?:POINT|LINESTRING|POLYGON|MULTIPOINT|MULTILINESTRING|MULTIPOLYGON|GEOMETRYCOLLECTION)\\s*\\(/i.test(primerCampo)) {
+                            return null;
+                        }
+
+                        let profundidad = 0;
+
+                        for (let i = 0; i < fila.length; i++) {
+                            const campo = String(fila[i] ?? '');
+                            for (const caracter of campo) {
+                                if (caracter === '(') profundidad++;
+                                else if (caracter === ')') profundidad--;
+                            }
+
+                            if (profundidad === 0) {
+                                const wktReconstruido = fila.slice(0, i + 1).join(',').trim();
+
+                                if (!wktEsValido(wktReconstruido)) {
+                                    return null;
+                                }
+
+                                const resto = fila.slice(i + 1);
+
+                                // Un registro IPP válido necesita el nombre inmediatamente después
+                                // del WKT. Si no existe, no desplazamos columnas a ciegas.
+                                if (esTextoVacio(resto[0])) {
+                                    return null;
+                                }
+
+                                return [wktReconstruido, ...resto];
+                            }
+                        }
+
+                        return null;
+                    };
+
                     const esInicioRegistroIpp = (fila) => {
+                        const filaNormalizada = recomponerWktIppSiEstaPartido(fila);
+
                         return (
                             categoriaDetectadaGlobal === 'IPP (Macro Sectores)' &&
-                            Array.isArray(fila) &&
-                            wktEsValido(fila[0]) &&
-                            !esTextoVacio(fila[1])
+                            Array.isArray(filaNormalizada) &&
+                            wktEsValido(filaNormalizada[0]) &&
+                            !esTextoVacio(filaNormalizada[1])
                         );
                     };
 
@@ -401,7 +458,9 @@ export function cargarModuloAdminCsv(contenedor) {
                     const reconstruirRegistroIppMultilinea = (filas, indiceInicio) => {
                         if (!esInicioRegistroIpp(filas?.[indiceInicio])) return null;
 
-                        const filaInicio = filas[indiceInicio];
+                        const filaInicio = recomponerWktIppSiEstaPartido(filas[indiceInicio]);
+                        if (!filaInicio) return null;
+
                         let indiceFin = indiceInicio + 1;
                         const partesDescripcion = [];
 
@@ -440,6 +499,8 @@ export function cargarModuloAdminCsv(contenedor) {
 
                         if (indiceFin === indiceInicio + 1) return null;
 
+                        // La recomposición del WKT puede haber corrido las columnas a la izquierda,
+                        // por lo que reconstruimos desde la fila ya normalizada, no desde la fila física.
                         const filaCanonica = new Array(COLUMNAS_ESPERADAS).fill(null);
                         filaCanonica[0] = filaInicio[0];
                         filaCanonica[1] = filaInicio[1];
