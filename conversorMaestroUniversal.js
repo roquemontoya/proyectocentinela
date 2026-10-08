@@ -172,6 +172,23 @@ export function cargarModuloAdminCsv(contenedor) {
     let auditoriaCsvGlobal = null;
     let encabezadosOriginalesGlobal = [];
 
+    // Utilidad compartida: el botón de importación se ejecuta fuera del
+    // callback de Papa.parse(), por lo que no puede depender de helpers
+    // declarados dentro de ese callback.
+    const obtenerValorImportacion = (fila, indice) => {
+        if (!Array.isArray(fila) || indice < 0 || indice >= fila.length) return null;
+        const valor = fila[indice];
+        if (valor === null || valor === undefined) return null;
+
+        const texto = String(valor)
+            .replace(/^\\uFEFF/, '')
+            .replace(/[\\u00A0\\u1680\\u2000-\\u200B\\u202F\\u205F\\u3000]/g, ' ')
+            .trim();
+
+        if (!texto) return null;
+        return texto.replace(/Â°/g, '°').replace(/Ã‚°/g, '°').trim() || null;
+    };
+
     document.getElementById('admin-input-csv').addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -1349,7 +1366,7 @@ const convertirWktIppAGeometria = (valor) => {
                         const indice = encabezadosOriginalesGlobal.findIndex(h =>
                             String(h).trim() === nombreColumna
                         );
-                        return indice >= 0 ? obtenerValor(item.__filaOriginalIpp || [], indice) : null;
+                        return indice >= 0 ? obtenerValorImportacion(item.__filaOriginalIpp || [], indice) : null;
                     };
 
                     arrayControlesIpp.push({
