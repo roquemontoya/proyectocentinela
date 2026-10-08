@@ -275,15 +275,18 @@ export function cargarModuloAdminCsv(contenedor) {
                             encabezadosOriginales.map(normalizarCabecera)
                         );
 
-                        // IPP (Macro Sectores): capa zonal con nombre + descripción
-                        // y controles/referencias de protección contra incendios.
+                        // IPP (Macro Sectores): basta con la firma estructural WKT + nombre +
+                        // descripción y al menos una referencia de protección. No dependemos de que
+                        // todas las columnas estén presentes o hayan conservado exactamente su nombre.
                         if (
                             claves.has('wkt') &&
                             claves.has('nombre') &&
                             claves.has('descripcion') &&
-                            claves.has('extintores') &&
-                            claves.has('hidrantes') &&
-                            claves.has('ecas')
+                            (
+                                claves.has('extintores') ||
+                                claves.has('hidrantes') ||
+                                claves.has('ecas')
+                            )
                         ) {
                             return 'IPP (Macro Sectores)';
                         }
@@ -440,14 +443,21 @@ export function cargarModuloAdminCsv(contenedor) {
                     };
 
                     const esInicioRegistroIpp = (fila) => {
-                        const filaNormalizada = recomponerWktIppSiEstaPartido(fila);
+                        if (categoriaDetectadaGlobal !== 'IPP (Macro Sectores)' || !Array.isArray(fila)) {
+                            return false;
+                        }
 
-                        return (
-                            categoriaDetectadaGlobal === 'IPP (Macro Sectores)' &&
-                            Array.isArray(filaNormalizada) &&
-                            wktEsValido(filaNormalizada[0]) &&
-                            !esTextoVacio(filaNormalizada[1])
-                        );
+                        const primerCampo = String(fila[0] ?? '').trim();
+                        const pareceWktPartido = /^(?:SRID=\d+;)?(?:POINT|LINESTRING|POLYGON|MULTIPOINT|MULTILINESTRING|MULTIPOLYGON|GEOMETRYCOLLECTION)\s*\(/i.test(primerCampo);
+
+                        if (wktEsValido(primerCampo)) {
+                            return !esTextoVacio(fila[1]);
+                        }
+
+                        if (!pareceWktPartido) return false;
+
+                        const normalizada = recomponerWktIppSiEstaPartido(fila);
+                        return !!normalizada && wktEsValido(normalizada[0]) && !esTextoVacio(normalizada[1]);
                     };
 
                     // Exportación IPP especial:
@@ -973,7 +983,27 @@ export function cargarModuloAdminCsv(contenedor) {
                         });
                     });
                     if (listaTemporal.length === 0) {
-                        alert('❌ No se encontraron registros de datos después de procesar el CSV.');
+                        const firmaWkt = filasDatos.filter(f =>
+                            Array.isArray(f) &&
+                            /^(?:SRID=\d+;)?(?:POINT|LINESTRING|POLYGON|MULTIPOINT|MULTILINESTRING|MULTIPOLYGON|GEOMETRYCOLLECTION)\s*\(/i.test(String(f?.[0] ?? '').trim())
+                        ).length;
+
+                        console.error('CMU - CSV sin registros:', {
+                            categoria: categoriaDetectadaGlobal,
+                            columnasEsperadas: COLUMNAS_ESPERADAS,
+                            filasFisicas: filasDatos.length,
+                            filasConInicioWkt: firmaWkt,
+                            encabezados: encabezadosOriginales
+                        });
+
+                        alert(
+                            '❌ No se encontraron registros de datos después de procesar el CSV.\\n\\n' +
+                            'Diagnóstico CMU: ' +
+                            (categoriaDetectadaGlobal || 'sin categoría') +
+                            ' · ' + COLUMNAS_ESPERADAS + ' columnas · ' +
+                            filasDatos.length + ' filas físicas · ' +
+                            firmaWkt + ' posibles inicios WKT.'
+                        );
                         return;
                     }
 
