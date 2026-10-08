@@ -7,6 +7,9 @@ import { cargarModuloGestorTablas } from './gestorTablas.js';
 import { cargarModuloMapa } from './mapas.js';
 import { cargarModuloPulmon } from './moduloPulmon.js';
 import { cargarModuloBomberos } from './bomberos.js';
+import { abrirControlExtintor, guardarControlExtintor } from './controlesExtintores.js';
+import { abrirControlHidrante, guardarControlHidrante } from './controlesHidrantes.js';
+import { cerrarFormularioControl } from './controlesBase.js';
 
 // Control del menú lateral.
 window.toggleMenu = function() {
@@ -39,6 +42,38 @@ window.irInicio = function() {
     if (overlay) overlay.classList.remove('active');
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
+};
+
+// Funciones globales requeridas por los onclick del HTML y los popups de Leaflet.
+window.cerrarFormularioControl = cerrarFormularioControl;
+
+window.abrirFormularioControl = async function(tabla, dbId, idElemento) {
+    const tablaNormalizada = String(tabla || '').toLowerCase();
+
+    if (tablaNormalizada === 'extintores' || tablaNormalizada === 'extintor') {
+        return abrirControlExtintor(dbId, idElemento);
+    }
+
+    if (tablaNormalizada === 'hidrantes' || tablaNormalizada === 'hidrante') {
+        return abrirControlHidrante(dbId, idElemento);
+    }
+
+    alert(`El módulo de controles para "${tabla}" todavía no está implementado.`);
+    console.warn('⚠️ No existe un formulario de control registrado para:', tabla);
+};
+
+window.guardarControl = async function(event) {
+    const tabla = String(document.getElementById('input-tabla')?.value || '').toLowerCase();
+
+    if (tabla === 'extintores' || tabla === 'extintor') {
+        return guardarControlExtintor(event);
+    }
+
+    if (tabla === 'hidrantes' || tabla === 'hidrante') {
+        return guardarControlHidrante(event);
+    }
+
+    alert(`No existe un guardado de control implementado para "${tabla}".`);
 };
 
 // Enrutador único de la PWA.
