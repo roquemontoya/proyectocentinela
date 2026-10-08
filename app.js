@@ -1,86 +1,57 @@
 // ==========================================
-// MÓDULO PRINCIPAL: Enrutador y Control de UI (app.js)
+// SCRIPT PRINCIPAL: app.js (Controlador PWA)
 // ==========================================
 
-import { cargarModuloMapa } from './mapas.js';
-import { cargarModuloPulmon } from './moduloPulmon.js';
-import { cargarModuloAdminCsv } from './conversorMaestroUniversal.js'; // <-- APUNTANDO AL NOMBRE REAL DE TU ARCHIVO
-import { abrirControlExtintor, guardarControlExtintor } from './controlesExtintores.js';
-import { abrirControlHidrante, guardarControlHidrante } from './controlesHidrantes.js';
+import { cargarModuloAdminCsv } from './conversorMaestroUniversal.js';
+import { cargarModuloGestorTablas } from './gestorTablas.js';
 
-// --- Navegación de Vistas ---
-
-window.cargarModulo = async function(moduloKey) {
-    const grid = document.getElementById('main-content');
-    const vistaDinamica = document.getElementById('vista-dinamica');
-
-    // Ocultar pantalla de inicio (tarjetas) y mostrar vista dinámica
-    grid.style.display = 'none';
-    vistaDinamica.style.display = 'block';
-
-    // ENRUTAMIENTO INTELIGENTE
-    if (moduloKey === 'pulmon') {
-        await cargarModuloPulmon(vistaDinamica);
-    } else if (moduloKey === 'adminCsv') {
-        await cargarModuloAdminCsv(vistaDinamica);
-    } else {
-        await cargarModuloMapa(moduloKey, vistaDinamica);
+document.addEventListener('DOMContentLoaded', () => {
+    // 1. Contenedor principal de la PWA
+    let contenedorPrincipal = document.getElementById('contenedor-principal');
+    if (!contenedorPrincipal) {
+        contenedorPrincipal = document.createElement('main');
+        contenedorPrincipal.id = 'contenedor-principal';
+        contenedorPrincipal.style.cssText = 'flex: 1; height: 100vh; overflow: hidden; position: relative; background: #121212;';
+        document.body.appendChild(contenedorPrincipal);
     }
 
-    // Cierra el menú lateral (drawer) de forma automática si estaba abierto
-    const sideMenu = document.getElementById('side-menu');
-    const overlay = document.getElementById('drawer-overlay');
-    if (sideMenu && sideMenu.classList.contains('open')) {
-        sideMenu.classList.remove('open');
-        if (overlay) overlay.classList.remove('open');
-    }
-};
-
-window.irInicio = function() {
-    document.getElementById('main-content').style.display = 'grid';
-    document.getElementById('vista-dinamica').style.display = 'none';
-    document.getElementById('vista-dinamica').innerHTML = ''; 
+    // 2. Inyectar automáticamente el botón del Gestor de Tablas en la barra lateral existente
+    const sidebar = document.querySelector('aside') || document.querySelector('.modules-sidebar') || document.querySelector('.sidebar') || document.body;
     
-    const sideMenu = document.getElementById('side-menu');
-    const overlay = document.getElementById('drawer-overlay');
-    if (sideMenu && sideMenu.classList.contains('open')) {
-        sideMenu.classList.remove('open');
-        if (overlay) overlay.classList.remove('open');
+    let btnGestor = document.getElementById('nav-gestor-tablas');
+    if (!btnGestor) {
+        btnGestor = document.createElement('a');
+        btnGestor.href = '#';
+        btnGestor.id = 'nav-gestor-tablas';
+        btnGestor.className = 'menu-item';
+        btnGestor.innerHTML = '🎛️ Gestor de Tablas';
+        btnGestor.style.cssText = 'color: #38bdf8; font-weight: bold; display: block; padding: 12px 15px; text-decoration: none; border-left: 3px solid #38bdf8; margin-top: 8px; background: rgba(56, 189, 248, 0.08); cursor: pointer; font-family: Arial, sans-serif; font-size: 13px;';
+        
+        // Buscar el botón de CMU para ponerlo justo debajo
+        const linkCmu = document.getElementById('nav-cmu') || sidebar.querySelector('[href*="CMU"]') || sidebar.querySelector('a');
+        if (linkCmu && linkCmu.parentNode) {
+            linkCmu.parentNode.insertBefore(btnGestor, linkCmu.nextSibling);
+        } else {
+            sidebar.appendChild(btnGestor);
+        }
     }
-};
 
-window.toggleMenu = function() {
-    const sideMenu = document.getElementById('side-menu');
-    const overlay = document.getElementById('drawer-overlay');
-    sideMenu.classList.toggle('open');
-    overlay.classList.toggle('open');
-};
-
-
-// --- Enrutador de Formularios (Modal) ---
-
-window.abrirFormularioControl = function(tabla, dbId, idElemento) {
-    const t = tabla.toLowerCase();
-    
-    if (t === 'extintores' || t === 'extintor') {
-        abrirControlExtintor(dbId, idElemento);
-    } else if (t === 'hidrantes' || t === 'hidrante') {
-        abrirControlHidrante(dbId, idElemento);
-    } else {
-        alert(`El módulo de controles para ${tabla.toUpperCase()} se encuentra en desarrollo.`);
+    // 3. Vincular evento para el Bibliotecario (CMU)
+    const linkCmu = document.getElementById('nav-cmu') || Array.from(document.querySelectorAll('a')).find(el => el.textContent.includes('CMU'));
+    if (linkCmu) {
+        linkCmu.addEventListener('click', (e) => {
+            e.preventDefault();
+            contenedorPrincipal.innerHTML = '';
+            cargarModuloAdminCsv(contenedorPrincipal);
+        });
     }
-};
 
-window.guardarControl = function(event) {
-    event.preventDefault();
-    
-    const tabla = document.getElementById('input-tabla').value.toLowerCase();
-    
-    if (tabla === 'extintores' || tabla === 'extintor') {
-        guardarControlExtintor(event);
-    } else if (tabla === 'hidrantes' || tabla === 'hidrante') {
-        guardarControlHidrante(event);
-    } else {
-        alert(`La función de guardado para ${tabla.toUpperCase()} aún no está implementada.`);
-    }
-};
+    // 4. Vincular evento para el Gestor Universal de Tablas (Solucionador de errores)
+    btnGestor.addEventListener('click', (e) => {
+        e.preventDefault();
+        contenedorPrincipal.innerHTML = '';
+        cargarModuloGestorTablas(contenedorPrincipal);
+    });
+
+    console.log('🚀 app.js sincronizado: Bibliotecario y Gestor Universal listos.');
+});
