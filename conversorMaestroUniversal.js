@@ -343,7 +343,7 @@ export function cargarModuloAdminCsv(contenedor) {
                     };
 
                     // Reparación determinística de GPS decimal partido cuando la fila
-                    // conserva 14 columnas por tener campos vacíos faltantes al final.
+                    // conserva la cantidad de columnas esperada por tener campos vacíos faltantes al final.
                     // Solo inspeccionamos la posición canónica del GPS (índice 2) y el
                     // siguiente campo (índice 3). Ambos deben coincidir EXACTAMENTE con
                     // las coordenadas del WKT de ESA MISMA fila.
@@ -388,7 +388,7 @@ export function cargarModuloAdminCsv(contenedor) {
                         return {
                             fila: reparada,
                             reparada: true,
-                            motivo: 'Punto GPS decimal dividido por coma no entrecomillada dentro de una fila canónica de 14 columnas',
+                            motivo: 'Punto GPS decimal dividido por coma no entrecomillada dentro de una fila que conserva la cantidad de columnas esperada',
                             tipoReparacion: 'gps_decimal_partido'
                         };
                     };
@@ -878,7 +878,19 @@ export function cargarModuloAdminCsv(contenedor) {
                     arrayControlesPfp.push({
                         id_activo: idActivo,
                         nombreetiqueta: item.etiqueta,
-                        sector: item.sector
+                        sector: item.sector,
+                        habilitada: obtenerAtributo(attrs, ['Habilitada']),
+                        control_semanal: obtenerAtributo(attrs, ['CONTROL SEMANAL']),
+                        control_s_realizado_por: obtenerAtributo(attrs, ['Control S. realizado por', 'Control S realizado por']),
+                        auditoria_fecha: obtenerAtributo(attrs, ['AUDITORIA (Fecha)', 'Auditoria Fecha']),
+                        auditoria_semana: obtenerAtributo(attrs, ['Auditoria Semana']),
+                        auditoria_realizada_por: obtenerAtributo(attrs, ['Auditoria realizada por']),
+                        estado: obtenerAtributo(attrs, ['Estado']),
+                        empresa: obtenerAtributo(attrs, ['Empresa']),
+                        ubicacion: obtenerAtributo(attrs, ['Ubicación', 'Ubicacion']),
+                        fecha_inicio: obtenerAtributo(attrs, ['Fecha Inicio']),
+                        fecha_cierre: obtenerAtributo(attrs, ['Fecha Cierre']),
+                        activa: obtenerAtributo(attrs, ['Activa'])
                     });
                 } else if (categoriaDetectadaGlobal === 'Valvulas') {
                     arrayControlesV.push({
