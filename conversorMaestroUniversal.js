@@ -1,6 +1,6 @@
 // ==========================================
 // MÓDULO: CMU (Conversor Maestro Universal)
-// El Bibliotecario de Honor (Mapeo Exacto Supabase)
+// El Bibliotecario de Alejandria (Mapeo Limpio sin GMS)
 // ==========================================
 
 import { clienteSupabase } from './supabaseClient.js';
@@ -36,11 +36,11 @@ export function cargarModuloAdminCsv(contenedor) {
         <div style="max-width: 950px; margin: 0 auto; color: #fff; font-family: Arial, sans-serif;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                 <h2 style="color: #38bdf8; margin: 0;">📚 CMU: Bibliotecario de Honor</h2>
-                <span style="background: #22c55e; color: #000; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: bold;">MODO INTELIGENTE WKT / JSONB</span>
+                <span style="background: #22c55e; color: #000; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: bold;">MODO PURO WKT / SIN GMS</span>
             </div>
             
             <p style="color: #aaa; font-size: 13px; margin-bottom: 20px; line-height: 1.4;">
-                El motor procesa la categoría seleccionada limpiando nomenclaturas redundantes y enviando atributos técnicos en JSONB.
+                Procesa las capas extrayendo geolocalización espacial limpia vía WKT y descartando coordenadas en texto plano (GMS).
             </p>
 
             <!-- TARJETA: VISOR INTEGRADO Y ACCESO A DESCARGA -->
@@ -222,6 +222,7 @@ export function cargarModuloAdminCsv(contenedor) {
             const aliasSector = ['sector', 'departamento'];
             const aliasRonda = ['ronda', 'uet'];
             const aliasWkt = ['wkt', 'geom'];
+            const aliasGmsIgnorar = ['punto gps', 'puntogps', 'coordenadas gms'];
 
             let listaTemporal = [];
 
@@ -270,7 +271,9 @@ export function cargarModuloAdminCsv(contenedor) {
                     else if (aliasSector.includes(cabMin) && !sector) sector = valor;
                     else if (aliasRonda.includes(cabMin) && !ronda) ronda = valor;
                     else if (aliasWkt.includes(cabMin) && !wkt) wkt = valor;
-                    else {
+                    else if (aliasGmsIgnorar.includes(cabMin)) {
+                        // IGNORAR COLUMNA GMS POR COMPLETO
+                    } else {
                         atributosJSON[cab] = valor;
                     }
                 });
@@ -295,7 +298,7 @@ export function cargarModuloAdminCsv(contenedor) {
             datosConvertidosGlobal = listaTemporal;
 
             document.getElementById('admin-resultado-container').style.display = 'block';
-            document.getElementById('admin-estado-texto').innerText = `¡Procesamiento Inteligente Completado!`;
+            document.getElementById('admin-estado-texto').innerText = `¡Procesamiento Inteligente Completado (Sin GMS)!`;
             document.getElementById('admin-contador-registros').innerText = `${datosConvertidosGlobal.length} elementos`;
 
             const previewDiv = document.getElementById('admin-preview-tabla');
@@ -380,7 +383,7 @@ export function cargarModuloAdminCsv(contenedor) {
                     atributos_tecnicos: { fuente: 'My Maps CSV', atributos_originales: attrs }
                 });
 
-                // 2. Extracción transversal de anomalías (si el registro reporta anomalía)
+                // 2. Extracción transversal de anomalías
                 const textoAnomalia = attrs['ANOMALIAS SI / NO'] || attrs['anomalias'] || attrs['Novedades'] || null;
                 if (textoAnomalia && String(textoAnomalia).trim() !== '' && String(textoAnomalia).toUpperCase() !== 'NULL' && String(textoAnomalia).toUpperCase() !== 'NO' && String(textoAnomalia).toUpperCase() !== '0') {
                     arrayAnomalias.push({
@@ -396,7 +399,7 @@ export function cargarModuloAdminCsv(contenedor) {
                     });
                 }
 
-                // 3. Distribución inteligente según tablas de control
+                // 3. Distribución inteligente sin GMS
                 const matchNum = item.etiqueta.match(/([0-9]+)/);
 
                 // A. Hidrantes
@@ -437,7 +440,6 @@ export function cargarModuloAdminCsv(contenedor) {
                     arrayControlesE.push({
                         id_extintor: matchNum ? parseInt(matchNum[1], 10) : null,
                         nombreetiqueta: item.etiqueta,
-                        puntogps: attrs['Punto GPS'] || null,
                         sector: item.sector,
                         ronda: item.ronda,
                         controlmensual: attrs['CONTROL MENSUAL (Mes)'] || null,
@@ -454,7 +456,6 @@ export function cargarModuloAdminCsv(contenedor) {
                         id_activo: idActivo,
                         idv_original: matchNum ? matchNum[1] : null,
                         nombreetiqueta: item.etiqueta,
-                        puntogps: attrs['Punto GPS'] || null,
                         sector: item.sector,
                         ubicacion: attrs['Ubicación'] || null,
                         estado: attrs['Estado'] || null,
@@ -490,7 +491,6 @@ export function cargarModuloAdminCsv(contenedor) {
                         id_activo: idActivo,
                         ideca_original: matchNum ? matchNum[1] : null,
                         nombreetiqueta: item.etiqueta,
-                        puntogps: attrs['Punto GPS'] || null,
                         ubicacion: attrs['Ubicación'] || null,
                         sector: item.sector,
                         central_que_reporta: attrs['Central que reporta'] || null,
@@ -518,13 +518,12 @@ export function cargarModuloAdminCsv(contenedor) {
                         reportado_por: attrs['Reportado Por'] || null
                     });
                 }
-                // E. VECAS (Válvulas de ECAS)
+                // E. VECAS
                 else if (attrs['Valvula ECA'] !== undefined) {
                     arrayControlesVecas.push({
                         id_activo: idActivo,
                         idvecas_original: matchNum ? matchNum[1] : null,
                         valvula_eca: attrs['Valvula ECA'] || null,
-                        puntogps: attrs['Punto GPS'] || null,
                         ubicacion: attrs['Ubicación'] || null,
                         sector: item.sector,
                         central_que_reporta: attrs['Central que reporta'] || null,
@@ -544,7 +543,6 @@ export function cargarModuloAdminCsv(contenedor) {
                         id_activo: idActivo,
                         idcenicero_original: attrs['N° serial'] ? parseFloat(attrs['N° serial']) : (matchNum ? parseInt(matchNum[1], 10) : null),
                         nombreetiqueta: item.etiqueta,
-                        puntogps: attrs['Punto GPS'] || null,
                         sector: item.sector,
                         responsable_de_area: attrs['Responsable De Area'] || null,
                         controlado_semana: attrs['CONTROLADO SEMANA'] || null,
@@ -568,7 +566,6 @@ export function cargarModuloAdminCsv(contenedor) {
                         id_activo: idActivo,
                         idpc_original: matchNum ? matchNum[1] : null,
                         nombreetiqueta: item.etiqueta,
-                        puntogps: attrs['Punto GPS'] || null,
                         sector: item.sector,
                         ubicacion: attrs['Ubicación'] || null,
                         control_semanal: attrs['CONTROL SEMANAL'] || null,
@@ -580,11 +577,10 @@ export function cargarModuloAdminCsv(contenedor) {
                     });
                 }
                 // H. Espumígenos
-                else if (attrs['CONTROL SEMANAL'] !== undefined && (attrs['Observaciones'] !== undefined || attrs['Punto GPS'] !== undefined)) {
+                else if (attrs['CONTROL SEMANAL'] !== undefined) {
                     arrayControlesEs.push({
                         id_activo: idActivo,
                         idesp_original: matchNum ? matchNum[1] : null,
-                        puntogps: attrs['Punto GPS'] || null,
                         nombreetiqueta: item.etiqueta,
                         sector: item.sector,
                         ubicacion: attrs['Ubicación'] || null,
@@ -638,7 +634,7 @@ export function cargarModuloAdminCsv(contenedor) {
                 }
             }
 
-            let msgExito = `¡Migración exitosa para la categoría "${categoriaSeleccionada}"!\n\nSe procesaron:\n- ${arrayLEU.length} Activos registrados en LEU.`;
+            let msgExito = `¡Migración limpia (sin GMS) para la categoría "${categoriaSeleccionada}"!\n\nSe procesaron:\n- ${arrayLEU.length} Activos en LEU.`;
             if (arrayAnomalias.length > 0) msgExito += `\n- ${arrayAnomalias.length} Anomalías centralizadas.`;
             if (arrayControlesH.length > 0) msgExito += `\n- ${arrayControlesH.length} Historiales de Hidrantes.`;
             if (arrayControlesE.length > 0) msgExito += `\n- ${arrayControlesE.length} Historiales de Extintores.`;
