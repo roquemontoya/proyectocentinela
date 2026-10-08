@@ -325,7 +325,7 @@ export function cargarModuloAdminCsv(contenedor) {
 
                     const wktEsValido = (valor) => {
                         if (valor === null || valor === undefined) return false;
-                        return /POINT\\s*\\(\\s*[-\\d.]+\\s+[-\\d.]+\\s*\\)/i.test(String(valor).trim());
+                        return /POINT\s*\(\s*[-\d.]+\s+[-\d.]+\s*\)/i.test(String(valor).trim());
                     };
 
                     const esTextoVacio = (valor) => {
@@ -334,8 +334,8 @@ export function cargarModuloAdminCsv(contenedor) {
 
                     const coordenadaDmsEsValida = (valor) => {
                         if (valor === null || valor === undefined) return false;
-                        const texto = String(valor).replace(/\\u00a0/g, ' ').trim();
-                        return /^\\d{1,3}°\\s*\\d{1,2}'\\s*\\d{1,2}(?:[.,]\\d+)?\\"\\s*[NS]\\s+\\d{1,3}°\\s*\\d{1,2}'\\s*\\d{1,2}(?:[.,]\\d+)?\\"\\s*[EW]$/i.test(texto);
+                        const texto = String(valor).replace(/\u00a0/g, ' ').trim();
+                        return /^\d{1,3}°\s*\d{1,2}'\s*\d{1,2}(?:[.,]\d+)?\"\s*[NS]\s+\d{1,3}°\s*\d{1,2}'\s*\d{1,2}(?:[.,]\d+)?\"\s*[EW]$/i.test(texto);
                     };
 
                     const repararFilaEstructuralmente = (fila, numeroFilaCsv) => {
@@ -449,13 +449,7 @@ export function cargarModuloAdminCsv(contenedor) {
                         auditoria.sospechosas.push(
                             `Encabezado incompatible: se esperaban 14 columnas canónicas y se detectaron ${COLUMNAS_ESPERADAS}.`
                         );
-                    }
-
-                    
-                    // DIAGNOSTICO TEMPORAL F12 — eliminar después de identificar las 6 filas.
-                    const filasDiagnostico = new Set([354, 355, 799, 900, 906, 1047]);
-
-const filasCanonicas = [];
+                    }const filasCanonicas = [];
 
                     if (COLUMNAS_ESPERADAS === 14) {
                         const filasDatos = filasCrudas.slice(1);
@@ -466,36 +460,46 @@ const filasCanonicas = [];
 
                             let resultado = repararFilaEstructuralmente(fila, numeroFilaCsv);
 
-                            if (filasDiagnostico.has(numeroFilaCsv) || [800, 1048].includes(numeroFilaCsv)) {
-                                console.log("🔎 CMU FILA DIAGNOSTICO", {
-                                    fila: numeroFilaCsv,
-                                    columnas: fila.length,
-                                    contenido: fila,
-                                    siguiente: filasDatos[index + 1] || null,
-                                    anterior: filasDatos[index - 1] || null,
-                                    resultadoInicial: resultado
-                                });
-                            }
-
-
                             // CASO 4: un registro lógico fue partido en dos filas físicas.
-                            // Solo intentamos unirlas cuando:
-                            //   - la fila actual comienza con un WKT válido;
-                            //   - tiene menos de 14 columnas;
-                            //   - la siguiente fila NO comienza con otro WKT;
-                            //   - la unión produce una fila que nuestras reparaciones
-                            //     estructurales reconocen inequívocamente.
+                            // A) La primera fila contiene parte del registro y la siguiente lo completa.
+                            // B) La primera fila contiene WKT + etiqueta y la siguiente aporta
+                            //    sector + latitud + longitud + resto de campos.
                             if (!resultado.fila && wktEsValido(fila?.[0]) && fila.length < COLUMNAS_ESPERADAS) {
                                 const siguiente = filasDatos[index + 1];
 
                                 if (Array.isArray(siguiente) && !wktEsValido(siguiente[0])) {
-                                    const candidataUnida = [...fila, ...siguiente];
-                                    const reparacionUnida = repararFilaEstructuralmente(
-                                        candidataUnida,
-                                        numeroFilaCsv
-                                    );
+                                    let reparacionUnida = null;
 
-                                    if (reparacionUnida.fila) {
+                                    // Patrón B: WKT + etiqueta en una fila y el resto en la siguiente.
+                                    if (
+                                        fila.length === 2 &&
+                                        siguiente.length >= 3 &&
+                                        coordenadaValida(siguiente[1], -90, 90) &&
+                                        coordenadaValida(siguiente[2], -180, 180)
+                                    ) {
+                                        const gps = String(siguiente[1]).trim() + ', ' + String(siguiente[2]).trim();
+                                        const candidataReconstruida = [
+                                            fila[0],
+                                            fila[1],
+                                            gps,
+                                            siguiente[0],
+                                            ...siguiente.slice(3)
+                                        ];
+
+                                        reparacionUnida = repararFilaEstructuralmente(
+                                            candidataReconstruida,
+                                            numeroFilaCsv
+                                        );
+                                    } else {
+                                        const candidataUnida = [...fila, ...siguiente];
+
+                                        reparacionUnida = repararFilaEstructuralmente(
+                                            candidataUnida,
+                                            numeroFilaCsv
+                                        );
+                                    }
+
+                                    if (reparacionUnida?.fila) {
                                         resultado = {
                                             ...reparacionUnida,
                                             reparada: true,
@@ -506,7 +510,6 @@ const filasCanonicas = [];
                                     }
                                 }
                             }
-
                             if (!resultado.fila) {
                                 auditoria.filasSospechosas++;
                                 auditoria.filasDescartadas++;
