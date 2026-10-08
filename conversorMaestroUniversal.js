@@ -574,20 +574,7 @@ export function cargarModuloAdminCsv(contenedor) {
                         const sector = obtenerValor(fila, indiceSector);
                         const ronda = obtenerValor(fila, indiceRonda);
 
-                        if (reparacionGpsAplicada) {
-                            auditoria.filasReparadas++;
-                            auditoria.filasGpsPartidas++;
-                            auditoria.reparacionesGpsCanonicas.push({
-                                filaCsv: index + 2,
-                                etiqueta: etiqueta || `Fila ${index + 2}`,
-                                sectorAntes: sectorAntes || '(vacío)',
-                                sectorDespues: sector || '(vacío)',
-                                rondaAntes: rondaAntes || '(vacío)',
-                                rondaDespues: ronda || '(vacío)',
-                                wkt: obtenerValor(fila, indiceWkt) || '(vacío)'
-                            });
-                        }
-                        const wkt = obtenerValor(fila, indiceWkt);
+                const wkt = obtenerValor(fila, indiceWkt);
                         const atributosJSON = {};
                         const clavesUsadas = new Set();
 
