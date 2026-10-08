@@ -170,6 +170,7 @@ export function cargarModuloAdminCsv(contenedor) {
     let categoriaDetectadaGlobal = null;
     let datosConvertidosGlobal = [];
     let auditoriaCsvGlobal = null;
+    let encabezadosOriginalesGlobal = [];
 
     document.getElementById('admin-input-csv').addEventListener('change', (e) => {
         const file = e.target.files[0];
@@ -276,6 +277,10 @@ export function cargarModuloAdminCsv(contenedor) {
                         const limpia = limpiarTextoSeguro(cabecera) || `Columna ${indice + 1}`;
                         return limpia;
                     });
+
+                    // Estos encabezados también se necesitan al confirmar la importación,
+                    // que ocurre fuera del callback de Papa.parse().
+                    encabezadosOriginalesGlobal = encabezadosOriginales;
 
                     const indicesPorCabecera = {};
                     encabezadosOriginales.forEach((cabecera, indice) => {
@@ -1341,7 +1346,7 @@ const convertirWktIppAGeometria = (valor) => {
                     });
                 } else if (categoriaDetectadaGlobal === 'IPP (Macro Sectores)') {
                     const valorColumnaIpp = (nombreColumna) => {
-                        const indice = encabezadosOriginales.findIndex(h =>
+                        const indice = encabezadosOriginalesGlobal.findIndex(h =>
                             String(h).trim() === nombreColumna
                         );
                         return indice >= 0 ? obtenerValor(item.__filaOriginalIpp || [], indice) : null;
