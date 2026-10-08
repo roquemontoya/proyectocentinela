@@ -610,10 +610,27 @@ export function cargarModuloAdminCsv(contenedor) {
                     let listaTemporal = [];
 
                     filasCanonicas.forEach((filaOriginal, index) => {
+                        const sectorAntes = obtenerValor(filaOriginal, indiceSector);
+                        const rondaAntes = obtenerValor(filaOriginal, indiceRonda);
                         const fila = repararGpsDecimalPartidoEnFilaCanonica(filaOriginal);
+                        const reparacionGpsAplicada = JSON.stringify(fila) !== JSON.stringify(filaOriginal);
                         let etiqueta = obtenerValor(fila, indiceEtiqueta);
                         const sector = obtenerValor(fila, indiceSector);
                         const ronda = obtenerValor(fila, indiceRonda);
+
+                        if (reparacionGpsAplicada) {
+                            auditoria.filasReparadas++;
+                            auditoria.filasGpsPartidas++;
+                            auditoria.reparacionesGpsCanonicas.push({
+                                filaCsv: index + 2,
+                                etiqueta: etiqueta || `Fila ${index + 2}`,
+                                sectorAntes: sectorAntes || '(vacío)',
+                                sectorDespues: sector || '(vacío)',
+                                rondaAntes: rondaAntes || '(vacío)',
+                                rondaDespues: ronda || '(vacío)',
+                                wkt: obtenerValor(fila, indiceWkt) || '(vacío)'
+                            });
+                        }
                         const wkt = obtenerValor(fila, indiceWkt);
                         const atributosJSON = {};
                         const clavesUsadas = new Set();
