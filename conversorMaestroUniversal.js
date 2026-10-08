@@ -407,6 +407,17 @@ export function cargarModuloAdminCsv(contenedor) {
                             const numeroFilaCsv = index + 2;
                             const resultado = repararFilaEstructuralmente(fila, numeroFilaCsv);
 
+                            // DIAGNÓSTICO TEMPORAL: mostramos únicamente las filas
+                            // problemáticas que necesitamos inspeccionar.
+                            if ([175, 179, 180, 354, 355, 358].includes(numeroFilaCsv)) {
+                                console.log('🔎 FILA CSV PROBLEMÁTICA', {
+                                    fila: numeroFilaCsv,
+                                    columnas: fila.length,
+                                    contenido: fila,
+                                    resultado: resultado
+                                });
+                            }
+
                             if (!resultado.fila) {
                                 auditoria.filasSospechosas++;
                                 auditoria.filasDescartadas++;
