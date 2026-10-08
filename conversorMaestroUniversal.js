@@ -467,13 +467,19 @@ export function cargarModuloAdminCsv(contenedor) {
                         const limpio = limpiarTextoSeguro(valor);
                         if (!limpio) return null;
 
-                        const sinSrid = limpio.replace(/^SRID=\\d+;/i, '').trim();
+                        const sinSrid = limpio.replace(/^SRID=\d+;/i, '').trim();
 
-                        if (/^POLYGON\\s*\\(/i.test(sinSrid)) {
+                        // La tabla histórica public.ipp exige geometry(Polygon,4326).
+                        // Por lo tanto solo insertamos geometrías POLYGON directamente.
+                        // Una GEOMETRYCOLLECTION no se fuerza a MULTIPOLYGON porque eso
+                        // violaría el tipo de la columna y podría perder geometría.
+                        if (/^POLYGON\s*\(/i.test(sinSrid)) {
                             return /^SRID=/i.test(limpio) ? limpio : 'SRID=4326;' + sinSrid;
                         }
 
-                        const gc = sinSrid.match(/^GEOMETRYCOLLECTION\\s*\\((.*)\\)$/i);
+                        // Si en el futuro llega una GEOMETRYCOLLECTION con un único
+                        // POLYGON, podemos extraerlo sin pérdida.
+                        const gc = sinSrid.match(/^GEOMETRYCOLLECTION\s*\((.*)\)$/i);
                         if (!gc) return null;
 
                         const contenido = gc[1];
@@ -492,14 +498,18 @@ export function cargarModuloAdminCsv(contenedor) {
                         }
                         componentes.push(contenido.slice(inicio).trim());
 
-                        const poligonos = componentes.filter(x => /^POLYGON\\s*\\(/i.test(x));
-                        if (poligonos.length !== componentes.length || poligonos.length === 0) return null;
+                        if (
+                            componentes.length === 1 &&
+                            /^POLYGON\s*\(/i.test(componentes[0])
+                        ) {
+                            return 'SRID=4326;' + componentes[0];
+                        }
 
-                        const multi = 'MULTIPOLYGON (' +
-                            poligonos.map(x => x.replace(/^POLYGON\\s*/i, '')).join(', ') +
-                            ')';
-
-                        return 'SRID=4326;' + multi;
+                        // Si contiene varios polígonos u otro tipo geométrico, devolvemos
+                        // null para respetar el esquema actual. El WKT completo permanece
+                        // disponible en LEU. La migración del tipo de geom sería una decisión
+                        // de esquema independiente.
+                        return null;
                     };
 
                     const esTextoVacio = (valor) => {
