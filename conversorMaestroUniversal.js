@@ -562,11 +562,54 @@ export function cargarModuloAdminCsv(contenedor) {
 
                     auditoriaCsvGlobal = auditoria;
 
-                    // A partir de aquí SOLO trabajamos con filas canónicas de 14 columnas.
-                    // Nunca se vuelve a mapear una fila cruda sospechosa.
+                    // A partir de aquí SOLO trabajamos con filas canónicas.
+                    // Algunos registros tienen el campo de coordenadas decimales partido
+                    // en DOS columnas por una coma sin entrecomillar. En ciertos registros
+                    // el total sigue dando 14 columnas porque faltan campos vacíos finales,
+                    // por lo que la auditoría por cantidad de columnas no lo detecta.
+                    //
+                    // Reparación estructural determinista: solo se aplica cuando dos campos
+                    // numéricos consecutivos coinciden exactamente con las coordenadas del
+                    // WKT de ESA MISMA fila. No se infiere por nombres, personas o sectores.
+                    const repararGpsDecimalPartidoEnFilaCanonica = (fila) => {
+                        const copia = Array.isArray(fila) ? [...fila] : [];
+                        if (indiceWkt < 0 || indiceWkt >= copia.length) return copia;
+
+                        const wkt = limpiarTextoSeguro(copia[indiceWkt]);
+                        const matchWkt = wkt?.match(/POINT\\s*\\(\\s*([-\\d.]+)\\s+([-\\d.]+)\\s*\\)/i);
+                        if (!matchWkt) return copia;
+
+                        const longitud = Number(matchWkt[1]);
+                        const latitud = Number(matchWkt[2]);
+                        if (!Number.isFinite(longitud) || !Number.isFinite(latitud)) return copia;
+
+                        for (let i = 0; i < copia.length - 1; i++) {
+                            const a = Number(limpiarTextoSeguro(copia[i]));
+                            const b = Number(limpiarTextoSeguro(copia[i + 1]));
+                            if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
+
+                            const coincideLatLon = a === latitud && b === longitud;
+                            const coincideLonLat = a === longitud && b === latitud;
+                            if (!coincideLatLon && !coincideLonLat) continue;
+
+                            // La pareja encontrada es inequívocamente el campo de
+                            // coordenadas partido. La convertimos en un único campo.
+                            copia.splice(i, 2, String(a) + ', ' + String(b));
+
+                            // Restauramos campos vacíos finales para conservar la
+                            // posición de las columnas del encabezado.
+                            while (copia.length < COLUMNAS_ESPERADAS) copia.push(null);
+
+                            return copia;
+                        }
+
+                        return copia;
+                    };
+
                     let listaTemporal = [];
 
-                    filasCanonicas.forEach((fila, index) => {
+                    filasCanonicas.forEach((filaOriginal, index) => {
+                        const fila = repararGpsDecimalPartidoEnFilaCanonica(filaOriginal);
                         let etiqueta = obtenerValor(fila, indiceEtiqueta);
                         const sector = obtenerValor(fila, indiceSector);
                         const ronda = obtenerValor(fila, indiceRonda);
