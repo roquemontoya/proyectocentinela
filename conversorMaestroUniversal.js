@@ -338,10 +338,64 @@ export function cargarModuloAdminCsv(contenedor) {
                         return /^\d{1,3}°\s*\d{1,2}'\s*\d{1,2}(?:[.,]\d+)?\"\s*[NS]\s+\d{1,3}°\s*\d{1,2}'\s*\d{1,2}(?:[.,]\d+)?\"\s*[EW]$/i.test(texto);
                     };
 
+                    // Reparación determinística de GPS decimal partido cuando la fila
+                    // conserva 14 columnas por tener campos vacíos faltantes al final.
+                    // Solo inspeccionamos la posición canónica del GPS (índice 2) y el
+                    // siguiente campo (índice 3). Ambos deben coincidir EXACTAMENTE con
+                    // las coordenadas del WKT de ESA MISMA fila.
+                    const repararGpsDecimalPartidoEnFilaCanonica = (fila) => {
+                        if (!Array.isArray(fila) || fila.length !== COLUMNAS_ESPERADAS) {
+                            return null;
+                        }
+
+                        const wkt = limpiarTextoSeguro(fila[0]);
+                        const matchWkt = wkt?.match(
+                            /POINT\\s*\\(\\s*([-\\d.]+)\\s+([-\\d.]+)\\s*\\)/i
+                        );
+                        if (!matchWkt) return null;
+
+                        const longitudWkt = Number(matchWkt[1]);
+                        const latitudWkt = Number(matchWkt[2]);
+                        const a = Number(limpiarTextoSeguro(fila[2]));
+                        const b = Number(limpiarTextoSeguro(fila[3]));
+
+                        if (
+                            !Number.isFinite(longitudWkt) ||
+                            !Number.isFinite(latitudWkt) ||
+                            !Number.isFinite(a) ||
+                            !Number.isFinite(b)
+                        ) {
+                            return null;
+                        }
+
+                        const coincideLatLon = a === latitudWkt && b === longitudWkt;
+                        const coincideLonLat = a === longitudWkt && b === latitudWkt;
+
+                        if (!coincideLatLon && !coincideLonLat) return null;
+
+                        const reparada = [...fila];
+                        reparada[2] = `${String(fila[2]).trim()}, ${String(fila[3]).trim()}`;
+                        reparada.splice(3, 1);
+
+                        while (reparada.length < COLUMNAS_ESPERADAS) {
+                            reparada.push(null);
+                        }
+
+                        return {
+                            fila: reparada,
+                            reparada: true,
+                            motivo: 'Punto GPS decimal dividido por coma no entrecomillada dentro de una fila canónica de 14 columnas',
+                            tipoReparacion: 'gps_decimal_partido'
+                        };
+                    };
+
                     const repararFilaEstructuralmente = (fila, numeroFilaCsv) => {
                         let filaOriginal = Array.isArray(fila) ? [...fila] : [];
 
                         if (filaOriginal.length === COLUMNAS_ESPERADAS) {
+                            const gpsPartido = repararGpsDecimalPartidoEnFilaCanonica(filaOriginal);
+                            if (gpsPartido) return gpsPartido;
+
                             return {
                                 fila: filaOriginal,
                                 reparada: false,
@@ -367,8 +421,12 @@ export function cargarModuloAdminCsv(contenedor) {
                             filaOriginal = sinVaciosFinales;
 
                             // Si al eliminar únicamente campos vacíos sobrantes la fila
-                            // quedó exactamente en el tamaño canónico, ya es una fila normal.
+                            // quedó exactamente en el tamaño canónico, todavía debemos
+                            // comprobar el caso determinístico de GPS partido.
                             if (filaOriginal.length === COLUMNAS_ESPERADAS) {
+                                const gpsPartido = repararGpsDecimalPartidoEnFilaCanonica(filaOriginal);
+                                if (gpsPartido) return gpsPartido;
+
                                 return {
                                     fila: filaOriginal,
                                     reparada: false,
