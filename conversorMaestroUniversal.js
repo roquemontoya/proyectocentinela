@@ -350,6 +350,23 @@ export function cargarModuloAdminCsv(contenedor) {
                             };
                         }
 
+                        // CASO 0: algunos exportes agregan campos vacíos al final.
+                        // Primero los eliminamos SOLO si son realmente vacíos. Esto permite
+                        // llegar al tamaño esperado (+1) para reparar después un GPS decimal
+                        // partido por una coma no entrecomillada.
+                        if (filaOriginal.length > COLUMNAS_ESPERADAS) {
+                            const sinVaciosFinales = [...filaOriginal];
+
+                            while (
+                                sinVaciosFinales.length > COLUMNAS_ESPERADAS &&
+                                esTextoVacio(sinVaciosFinales[sinVaciosFinales.length - 1])
+                            ) {
+                                sinVaciosFinales.pop();
+                            }
+
+                            filaOriginal = sinVaciosFinales;
+                        }
+
                         // CASO 1: Punto GPS decimal partido por una coma no entrecomillada.
                         if (filaOriginal.length === COLUMNAS_ESPERADAS + 1) {
                             const wkt = filaOriginal[0];
