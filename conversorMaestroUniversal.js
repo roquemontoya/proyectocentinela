@@ -328,20 +328,29 @@ export function cargarModuloAdminCsv(contenedor) {
                         return /POINT\\s*\\(\\s*[-\\d.]+\\s+[-\\d.]+\\s*\\)/i.test(String(valor).trim());
                     };
 
+                    const esTextoVacio = (valor) => {
+                        return valor === null || valor === undefined || String(valor).trim() === '';
+                    };
+
+                    const coordenadaDmsEsValida = (valor) => {
+                        if (valor === null || valor === undefined) return false;
+                        const texto = String(valor).replace(/\\u00a0/g, ' ').trim();
+                        return /^\\d{1,3}°\\s*\\d{1,2}'\\s*\\d{1,2}(?:[.,]\\d+)?\\"\\s*[NS]\\s+\\d{1,3}°\\s*\\d{1,2}'\\s*\\d{1,2}(?:[.,]\\d+)?\\"\\s*[EW]$/i.test(texto);
+                    };
+
                     const repararFilaEstructuralmente = (fila, numeroFilaCsv) => {
-                        const filaOriginal = Array.isArray(fila) ? [...fila] : [];
+                        let filaOriginal = Array.isArray(fila) ? [...fila] : [];
 
                         if (filaOriginal.length === COLUMNAS_ESPERADAS) {
                             return {
                                 fila: filaOriginal,
                                 reparada: false,
-                                motivo: null
+                                motivo: null,
+                                tipoReparacion: null
                             };
                         }
 
-                        // El CSV observado tiene una causa estructural conocida:
-                        // "Punto GPS" puede venir como "-31.x, -64.x" sin comillas.
-                        // Papa Parse lo convierte entonces en DOS columnas.
+                        // CASO 1: Punto GPS decimal partido por una coma no entrecomillada.
                         if (filaOriginal.length === COLUMNAS_ESPERADAS + 1) {
                             const wkt = filaOriginal[0];
                             const posibleLatitud = filaOriginal[2];
@@ -357,18 +366,59 @@ export function cargarModuloAdminCsv(contenedor) {
                                 reparada[2] = `${String(posibleLatitud).trim()}, ${String(posibleLongitud).trim()}`;
                                 reparada.splice(3, 1);
 
-                                if (reparada.length !== COLUMNAS_ESPERADAS) {
-                                    return {
-                                        fila: null,
-                                        reparada: false,
-                                        motivo: `Fila ${numeroFilaCsv}: la reparación GPS no produjo ${COLUMNAS_ESPERADAS} columnas.`
-                                    };
-                                }
-
                                 return {
                                     fila: reparada,
                                     reparada: true,
-                                    motivo: 'Punto GPS dividido por coma no entrecomillada'
+                                    motivo: 'Punto GPS decimal dividido por coma no entrecomillada',
+                                    tipoReparacion: 'gps_decimal_partido'
+                                };
+                            }
+                        }
+
+                        // CASO 2: La coma del Nombre de etiqueta no fue entrecomillada.
+                        // La presencia inequívoca de un GPS DMS en la posición 3 demuestra
+                        // que la posición 2 pertenece todavía al nombre.
+                        if (
+                            filaOriginal.length >= COLUMNAS_ESPERADAS + 1 &&
+                            wktEsValido(filaOriginal[0]) &&
+                            !esTextoVacio(filaOriginal[1]) &&
+                            !esTextoVacio(filaOriginal[2]) &&
+                            coordenadaDmsEsValida(filaOriginal[3])
+                        ) {
+                            const reparada = [...filaOriginal];
+                            reparada[1] = `${String(reparada[1]).trim()}, ${String(reparada[2]).trim()}`;
+                            reparada.splice(2, 1);
+
+                            if (reparada.length === COLUMNAS_ESPERADAS) {
+                                return {
+                                    fila: reparada,
+                                    reparada: true,
+                                    motivo: 'Nombre de etiqueta dividido por coma no entrecomillada',
+                                    tipoReparacion: 'nombre_partido'
+                                };
+                            }
+
+                            filaOriginal = reparada;
+                        }
+
+                        // CASO 3: Algunas filas traen campos vacíos sobrantes al final.
+                        // Solo se eliminan si TODOS los campos eliminados están vacíos.
+                        if (filaOriginal.length > COLUMNAS_ESPERADAS) {
+                            const reparada = [...filaOriginal];
+
+                            while (
+                                reparada.length > COLUMNAS_ESPERADAS &&
+                                esTextoVacio(reparada[reparada.length - 1])
+                            ) {
+                                reparada.pop();
+                            }
+
+                            if (reparada.length === COLUMNAS_ESPERADAS) {
+                                return {
+                                    fila: reparada,
+                                    reparada: true,
+                                    motivo: 'Campos vacíos sobrantes al final',
+                                    tipoReparacion: 'vacios_finales'
                                 };
                             }
                         }
@@ -376,7 +426,8 @@ export function cargarModuloAdminCsv(contenedor) {
                         return {
                             fila: null,
                             reparada: false,
-                            motivo: `Fila ${numeroFilaCsv}: contiene ${filaOriginal.length} columnas; se esperaban ${COLUMNAS_ESPERADAS} y no existe una reparación estructural determinista.`
+                            motivo: `Fila ${numeroFilaCsv}: contiene ${filaOriginal.length} columnas; se esperaban ${COLUMNAS_ESPERADAS} y no existe una reparación estructural determinista.`,
+                            tipoReparacion: null
                         };
                     };
 
@@ -403,19 +454,41 @@ export function cargarModuloAdminCsv(contenedor) {
                     const filasCanonicas = [];
 
                     if (COLUMNAS_ESPERADAS === 14) {
-                        filasCrudas.slice(1).forEach((fila, index) => {
-                            const numeroFilaCsv = index + 2;
-                            const resultado = repararFilaEstructuralmente(fila, numeroFilaCsv);
+                        const filasDatos = filasCrudas.slice(1);
 
-                            // DIAGNÓSTICO TEMPORAL: mostramos únicamente las filas
-                            // problemáticas que necesitamos inspeccionar.
-                            if ([175, 179, 180, 354, 355, 358].includes(numeroFilaCsv)) {
-                                console.log('🔎 FILA CSV PROBLEMÁTICA', {
-                                    fila: numeroFilaCsv,
-                                    columnas: fila.length,
-                                    contenido: fila,
-                                    resultado: resultado
-                                });
+                        for (let index = 0; index < filasDatos.length; index++) {
+                            const fila = filasDatos[index];
+                            const numeroFilaCsv = index + 2;
+
+                            let resultado = repararFilaEstructuralmente(fila, numeroFilaCsv);
+
+                            // CASO 4: un registro lógico fue partido en dos filas físicas.
+                            // Solo intentamos unirlas cuando:
+                            //   - la fila actual comienza con un WKT válido;
+                            //   - tiene menos de 14 columnas;
+                            //   - la siguiente fila NO comienza con otro WKT;
+                            //   - la unión produce una fila que nuestras reparaciones
+                            //     estructurales reconocen inequívocamente.
+                            if (!resultado.fila && wktEsValido(fila?.[0]) && fila.length < COLUMNAS_ESPERADAS) {
+                                const siguiente = filasDatos[index + 1];
+
+                                if (Array.isArray(siguiente) && !wktEsValido(siguiente[0])) {
+                                    const candidataUnida = [...fila, ...siguiente];
+                                    const reparacionUnida = repararFilaEstructuralmente(
+                                        candidataUnida,
+                                        numeroFilaCsv
+                                    );
+
+                                    if (reparacionUnida.fila) {
+                                        resultado = {
+                                            ...reparacionUnida,
+                                            reparada: true,
+                                            motivo: 'Registro lógico dividido en dos filas físicas',
+                                            tipoReparacion: 'fila_partida'
+                                        };
+                                        index++;
+                                    }
+                                }
                             }
 
                             if (!resultado.fila) {
@@ -424,18 +497,20 @@ export function cargarModuloAdminCsv(contenedor) {
                                 if (auditoria.sospechosas.length < 20) {
                                     auditoria.sospechosas.push(resultado.motivo);
                                 }
-                                return;
+                                continue;
                             }
 
                             filasCanonicas.push(resultado.fila);
 
                             if (resultado.reparada) {
-                                auditoria.filasGpsPartidas++;
                                 auditoria.filasReparadas++;
+                                if (resultado.tipoReparacion === 'gps_decimal_partido') {
+                                    auditoria.filasGpsPartidas++;
+                                }
                             } else {
                                 auditoria.filasNormales++;
                             }
-                        });
+                        }
                     }
 
                     auditoriaCsvGlobal = auditoria;
