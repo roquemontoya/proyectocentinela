@@ -779,7 +779,9 @@ export function cargarModuloAdminCsv(contenedor) {
                         estadoTexto.innerText = '⛔ IMPORTACIÓN BLOQUEADA: CSV con filas sospechosas';
                         estadoTexto.style.color = '#ef4444';
                         contadorRegistros.innerText =
-                            `${auditoria.filasTotales} filas · ${auditoria.filasReparadas} reparadas · ${auditoria.filasSospechosas} sospechosas`;
+                            categoriaDetectadaGlobal === 'IPP (Macro Sectores)'
+                                ? `${auditoria.registrosLogicos ?? 0} registros · ${auditoria.filasReparadas} reparadas · ${auditoria.filasSospechosas} sospechosas`
+                                : `${auditoria.filasTotales} filas · ${auditoria.filasReparadas} reparadas · ${auditoria.filasSospechosas} sospechosas`;
                         btnSubir.disabled = true;
                         btnSubir.innerText = '⛔ Importación bloqueada hasta corregir el CSV';
                     } else {
@@ -787,7 +789,9 @@ export function cargarModuloAdminCsv(contenedor) {
                             `✅ Auditoría limpia: ${categoriaDetectadaGlobal}`;
                         estadoTexto.style.color = '#22c55e';
                         contadorRegistros.innerText =
-                            `${auditoria.filasTotales} filas · ${auditoria.filasReparadas} reparadas · 0 sospechosas`;
+                            categoriaDetectadaGlobal === 'IPP (Macro Sectores)'
+                                ? `${auditoria.registrosLogicos ?? 0} registros · ${auditoria.filasReparadas} reparadas · 0 sospechosas`
+                                : `${auditoria.filasTotales} filas · ${auditoria.filasReparadas} reparadas · 0 sospechosas`;
                         btnSubir.disabled = false;
                         btnSubir.innerText = '🚀 Inyectar en LEU, Controles y Anomalías (Supabase)';
                     }
@@ -800,8 +804,8 @@ export function cargarModuloAdminCsv(contenedor) {
                             </div>
                             <div>Archivo: <strong>${auditoria.archivo}</strong></div>
                             <div>Columnas esperadas: <strong>${auditoria.columnasEsperadas}</strong></div>
-                            <div>Filas totales: <strong>${auditoria.filasTotales}</strong></div>
-                            <div>Filas normales: <strong>${auditoria.filasNormales}</strong></div>
+                            <div>Filas físicas: <strong>${auditoria.filasTotales}</strong></div>
+                            <div>${categoriaDetectadaGlobal === 'IPP (Macro Sectores)' ? 'Registros lógicos' : 'Filas normales'}: <strong>${categoriaDetectadaGlobal === 'IPP (Macro Sectores)' ? (auditoria.registrosLogicos ?? 0) : auditoria.filasNormales}</strong></div>
                             <div>Filas GPS partidas detectadas: <strong>${auditoria.filasGpsPartidas}</strong></div>
                             <div>Filas reparadas: <strong>${auditoria.filasReparadas}</strong></div>
                             <div>Filas sospechosas: <strong>${auditoria.filasSospechosas}</strong></div>
