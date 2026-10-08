@@ -297,9 +297,13 @@ export function cargarModuloAdminCsv(contenedor) {
                     // AUDITORÍA ESTRUCTURAL DEL CSV
                     //
                     // Regla principal:
-                    // - 14 columnas = fila normal.
-                    // - 15 columnas = solo se repara si la causa es inequívocamente
-                    //   Punto GPS dividido por una coma sin entrecomillar.
+                    // - La cantidad de columnas esperada la determina el encabezado
+                    //   del CSV de ESTA categoría.
+                    // - Una fila con exactamente ese número de columnas se procesa
+                    //   normalmente, salvo que active una reparación determinística
+                    //   (por ejemplo, GPS decimal partido con columnas vacías faltantes).
+                    // - Una fila con una columna extra solo se repara si existe una causa
+                    //   estructural inequívoca.
                     // - Cualquier otra longitud = fila sospechosa y BLOQUEADA.
                     //
                     // NO hacemos correcciones semánticas del tipo "esto parece
@@ -529,18 +533,10 @@ export function cargarModuloAdminCsv(contenedor) {
                         sospechosas: []
                     };
 
-                    if (COLUMNAS_ESPERADAS !== 14) {
-                        auditoria.filasSospechosas = auditoria.filasTotales;
-                        auditoria.filasDescartadas = auditoria.filasTotales;
-                        auditoria.sospechosas.push(
-                            `Encabezado incompatible: se esperaban 14 columnas canónicas y se detectaron ${COLUMNAS_ESPERADAS}.`
-                        );
-                    }const filasCanonicas = [];
+                    const filasCanonicas = [];
+                    const filasDatos = filasCrudas.slice(1);
 
-                    if (COLUMNAS_ESPERADAS === 14) {
-                        const filasDatos = filasCrudas.slice(1);
-
-                        for (let index = 0; index < filasDatos.length; index++) {
+                    for (let index = 0; index < filasDatos.length; index++) {
                             const fila = filasDatos[index];
                             const numeroFilaCsv = index + 2;
 
@@ -615,7 +611,6 @@ export function cargarModuloAdminCsv(contenedor) {
                             } else {
                                 auditoria.filasNormales++;
                             }
-                        }
                     }
 
                     auditoriaCsvGlobal = auditoria;
