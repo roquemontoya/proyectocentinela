@@ -466,11 +466,13 @@ const filasCanonicas = [];
 
                             let resultado = repararFilaEstructuralmente(fila, numeroFilaCsv);
 
-                            if (filasDiagnostico.has(numeroFilaCsv)) {
+                            if (filasDiagnostico.has(numeroFilaCsv) || [800, 1048].includes(numeroFilaCsv)) {
                                 console.log("🔎 CMU FILA DIAGNOSTICO", {
                                     fila: numeroFilaCsv,
                                     columnas: fila.length,
                                     contenido: fila,
+                                    siguiente: filasDatos[index + 1] || null,
+                                    anterior: filasDatos[index - 1] || null,
                                     resultadoInicial: resultado
                                 });
                             }
