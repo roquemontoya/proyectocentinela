@@ -1,23 +1,28 @@
 // ==========================================
-// SCRIPT PRINCIPAL: app.js (Controlador PWA)
+// SCRIPT PRINCIPAL: app.js (Controlador PWA Definitivo)
 // ==========================================
 
 import { cargarModuloAdminCsv } from './conversorMaestroUniversal.js';
 import { cargarModuloGestorTablas } from './gestorTablas.js';
 
-// 1. SOLUCIÓN AL ERROR: Exponer toggleMenu de forma global para el onclick del HTML
+// 1. EXPONER TODAS LAS FUNCIONES GLOBALES QUE EL HTML LLAMA POR ONCLICK
 window.toggleMenu = function() {
     const sidebar = document.querySelector('aside') || document.querySelector('.sidebar') || document.querySelector('.modules-sidebar') || document.querySelector('#sidebar');
     if (sidebar) {
         sidebar.classList.toggle('active');
         sidebar.classList.toggle('open');
-        if (sidebar.style.display === 'none') {
-            sidebar.style.display = 'block';
-        } else if (sidebar.style.width === '0px' || sidebar.style.width === '') {
-            sidebar.style.width = '250px';
-        } else {
+        if (sidebar.style.display === 'block') {
             sidebar.style.display = 'none';
+        } else {
+            sidebar.style.display = 'block';
         }
+    }
+};
+
+window.irInicio = function() {
+    const contenedorPrincipal = document.getElementById('contenedor-principal');
+    if (contenedorPrincipal) {
+        contenedorPrincipal.innerHTML = ''; // Limpia el módulo actual y vuelve al panel principal
     }
 };
 
@@ -68,5 +73,5 @@ document.addEventListener('DOMContentLoaded', () => {
         cargarModuloGestorTablas(contenedorPrincipal);
     });
 
-    console.log('🚀 app.js sincronizado: Ámbito global corregido y Gestor Universal activo.');
+    console.log('🚀 app.js definitivo: Funciones globales (toggleMenu, irInicio) y Gestor Universal activos.');
 });
