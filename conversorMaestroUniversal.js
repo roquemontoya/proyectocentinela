@@ -98,9 +98,13 @@ export function cargarModuloAdminCsv(contenedor) {
         const name = normalizarClave(nombreArchivo);
 
         // Categorías controladas: generan LEU + controles_*.
+        // Un archivo puede contener más de una palabra de categoría
+        // (ej.: "EXTINTORES- Permisos Permanentes.csv").
+        // Priorizamos la categoría específica "Permisos Permanentes"
+        // antes de la coincidencia genérica "extintor".
+        if (name.includes('permisopermanente') || name.includes('permiso')) return 'Permisos Permanentes';
         if (name.includes('extintor')) return 'Extintores';
         if (name.includes('hidrante')) return 'Hidrantes';
-        if (name.includes('permiso')) return 'Permisos Permanentes';
         if (name.includes('valvulasecas') || name.includes('valvulaseca') || name.includes('valvulaeca')) return 'VECAS';
         if (name.includes('valvula')) return 'Valvulas';
         if (name.includes('ecas')) return 'ECAS';
