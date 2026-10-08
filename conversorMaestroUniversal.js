@@ -291,13 +291,27 @@ export function cargarModuloAdminCsv(contenedor) {
                         return null;
                     };
 
-                    if (!categoriaDetectadaGlobal) {
-                        const categoriaPorEstructura = detectarCategoriaPorCabeceras();
-                        if (categoriaPorEstructura) {
-                            categoriaDetectadaGlobal = categoriaPorEstructura;
-                            document.getElementById('texto-cat-detectada').innerText =
-                                categoriaDetectadaGlobal + ' (detectada por estructura)';
-                            document.getElementById('badge-categoria-detectada').style.display = 'block';
+                    // La estructura del CSV tiene prioridad cuando identifica una categoría
+                    // de forma inequívoca. Esto evita que un nombre de archivo genérico (por ejemplo,
+                    // uno que contenga "Extintores") haga que una capa IPP sea procesada como otra cosa.
+                    const categoriaPorEstructura = detectarCategoriaPorCabeceras();
+
+                    if (categoriaPorEstructura) {
+                        const categoriaAnterior = categoriaDetectadaGlobal;
+                        categoriaDetectadaGlobal = categoriaPorEstructura;
+
+                        document.getElementById('texto-cat-detectada').innerText =
+                            categoriaAnterior && categoriaAnterior !== categoriaDetectadaGlobal
+                                ? categoriaDetectadaGlobal + ' (corregida por estructura)'
+                                : categoriaDetectadaGlobal + ' (detectada por estructura)';
+                        document.getElementById('badge-categoria-detectada').style.display = 'block';
+
+                        const midEstructural = MAPAS_CONFIG[categoriaDetectadaGlobal];
+                        if (midEstructural) {
+                            document.getElementById('iframe-container').innerHTML =
+                                `<iframe src="https://www.google.com/maps/d/embed?mid=${midEstructural}" width="100%" height="100%" style="border:0; border-radius: 6px;" allowfullscreen></iframe>`;
+                            document.getElementById('btn-ir-editor').href =
+                                `https://www.google.com/maps/d/edit?mid=${midEstructural}`;
                         }
                     }
 
