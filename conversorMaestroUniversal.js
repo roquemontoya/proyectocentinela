@@ -371,8 +371,8 @@ export function cargarModuloAdminCsv(contenedor) {
                         ) {
                             const parte = filas[indiceFin];
 
-                            // Solo reparamos de forma segura si la continuación tiene texto
-                            // en la primera posición y el resto de columnas están vacías.
+                            // Reparación segura: las líneas de continuación deben aportar
+                            // únicamente texto en la primera columna.
                             const hayDatosFueraDeDescripcion = Array.isArray(parte) &&
                                 parte.slice(1).some(valor => !esTextoVacio(valor));
 
@@ -399,16 +399,107 @@ export function cargarModuloAdminCsv(contenedor) {
                         const filaCanonica = new Array(COLUMNAS_ESPERADAS).fill(null);
                         filaCanonica[0] = filaInicio[0];
                         filaCanonica[1] = filaInicio[1];
+
+                        // La descripción completa se conserva en su columna original.
                         filaCanonica[2] = partesDescripcion.join('\n');
+
+                        // En este exporte, la descripción funciona también como contenedor
+                        // de pares "Campo: valor". Recuperamos esos valores en sus columnas
+                        // reales usando coincidencia exacta de encabezado; solo usamos la
+                        // coincidencia normalizada cuando existe un único candidato.
+                        const indicePorCabeceraExacta = new Map();
+                        encabezadosOriginales.forEach((cabecera, indice) => {
+                            indicePorCabeceraExacta.set(String(cabecera).trim(), indice);
+                        });
+
+                        const indicesPorCabeceraNormalizada = {};
+                        encabezadosOriginales.forEach((cabecera, indice) => {
+                            const clave = normalizarCabecera(cabecera);
+                            if (!indicesPorCabeceraNormalizada[clave]) {
+                                indicesPorCabeceraNormalizada[clave] = [];
+                            }
+                            indicesPorCabeceraNormalizada[clave].push(indice);
+                        });
+
+                        partesDescripcion.forEach((linea) => {
+                            const posDosPuntos = String(linea).indexOf(':');
+                            if (posDosPuntos <= 0) return;
+
+                            const clave = String(linea).slice(0, posDosPuntos).trim();
+                            const valor = String(linea).slice(posDosPuntos + 1).trim();
+                            if (!clave || !valor) return;
+
+                            let indiceCampo = indicePorCabeceraExacta.get(clave);
+
+                            if (indiceCampo === undefined) {
+                                const normalizada = normalizarCabecera(clave);
+                                const candidatos = indicesPorCabeceraNormalizada[normalizada] || [];
+
+                                // Solo aceptamos fallback normalizado si no hay ambigüedad.
+                                if (candidatos.length === 1) {
+                                    indiceCampo = candidatos[0];
+                                }
+                            }
+
+                            // La columna "descripción" sigue conservando el texto completo;
+                            // no la reemplazamos por el último par "clave: valor" encontrado.
+                            if (
+                                indiceCampo !== undefined &&
+                                indiceCampo !== 0 &&
+                                indiceCampo !== 1 &&
+                                indiceCampo !== 2
+                            ) {
+                                filaCanonica[indiceCampo] = valor;
+                            }
+                        });
 
                         return {
                             fila: filaCanonica,
                             indiceFin: indiceFin - 1,
                             segura: true,
                             reparada: true,
-                            motivo: 'Descripción IPP multilinea reconstruida desde varias filas físicas',
+                            motivo: 'Descripción IPP multilinea reconstruida y campos de control recuperados',
                             tipoReparacion: 'ipp_descripcion_multilinea'
                         };
+                    };
+
+                    const convertirWktIppAGeometria = (valor) => {
+                        const limpio = limpiarTextoSeguro(valor);
+                        if (!limpio) return null;
+
+                        const sinSrid = limpio.replace(/^SRID=\\d+;/i, '').trim();
+
+                        if (/^POLYGON\\s*\\(/i.test(sinSrid)) {
+                            return /^SRID=/i.test(limpio) ? limpio : 'SRID=4326;' + sinSrid;
+                        }
+
+                        const gc = sinSrid.match(/^GEOMETRYCOLLECTION\\s*\\((.*)\\)$/i);
+                        if (!gc) return null;
+
+                        const contenido = gc[1];
+                        const componentes = [];
+                        let inicio = 0;
+                        let profundidad = 0;
+
+                        for (let i = 0; i < contenido.length; i++) {
+                            const ch = contenido[i];
+                            if (ch === '(') profundidad++;
+                            else if (ch === ')') profundidad--;
+                            else if (ch === ',' && profundidad === 0) {
+                                componentes.push(contenido.slice(inicio, i).trim());
+                                inicio = i + 1;
+                            }
+                        }
+                        componentes.push(contenido.slice(inicio).trim());
+
+                        const poligonos = componentes.filter(x => /^POLYGON\\s*\\(/i.test(x));
+                        if (poligonos.length !== componentes.length || poligonos.length === 0) return null;
+
+                        const multi = 'MULTIPOLYGON (' +
+                            poligonos.map(x => x.replace(/^POLYGON\\s*/i, '')).join(', ') +
+                            ')';
+
+                        return 'SRID=4326;' + multi;
                     };
 
                     const esTextoVacio = (valor) => {
@@ -757,8 +848,13 @@ export function cargarModuloAdminCsv(contenedor) {
                             categoria: categoriaDetectadaGlobal,
                             sector,
                             ronda,
-                            ubicacion_wkt: wkt ? parsearWkt(wkt) : null,
-                            atributos_tecnicos: atributosJSON
+                            ubicacion_wkt: wkt ? (
+                                categoriaDetectadaGlobal === 'IPP (Macro Sectores)'
+                                    ? wkt
+                                    : parsearWkt(wkt)
+                            ) : null,
+                            atributos_tecnicos: atributosJSON,
+                            __filaOriginalIpp: categoriaDetectadaGlobal === 'IPP (Macro Sectores)' ? fila : null
                         });
                     });
                     if (listaTemporal.length === 0) {
@@ -901,6 +997,7 @@ export function cargarModuloAdminCsv(contenedor) {
             const arrayControlesC = [];
             const arrayControlesPc = [];
             const arrayControlesEs = [];
+            const arrayControlesIpp = [];
             const arrayAnomalias = [];
 
             const obtenerAtributo = (attrs, nombres) => {
@@ -934,11 +1031,39 @@ export function cargarModuloAdminCsv(contenedor) {
                     }
                 });
 
-                const textoAnomalia = obtenerAtributo(attrs, [
+                let textoAnomalia = obtenerAtributo(attrs, [
                     'ANOMALIAS SI / NO',
                     'anomalias',
                     'Novedades'
                 ]);
+
+                // En exportaciones IPP antiguas la anomalía puede venir dentro de
+                // la descripción multilinea como "ANOMALIAS: ...".
+                if (!textoAnomalia && categoriaDetectadaGlobal === 'IPP (Macro Sectores)') {
+                    const descripcionIpp = obtenerValor(
+                        datosConvertidosGlobal.find(() => false) || [],
+                        -1
+                    );
+
+                    // El texto completo de descripción permanece en los atributos originales.
+                    const claveDescripcion = Object.keys(attrs).find(k =>
+                        normalizarClave(k) === normalizarClave('descripción') ||
+                        normalizarClave(k) === normalizarClave('descripcion')
+                    );
+
+                    const descripcionCompleta = claveDescripcion ? attrs[claveDescripcion] : null;
+                    if (descripcionCompleta) {
+                        const lineas = String(descripcionCompleta).split(/\\r?\\n/);
+
+                        for (const linea of lineas) {
+                            const match = linea.match(/^\\s*(ANOMALIAS(?: SI \/ NO)?|NOVEDADES)\\s*:\\s*(.+)\\s*$/i);
+                            if (match && match[2].trim()) {
+                                textoAnomalia = match[2].trim();
+                                break;
+                            }
+                        }
+                    }
+                }
 
                 if (
                     textoAnomalia &&
@@ -1036,6 +1161,51 @@ export function cargarModuloAdminCsv(contenedor) {
                         nombreetiqueta: item.etiqueta,
                         sector: item.sector
                     });
+                } else if (categoriaDetectadaGlobal === 'IPP (Macro Sectores)') {
+                    const valorColumnaIpp = (nombreColumna) => {
+                        const indice = encabezadosOriginales.findIndex(h =>
+                            String(h).trim() === nombreColumna
+                        );
+                        return indice >= 0 ? obtenerValor(item.__filaOriginalIpp || [], indice) : null;
+                    };
+
+                    arrayControlesIpp.push({
+                        id: idActivo,
+                        geom: convertirWktIppAGeometria(item.ubicacion_wkt),
+                        fid: null,
+                        Centroide: null,
+                        nombre: item.etiqueta,
+                        "CONTROL MENSUAL (Mes)": valorColumnaIpp("CONTROL MENSUAL (Mes)"),
+                        "Control Mensual Fecha": valorColumnaIpp("Control Mensual Fecha"),
+                        "Control M realizado por": valorColumnaIpp("Control M. realizado por"),
+                        "ACCESOS E INTERIOR DEL EDIFICIO": valorColumnaIpp("ACCESOS E INTERIOR DEL EDIFICIO"),
+                        "Pasillos portones obstruidos": valorColumnaIpp("Pasillos portones obstruidos"),
+                        "INF VIA SEC": valorColumnaIpp("INF. VIA SEC"),
+                        "INF VIA Whatsapp": valorColumnaIpp("INF. VIA Whatsapp"),
+                        "Combustible Fachada": valorColumnaIpp("Combustible Fachada"),
+                        "INF_ VIA SEC_": valorColumnaIpp("INF. VIA SEC."),
+                        "INF_ VIA Whatsapp_": valorColumnaIpp("INF. VIA Whatsapp."),
+                        "Derrames": valorColumnaIpp("Derrames"),
+                        "INF_ VIA_ SEC_": valorColumnaIpp("INF. VIA SEC.."),
+                        "INF_ VIA_ Whatsapp_": valorColumnaIpp("INF. VIA Whatsapp.."),
+                        "CONSIGNAS GENERALES": valorColumnaIpp("CONSIGNAS GENERALES"),
+                        "Senalizacion Fumadores": valorColumnaIpp("Señalizacion Fumadores"),
+                        "INF_ VIA SEC-": valorColumnaIpp("INF. VIA SEC-"),
+                        "INF_ VIA Whatsapp-": valorColumnaIpp("INF. VIA Whatsapp-"),
+                        "Carteleria Fumadores": valorColumnaIpp("Carteleria Fumadores"),
+                        "INF_ VIA SEC_1": valorColumnaIpp("INF. VIA SEC,"),
+                        "field_24": valorColumnaIpp("INF. VIA SEC,,"),
+                        "INF_ VIA Whatsapp_1": valorColumnaIpp("INF. VIA Whatsapp,"),
+                        "field_26": valorColumnaIpp("INF. VIA Whatsapp,,"),
+                        "PROTEC_ CONTRA INCENDIO": valorColumnaIpp("PROTEC. CONTRA INCENDIO"),
+                        "Extintores": valorColumnaIpp("Extintores"),
+                        "INF_ VIA SEC*": valorColumnaIpp("INF. VIA SEC*"),
+                        "INF_ VIA Whatsapp*": valorColumnaIpp("INF. VIA Whatsapp*"),
+                        "Hidrantes": valorColumnaIpp("Hidrantes"),
+                        "INF- VIA SEC_": valorColumnaIpp("INF. VIA SEC_"),
+                        "Ecas": valorColumnaIpp("Ecas"),
+                        "AreA": valorColumnaIpp("AreA")
+                    });
                 }
             });
 
@@ -1066,7 +1236,8 @@ export function cargarModuloAdminCsv(contenedor) {
                 { data: arrayControlesVecas, tabla: 'controles_vecas' },
                 { data: arrayControlesC, tabla: 'controles_c' },
                 { data: arrayControlesPc, tabla: 'controles_pc' },
-                { data: arrayControlesEs, tabla: 'controles_es' }
+                { data: arrayControlesEs, tabla: 'controles_es' },
+                { data: arrayControlesIpp, tabla: 'ipp' }
             ];
 
             for (const t of mapTablas) {
@@ -1089,7 +1260,8 @@ export function cargarModuloAdminCsv(contenedor) {
                 arrayControlesVecas.length +
                 arrayControlesC.length +
                 arrayControlesPc.length +
-                arrayControlesEs.length;
+                arrayControlesEs.length +
+                arrayControlesIpp.length;
 
             alert(
                 `¡Carga masiva completada!\n\nLEU: ${arrayLEU.length}\nControles: ${totalControles}\nAnomalías: ${arrayAnomalias.length}\n\nCategoría: ${categoriaDetectadaGlobal}`
