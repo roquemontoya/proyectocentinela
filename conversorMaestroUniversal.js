@@ -468,7 +468,8 @@ export function cargarModuloAdminCsv(contenedor) {
                         filasReparadas: 0,
                         filasSospechosas: 0,
                         filasDescartadas: 0,
-                        sospechosas: []
+                        sospechosas: [],
+                        reparacionesGpsCanonicas: []
                     };
 
                     if (COLUMNAS_ESPERADAS !== 14) {
