@@ -333,7 +333,82 @@ export function cargarModuloAdminCsv(contenedor) {
 
                     const wktEsValido = (valor) => {
                         if (valor === null || valor === undefined) return false;
-                        return /POINT\s*\(\s*[-\d.]+\s+[-\d.]+\s*\)/i.test(String(valor).trim());
+
+                        // Aceptamos las geometrías WKT usadas por las capas informativas,
+                        // además de los POINT de activos convencionales.
+                        return /^(?:SRID=\d+;)?(?:POINT|LINESTRING|POLYGON|MULTIPOINT|MULTILINESTRING|MULTIPOLYGON|GEOMETRYCOLLECTION)\s*\(/i
+                            .test(String(valor).trim());
+                    };
+
+                    const esInicioRegistroIpp = (fila) => {
+                        return (
+                            categoriaDetectadaGlobal === 'IPP (Macro Sectores)' &&
+                            Array.isArray(fila) &&
+                            wktEsValido(fila[0]) &&
+                            !esTextoVacio(fila[1])
+                        );
+                    };
+
+                    // Exportación IPP especial:
+                    // algunos CSV de zonas exportan "descripción" con saltos de línea
+                    // SIN entrecomillarlos. Papa Parse interpreta cada línea como una fila
+                    // física independiente. Cada registro lógico comienza con WKT + nombre
+                    // y las filas siguientes hasta el próximo WKT forman su descripción.
+                    const reconstruirRegistroIppMultilinea = (filas, indiceInicio) => {
+                        if (!esInicioRegistroIpp(filas?.[indiceInicio])) return null;
+
+                        const filaInicio = filas[indiceInicio];
+                        let indiceFin = indiceInicio + 1;
+                        const partesDescripcion = [];
+
+                        if (!esTextoVacio(filaInicio[2])) {
+                            partesDescripcion.push(String(filaInicio[2]).trim());
+                        }
+
+                        while (
+                            indiceFin < filas.length &&
+                            !esInicioRegistroIpp(filas[indiceFin])
+                        ) {
+                            const parte = filas[indiceFin];
+
+                            // Solo reparamos de forma segura si la continuación tiene texto
+                            // en la primera posición y el resto de columnas están vacías.
+                            const hayDatosFueraDeDescripcion = Array.isArray(parte) &&
+                                parte.slice(1).some(valor => !esTextoVacio(valor));
+
+                            if (hayDatosFueraDeDescripcion) {
+                                return {
+                                    fila: null,
+                                    indiceFin,
+                                    segura: false,
+                                    motivo: 'IPP: la continuación de la descripción en la fila ' +
+                                        (indiceFin + 2) +
+                                        ' contiene datos fuera de la primera columna; reparación no determinista.'
+                                };
+                            }
+
+                            if (!esTextoVacio(parte?.[0])) {
+                                partesDescripcion.push(String(parte[0]).trim());
+                            }
+
+                            indiceFin++;
+                        }
+
+                        if (indiceFin === indiceInicio + 1) return null;
+
+                        const filaCanonica = new Array(COLUMNAS_ESPERADAS).fill(null);
+                        filaCanonica[0] = filaInicio[0];
+                        filaCanonica[1] = filaInicio[1];
+                        filaCanonica[2] = partesDescripcion.join('\n');
+
+                        return {
+                            fila: filaCanonica,
+                            indiceFin: indiceFin - 1,
+                            segura: true,
+                            reparada: true,
+                            motivo: 'Descripción IPP multilinea reconstruida desde varias filas físicas',
+                            tipoReparacion: 'ipp_descripcion_multilinea'
+                        };
                     };
 
                     const esTextoVacio = (valor) => {
@@ -529,6 +604,7 @@ export function cargarModuloAdminCsv(contenedor) {
                         archivo: fileInput.files[0]?.name || 'CSV',
                         columnasEsperadas: COLUMNAS_ESPERADAS,
                         filasTotales: Math.max(0, filasCrudas.length - 1),
+                        registrosLogicos: null,
                         filasNormales: 0,
                         filasGpsPartidas: 0,
                         filasReparadas: 0,
@@ -543,6 +619,29 @@ export function cargarModuloAdminCsv(contenedor) {
                     for (let index = 0; index < filasDatos.length; index++) {
                             const fila = filasDatos[index];
                             const numeroFilaCsv = index + 2;
+
+                            // IPP: reconstrucción determinística de descripciones multilinea
+                            // antes de aplicar las reglas estructurales generales.
+                            if (esInicioRegistroIpp(fila)) {
+                                const ippReconstruido = reconstruirRegistroIppMultilinea(filasDatos, index);
+
+                                if (ippReconstruido?.fila) {
+                                    filasCanonicas.push(ippReconstruido.fila);
+                                    auditoria.filasReparadas++;
+                                    index = ippReconstruido.indiceFin;
+                                    continue;
+                                }
+
+                                if (ippReconstruido && ippReconstruido.segura === false) {
+                                    auditoria.filasSospechosas++;
+                                    auditoria.filasDescartadas++;
+                                    if (auditoria.sospechosas.length < 20) {
+                                        auditoria.sospechosas.push(ippReconstruido.motivo);
+                                    }
+                                    index = ippReconstruido.indiceFin;
+                                    continue;
+                                }
+                            }
 
                             let resultado = repararFilaEstructuralmente(fila, numeroFilaCsv);
 
@@ -668,6 +767,7 @@ export function cargarModuloAdminCsv(contenedor) {
                     }
 
                     datosConvertidosGlobal = listaTemporal;
+                    auditoria.registrosLogicos = listaTemporal.length;
 
                     document.getElementById('admin-resultado-container').style.display = 'block';
 
