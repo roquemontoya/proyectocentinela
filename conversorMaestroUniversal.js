@@ -117,8 +117,11 @@ export function cargarModuloAdminCsv(contenedor) {
         return null;
     };
 
-    let categoriaDetectadaGlobal = 'Extintores';
+    // Nunca asumimos una categoría si el nombre del archivo no permite identificarla.
+    // Esto evita importar silenciosamente un archivo desconocido como Extintores.
+    let categoriaDetectadaGlobal = null;
     let datosConvertidosGlobal = [];
+    let auditoriaCsvGlobal = null;
 
     document.getElementById('admin-input-csv').addEventListener('change', (e) => {
         const file = e.target.files[0];
@@ -290,11 +293,147 @@ export function cargarModuloAdminCsv(contenedor) {
                         return clave;
                     };
 
+                    // ============================================================
+                    // AUDITORÍA ESTRUCTURAL DEL CSV
+                    //
+                    // Regla principal:
+                    // - 14 columnas = fila normal.
+                    // - 15 columnas = solo se repara si la causa es inequívocamente
+                    //   Punto GPS dividido por una coma sin entrecomillar.
+                    // - Cualquier otra longitud = fila sospechosa y BLOQUEADA.
+                    //
+                    // NO hacemos correcciones semánticas del tipo "esto parece
+                    // una persona, entonces desplazo columnas". Eso fue precisamente
+                    // lo que provocó los ciclos de corrección anteriores.
+                    // ============================================================
+
+                    const COLUMNAS_ESPERADAS = encabezadosOriginales.length;
+
+                    const esNumeroFinito = (valor) => {
+                        if (valor === null || valor === undefined) return false;
+                        const texto = String(valor).trim();
+                        if (!texto) return false;
+                        const numero = Number(texto);
+                        return Number.isFinite(numero);
+                    };
+
+                    const coordenadaValida = (valor, minimo, maximo) => {
+                        if (!esNumeroFinito(valor)) return false;
+                        const numero = Number(valor);
+                        return numero >= minimo && numero <= maximo;
+                    };
+
+                    const wktEsValido = (valor) => {
+                        if (valor === null || valor === undefined) return false;
+                        return /POINT\\s*\\(\\s*[-\\d.]+\\s+[-\\d.]+\\s*\\)/i.test(String(valor).trim());
+                    };
+
+                    const repararFilaEstructuralmente = (fila, numeroFilaCsv) => {
+                        const filaOriginal = Array.isArray(fila) ? [...fila] : [];
+
+                        if (filaOriginal.length === COLUMNAS_ESPERADAS) {
+                            return {
+                                fila: filaOriginal,
+                                reparada: false,
+                                motivo: null
+                            };
+                        }
+
+                        // El CSV observado tiene una causa estructural conocida:
+                        // "Punto GPS" puede venir como "-31.x, -64.x" sin comillas.
+                        // Papa Parse lo convierte entonces en DOS columnas.
+                        if (filaOriginal.length === COLUMNAS_ESPERADAS + 1) {
+                            const wkt = filaOriginal[0];
+                            const posibleLatitud = filaOriginal[2];
+                            const posibleLongitud = filaOriginal[3];
+
+                            const gpsPartidoReconocible =
+                                wktEsValido(wkt) &&
+                                coordenadaValida(posibleLatitud, -90, 90) &&
+                                coordenadaValida(posibleLongitud, -180, 180);
+
+                            if (gpsPartidoReconocible) {
+                                const reparada = [...filaOriginal];
+                                reparada[2] = `${String(posibleLatitud).trim()}, ${String(posibleLongitud).trim()}`;
+                                reparada.splice(3, 1);
+
+                                if (reparada.length !== COLUMNAS_ESPERADAS) {
+                                    return {
+                                        fila: null,
+                                        reparada: false,
+                                        motivo: `Fila ${numeroFilaCsv}: la reparación GPS no produjo ${COLUMNAS_ESPERADAS} columnas.`
+                                    };
+                                }
+
+                                return {
+                                    fila: reparada,
+                                    reparada: true,
+                                    motivo: 'Punto GPS dividido por coma no entrecomillada'
+                                };
+                            }
+                        }
+
+                        return {
+                            fila: null,
+                            reparada: false,
+                            motivo: `Fila ${numeroFilaCsv}: contiene ${filaOriginal.length} columnas; se esperaban ${COLUMNAS_ESPERADAS} y no existe una reparación estructural determinista.`
+                        };
+                    };
+
+                    const auditoria = {
+                        archivo: fileInput.files[0]?.name || 'CSV',
+                        columnasEsperadas: COLUMNAS_ESPERADAS,
+                        filasTotales: Math.max(0, filasCrudas.length - 1),
+                        filasNormales: 0,
+                        filasGpsPartidas: 0,
+                        filasReparadas: 0,
+                        filasSospechosas: 0,
+                        filasDescartadas: 0,
+                        sospechosas: []
+                    };
+
+                    if (COLUMNAS_ESPERADAS !== 14) {
+                        auditoria.filasSospechosas = auditoria.filasTotales;
+                        auditoria.filasDescartadas = auditoria.filasTotales;
+                        auditoria.sospechosas.push(
+                            `Encabezado incompatible: se esperaban 14 columnas canónicas y se detectaron ${COLUMNAS_ESPERADAS}.`
+                        );
+                    }
+
+                    const filasCanonicas = [];
+
+                    if (COLUMNAS_ESPERADAS === 14) {
+                        filasCrudas.slice(1).forEach((fila, index) => {
+                            const numeroFilaCsv = index + 2;
+                            const resultado = repararFilaEstructuralmente(fila, numeroFilaCsv);
+
+                            if (!resultado.fila) {
+                                auditoria.filasSospechosas++;
+                                auditoria.filasDescartadas++;
+                                if (auditoria.sospechosas.length < 20) {
+                                    auditoria.sospechosas.push(resultado.motivo);
+                                }
+                                return;
+                            }
+
+                            filasCanonicas.push(resultado.fila);
+
+                            if (resultado.reparada) {
+                                auditoria.filasGpsPartidas++;
+                                auditoria.filasReparadas++;
+                            } else {
+                                auditoria.filasNormales++;
+                            }
+                        });
+                    }
+
+                    auditoriaCsvGlobal = auditoria;
+
+                    // A partir de aquí SOLO trabajamos con filas canónicas de 14 columnas.
+                    // Nunca se vuelve a mapear una fila cruda sospechosa.
                     let listaTemporal = [];
 
-                    filasCrudas.slice(1).forEach((fila, index) => {
-                        if (!Array.isArray(fila)) return;
-
+                    filasCanonicas.forEach((fila, index) => {
                         let etiqueta = obtenerValor(fila, indiceEtiqueta);
                         const sector = obtenerValor(fila, indiceSector);
                         const ronda = obtenerValor(fila, indiceRonda);
@@ -329,7 +468,6 @@ export function cargarModuloAdminCsv(contenedor) {
                             atributos_tecnicos: atributosJSON
                         });
                     });
-
                     if (listaTemporal.length === 0) {
                         alert('❌ No se encontraron registros de datos después de procesar el CSV.');
                         return;
@@ -338,12 +476,55 @@ export function cargarModuloAdminCsv(contenedor) {
                     datosConvertidosGlobal = listaTemporal;
 
                     document.getElementById('admin-resultado-container').style.display = 'block';
-                    document.getElementById('admin-estado-texto').innerText =
-                        `¡Procesado con Papa Parse: ${categoriaDetectadaGlobal}!`;
-                    document.getElementById('admin-contador-registros').innerText =
-                        `${datosConvertidosGlobal.length} elementos`;
+
+                    const estadoTexto = document.getElementById('admin-estado-texto');
+                    const contadorRegistros = document.getElementById('admin-contador-registros');
+                    const btnSubir = document.getElementById('btn-subir-supabase');
+
+                    if (auditoria.filasSospechosas > 0) {
+                        estadoTexto.innerText = '⛔ IMPORTACIÓN BLOQUEADA: CSV con filas sospechosas';
+                        estadoTexto.style.color = '#ef4444';
+                        contadorRegistros.innerText =
+                            `${auditoria.filasTotales} filas · ${auditoria.filasReparadas} reparadas · ${auditoria.filasSospechosas} sospechosas`;
+                        btnSubir.disabled = true;
+                        btnSubir.innerText = '⛔ Importación bloqueada hasta corregir el CSV';
+                    } else {
+                        estadoTexto.innerText =
+                            `✅ Auditoría limpia: ${categoriaDetectadaGlobal}`;
+                        estadoTexto.style.color = '#22c55e';
+                        contadorRegistros.innerText =
+                            `${auditoria.filasTotales} filas · ${auditoria.filasReparadas} reparadas · 0 sospechosas`;
+                        btnSubir.disabled = false;
+                        btnSubir.innerText = '🚀 Inyectar en LEU, Controles y Anomalías (Supabase)';
+                    }
 
                     const previewDiv = document.getElementById('admin-preview-tabla');
+                    const resumenAuditoria = `
+                        <div style="background:${auditoria.filasSospechosas > 0 ? '#3f1212' : '#0f2f1c'}; border:1px solid ${auditoria.filasSospechosas > 0 ? '#ef4444' : '#22c55e'}; padding:12px; border-radius:6px; margin-bottom:12px; color:#ddd;">
+                            <div style="font-weight:bold; color:${auditoria.filasSospechosas > 0 ? '#ef4444' : '#22c55e'}; margin-bottom:8px;">
+                                🔎 Auditoría estructural del CSV
+                            </div>
+                            <div>Archivo: <strong>${auditoria.archivo}</strong></div>
+                            <div>Columnas esperadas: <strong>${auditoria.columnasEsperadas}</strong></div>
+                            <div>Filas totales: <strong>${auditoria.filasTotales}</strong></div>
+                            <div>Filas normales: <strong>${auditoria.filasNormales}</strong></div>
+                            <div>Filas GPS partidas detectadas: <strong>${auditoria.filasGpsPartidas}</strong></div>
+                            <div>Filas reparadas: <strong>${auditoria.filasReparadas}</strong></div>
+                            <div>Filas sospechosas: <strong>${auditoria.filasSospechosas}</strong></div>
+                            <div>Filas descartadas: <strong>${auditoria.filasDescartadas}</strong></div>
+                            ${auditoria.sospechosas.length > 0 ? `
+                                <div style="margin-top:8px; color:#fca5a5;">
+                                    <strong>Motivos:</strong>
+                                    <ul style="margin:5px 0 0 20px; padding:0;">
+                                        ${auditoria.sospechosas.map(x => `<li>${String(x).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</li>`).join('')}
+                                    </ul>
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+
+                    previewDiv.innerHTML = resumenAuditoria;
+
                     let tablaHtml = `<style>
                         #admin-preview-tabla table { width: 100%; border-collapse: collapse; color: #ccc; }
                         #admin-preview-tabla th, #admin-preview-tabla td { border: 1px solid #444; padding: 6px; text-align: left; }
@@ -361,7 +542,7 @@ export function cargarModuloAdminCsv(contenedor) {
                     });
 
                     tablaHtml += '</tbody></table>';
-                    previewDiv.innerHTML = tablaHtml;
+                    previewDiv.innerHTML += tablaHtml;
                 },
                 error: function(err) {
                     alert('❌ Error analizando el CSV con Papa Parse: ' + err.message);
@@ -376,6 +557,16 @@ export function cargarModuloAdminCsv(contenedor) {
         if (datosConvertidosGlobal.length === 0) return;
         if (!categoriaDetectadaGlobal) {
             alert('❌ No hay una categoría válida para importar.');
+            return;
+        }
+
+        if (auditoriaCsvGlobal?.filasSospechosas > 0) {
+            alert(
+                `⛔ Importación bloqueada.\\n\\n` +
+                `El CSV contiene ${auditoriaCsvGlobal.filasSospechosas} fila(s) que no pudieron reconstruirse de forma determinista.\\n` +
+                `No se insertó ningún registro en Supabase.\\n\\n` +
+                `Corregí el CSV original y volvé a procesarlo.`
+            );
             return;
         }
 
