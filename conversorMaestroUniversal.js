@@ -5,6 +5,8 @@
 
 import { clienteSupabase } from './supabaseClient.js';
 
+
+
 const MAPAS_CONFIG = {
     "Extintores": "1SoiI--YYaSL7UJs7cZjk8qxIHNjmVrM",
     "Hidrantes": "1-kh06uxnaCx9AOEaVC6g80VeZ5A_ePg",
@@ -572,54 +574,53 @@ export function cargarModuloAdminCsv(contenedor) {
                         };
                     };
 
-                    const convertirWktIppAGeometria = (valor) => {
-                        const limpio = limpiarTextoSeguro(valor);
-                        if (!limpio) return null;
+// Conversión de WKT para la tabla histórica public.ipp.
+const convertirWktIppAGeometria = (valor) => {
+    if (valor === null || valor === undefined) return null;
+    const limpio = String(valor)
+        .replace(/^\uFEFF/, '')
+        .replace(/[\u00A0\u1680\u2000-\u200B\u202F\u205F\u3000]/g, ' ')
+        .trim();
+    if (!limpio) return null;
 
-                        const sinSrid = limpio.replace(/^SRID=\d+;/i, '').trim();
+    const sinSrid = limpio.replace(/^SRID=\d+;/i, '').trim();
 
-                        // La tabla histórica public.ipp exige geometry(Polygon,4326).
-                        // Por lo tanto solo insertamos geometrías POLYGON directamente.
-                        // Una GEOMETRYCOLLECTION no se fuerza a MULTIPOLYGON porque eso
-                        // violaría el tipo de la columna y podría perder geometría.
-                        if (/^POLYGON\s*\(/i.test(sinSrid)) {
-                            return /^SRID=/i.test(limpio) ? limpio : 'SRID=4326;' + sinSrid;
-                        }
+    // public.ipp.geom es geometry(Polygon,4326).
+    if (/^POLYGON\s*\(/i.test(sinSrid)) {
+        return /^SRID=/i.test(limpio) ? limpio : 'SRID=4326;' + sinSrid;
+    }
 
-                        // Si en el futuro llega una GEOMETRYCOLLECTION con un único
-                        // POLYGON, podemos extraerlo sin pérdida.
-                        const gc = sinSrid.match(/^GEOMETRYCOLLECTION\s*\((.*)\)$/i);
-                        if (!gc) return null;
+    // GEOMETRYCOLLECTION solo se reduce si contiene exactamente un POLYGON.
+    const gc = sinSrid.match(/^GEOMETRYCOLLECTION\s*\((.*)\)$/i);
+    if (!gc) return null;
 
-                        const contenido = gc[1];
-                        const componentes = [];
-                        let inicio = 0;
-                        let profundidad = 0;
+    const contenido = gc[1];
+    const componentes = [];
+    let inicio = 0;
+    let profundidad = 0;
 
-                        for (let i = 0; i < contenido.length; i++) {
-                            const ch = contenido[i];
-                            if (ch === '(') profundidad++;
-                            else if (ch === ')') profundidad--;
-                            else if (ch === ',' && profundidad === 0) {
-                                componentes.push(contenido.slice(inicio, i).trim());
-                                inicio = i + 1;
-                            }
-                        }
-                        componentes.push(contenido.slice(inicio).trim());
+    for (let i = 0; i < contenido.length; i++) {
+        const ch = contenido[i];
+        if (ch === '(') profundidad++;
+        else if (ch === ')') profundidad--;
+        else if (ch === ',' && profundidad === 0) {
+            componentes.push(contenido.slice(inicio, i).trim());
+            inicio = i + 1;
+        }
+    }
+    componentes.push(contenido.slice(inicio).trim());
 
-                        if (
-                            componentes.length === 1 &&
-                            /^POLYGON\s*\(/i.test(componentes[0])
-                        ) {
-                            return 'SRID=4326;' + componentes[0];
-                        }
+    if (
+        componentes.length === 1 &&
+        /^POLYGON\s*\(/i.test(componentes[0])
+    ) {
+        return 'SRID=4326;' + componentes[0];
+    }
 
-                        // Si contiene varios polígonos u otro tipo geométrico, devolvemos
-                        // null para respetar el esquema actual. El WKT completo permanece
-                        // disponible en LEU. La migración del tipo de geom sería una decisión
-                        // de esquema independiente.
-                        return null;
-                    };
+    // Si contiene varios polígonos u otro tipo geométrico, no inventamos ni
+    // perdemos geometría; el WKT original permanece almacenado en LEU.
+    return null;
+};
 
                     const esTextoVacio = (valor) => {
                         return valor === null || valor === undefined || String(valor).trim() === '';
