@@ -25,10 +25,27 @@ window.toggleMenu = function() {
 
 // 2. FUNCIÓN GLOBAL PARA EL BOTÓN DE INICIO
 window.irInicio = function() {
-    const contenedorPrincipal = document.getElementById('contenedor-principal');
-    if (contenedorPrincipal) {
-        contenedorPrincipal.innerHTML = ''; 
+    const pantallaInicio = document.getElementById('main-content');
+    const vistaDinamica = document.getElementById('vista-dinamica');
+
+    // Restaurar la pantalla principal real definida en index.html.
+    if (pantallaInicio) {
+        pantallaInicio.style.display = '';
     }
+
+    // Ocultar y limpiar el contenido del módulo actualmente abierto.
+    if (vistaDinamica) {
+        vistaDinamica.innerHTML = '';
+        vistaDinamica.style.display = 'none';
+    }
+
+    // Cerrar el menú lateral si estaba abierto.
+    const menu = document.getElementById('side-menu');
+    const overlay = document.getElementById('drawer-overlay');
+    if (menu) menu.classList.remove('open');
+    if (overlay) overlay.classList.remove('active');
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 };
 
 document.addEventListener('DOMContentLoaded', () => {
