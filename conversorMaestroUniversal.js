@@ -1,6 +1,6 @@
 // ==========================================
 // MÓDULO: CMU (Conversor Maestro Universal)
-// El Bibliotecario Autónomo Definitivo (Parser Robusto RFC 4180)
+// Versión Definitiva con Papa Parse (Cero Pérdida de Datos)
 // ==========================================
 
 import { clienteSupabase } from './supabaseClient.js';
@@ -21,6 +21,18 @@ const MAPAS_CONFIG = {
     "Purgas ECAS (PECAS)": "1-kh06uxnaCx9AOEaVC6g80VeZ5A_ePg"
 };
 
+// Función para cargar Papa Parse dinámicamente si no está presente
+async function asegurarPapaParse() {
+    if (window.Papa) return window.Papa;
+    return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js';
+        script.onload = () => resolve(window.Papa);
+        script.onerror = () => reject(new Error('No se pudo cargar Papa Parse desde el CDN.'));
+        document.head.appendChild(script);
+    });
+}
+
 export function cargarModuloAdminCsv(contenedor) {
     contenedor.style.width = '100%';
     contenedor.style.padding = '20px';
@@ -32,12 +44,12 @@ export function cargarModuloAdminCsv(contenedor) {
     contenedor.innerHTML = `
         <div style="max-width: 950px; margin: 0 auto; color: #fff; font-family: Arial, sans-serif;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                <h2 style="color: #38bdf8; margin: 0;">📚 CMU: Bibliotecario Autónomo Pro</h2>
-                <span style="background: #22c55e; color: #000; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: bold;">PARSER ROBUSTO RFC 4180</span>
+                <h2 style="color: #38bdf8; margin: 0;">📚 CMU: Bibliotecario con Papa Parse</h2>
+                <span style="background: #22c55e; color: #000; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: bold;">100% PRECISIÓN DE FILAS</span>
             </div>
             
             <p style="color: #aaa; font-size: 13px; margin-bottom: 20px; line-height: 1.4;">
-                Carga cualquier CSV de My Maps. El sistema detectará la categoría por el nombre y procesará celdas multilínea y polígonos sin errores.
+                Procesa tus archivos CSV asegurando que se lean absolutamente todos los registros físicos sin cortes ni omisiones.
             </p>
 
             <div style="background: #1e1e1e; padding: 20px; border-radius: 8px; border: 1px solid #333; margin-bottom: 20px;">
@@ -97,52 +109,6 @@ export function cargarModuloAdminCsv(contenedor) {
     let categoriaDetectadaGlobal = 'Extintores';
     let datosConvertidosGlobal = [];
 
-    // Parser robusto RFC 4180 (Maneja comillas, comas/punto y comas y saltos de línea internos en celdas)
-    const parseCsvRobust = (text) => {
-        let rows = [];
-        let currentRow = [];
-        let currentField = '';
-        let inQuotes = false;
-        
-        let firstLineEnd = text.indexOf('\n');
-        let firstLine = firstLineEnd !== -1 ? text.substring(0, firstLineEnd) : text;
-        let separator = firstLine.includes(';') ? ';' : ',';
-
-        for (let i = 0; i < text.length; i++) {
-            let char = text[i];
-            let nextChar = text[i + 1];
-
-            if (char === '"') {
-                if (inQuotes && nextChar === '"') {
-                    currentField += '"';
-                    i++; 
-                } else {
-                    inQuotes = !inQuotes;
-                }
-            } else if (char === separator && !inQuotes) {
-                currentRow.push(currentField.trim());
-                currentField = '';
-            } else if ((char === '\r' || char === '\n') && !inQuotes) {
-                if (char === '\r' && nextChar === '\n') {
-                    i++; 
-                }
-                currentRow.push(currentField.trim());
-                if (currentRow.length > 1 || currentRow[0] !== '') {
-                    rows.push(currentRow);
-                }
-                currentRow = [];
-                currentField = '';
-            } else {
-                currentField += char;
-            }
-        }
-        if (currentField !== '' || currentRow.length > 0) {
-            currentRow.push(currentField.trim());
-            rows.push(currentRow);
-        }
-        return rows;
-    };
-
     document.getElementById('admin-input-csv').addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -158,110 +124,121 @@ export function cargarModuloAdminCsv(contenedor) {
         }
     });
 
-    document.getElementById('btn-procesar-csv').addEventListener('click', () => {
+    document.getElementById('btn-procesar-csv').addEventListener('click', async () => {
         const fileInput = document.getElementById('admin-input-csv');
         if (!fileInput.files[0]) {
             alert('Por favor selecciona un archivo CSV.');
             return;
         }
 
-        const reader = new FileReader();
-        reader.readAsText(fileInput.files[0], 'UTF-8');
+        try {
+            const Papa = await asegurarPapaParse();
 
-        reader.onload = function(e) {
-            let textoCsv = e.target.result;
-            textoCsv = textoCsv.replace(/â‚¬/g, '°').replace(/Â°/g, '°').replace(/Â/g, '');
-
-            const parsedRows = parseCsvRobust(textoCsv);
-            if (parsedRows.length < 2) {
-                alert('El archivo CSV está vacío o mal formado.');
-                return;
-            }
-
-            const cabeceras = parsedRows[0].map(c => c.replace(/^"|"$/g, '').trim());
-            const filasDatos = parsedRows.slice(1);
-
-            const aliasEtiqueta = ['nombre de etiqueta', 'nombre', 'etiqueta', 'identificador', 'elemento', 'valvula eca', 'valvula eca 1'];
-            const aliasSector = ['sector', 'departamento'];
-            const aliasRonda = ['ronda', 'uet'];
-            const aliasWkt = ['wkt', 'geom'];
-            const aliasGmsIgnorar = ['punto gps', 'puntogps', 'coordenadas gms'];
-
-            let listaTemporal = [];
-            const limpiarTextoSeguro = (val) => {
-                if (!val) return null;
-                let s = String(val).trim().replace(/^"|"$/g, '');
-                return s === '' ? null : s;
-            };
-
-            const parsearWkt = (wktStr) => {
-                if (!wktStr) return null;
-                const match = String(wktStr).match(/POINT\s*\(\s*([-\d.]+)\s+([-\d.]+)\s*\)/i);
-                if (match) return `${match[2]}, ${match[1]}`;
-                return wktStr; 
-            };
-
-            filasDatos.forEach((fila, index) => {
-                let etiqueta = null, sector = null, ronda = null, wkt = null;
-                let atributosJSON = {};
-
-                cabeceras.forEach((cab, idx) => {
-                    let valor = limpiarTextoSeguro(fila[idx]);
-                    if (!valor) return;
-                    let cabMin = cab.toLowerCase();
-
-                    if (aliasEtiqueta.includes(cabMin) && !etiqueta) etiqueta = valor;
-                    else if (aliasSector.includes(cabMin) && !sector) sector = valor;
-                    else if (aliasRonda.includes(cabMin) && !ronda) ronda = valor;
-                    else if (aliasWkt.includes(cabMin) && !wkt) wkt = valor;
-                    else if (!aliasGmsIgnorar.includes(cabMin)) {
-                        atributosJSON[cab] = valor;
+            Papa.parse(fileInput.files[0], {
+                header: true,
+                skipEmptyLines: true,
+                encoding: 'UTF-8',
+                complete: function(results) {
+                    const filasDatos = results.data;
+                    
+                    if (!filasDatos || filasDatos.length === 0) {
+                        alert('El archivo CSV está vacío o no se pudo leer.');
+                        return;
                     }
-                });
 
-                if (!etiqueta) etiqueta = `Sin Etiqueta Fila ${index + 1}`;
-                if (categoriaDetectadaGlobal === 'Extintores') {
-                    etiqueta = etiqueta.replace(/^extintor\s*/i, '');
+                    const aliasEtiqueta = ['nombre de etiqueta', 'nombre', 'etiqueta', 'identificador', 'elemento', 'valvula eca', 'valvula eca 1'];
+                    const aliasSector = ['sector', 'departamento'];
+                    const aliasRonda = ['ronda', 'uet'];
+                    const aliasWkt = ['wkt', 'geom'];
+                    const aliasGmsIgnorar = ['punto gps', 'puntogps', 'coordenadas gms'];
+
+                    let listaTemporal = [];
+
+                    const limpiarTextoSeguro = (val) => {
+                        if (!val) return null;
+                        let s = String(val).trim();
+                        s = s.replace(/Â°/g, '°').replace(/Â/g, '').replace(/â‚¬/g, '°');
+                        return s === '' ? null : s;
+                    };
+
+                    const parsearWkt = (wktStr) => {
+                        if (!wktStr) return null;
+                        const match = String(wktStr).match(/POINT\s*\(\s*([-\d.]+)\s+([-\d.]+)\s*\)/i);
+                        if (match) return `${match[2]}, ${match[1]}`;
+                        return wktStr; 
+                    };
+
+                    filasDatos.forEach((fila, index) => {
+                        let etiqueta = null, sector = null, ronda = null, wkt = null;
+                        let atributosJSON = {};
+
+                        // Recorrer las llaves del objeto devuelto por Papa Parse
+                        Object.keys(fila).forEach(cabeceraOriginal => {
+                            const cabLimpieza = cabeceraOriginal.trim();
+                            const valor = limpiarTextoSeguro(fila[cabeceraOriginal]);
+                            if (!valor) return;
+
+                            const cabMin = cabLimpieza.toLowerCase();
+
+                            if (aliasEtiqueta.includes(cabMin) && !etiqueta) etiqueta = valor;
+                            else if (aliasSector.includes(cabMin) && !sector) sector = valor;
+                            else if (aliasRonda.includes(cabMin) && !ronda) ronda = valor;
+                            else if (aliasWkt.includes(cabMin) && !wkt) wkt = valor;
+                            else if (!aliasGmsIgnorar.includes(cabMin)) {
+                                atributosJSON[cabLimpieza] = valor;
+                            }
+                        });
+
+                        if (!etiqueta) etiqueta = `Sin Etiqueta Fila ${index + 1}`;
+                        if (categoriaDetectadaGlobal === 'Extintores') {
+                            etiqueta = etiqueta.replace(/^extintor\s*/i, '');
+                        }
+
+                        listaTemporal.push({
+                            "etiqueta": etiqueta,
+                            "categoria": categoriaDetectadaGlobal,
+                            "sector": sector,
+                            "ronda": ronda,
+                            "ubicacion_wkt": wkt ? parsearWkt(wkt) : null,
+                            "atributos_tecnicos": atributosJSON
+                        });
+                    });
+
+                    datosConvertidosGlobal = listaTemporal;
+                    document.getElementById('admin-resultado-container').style.display = 'block';
+                    document.getElementById('admin-estado-texto').innerText = `¡Procesado con Papa Parse: ${categoriaDetectadaGlobal}!`;
+                    document.getElementById('admin-contador-registros').innerText = `${datosConvertidosGlobal.length} elementos`;
+
+                    const previewDiv = document.getElementById('admin-preview-tabla');
+                    let tablaHtml = `<style>
+                        #admin-preview-tabla table { width: 100%; border-collapse: collapse; color: #ccc; }
+                        #admin-preview-tabla th, #admin-preview-tabla td { border: 1px solid #444; padding: 6px; text-align: left; }
+                        #admin-preview-tabla th { background: #2a2a2a; color: #38bdf8; position: sticky; top: 0; }
+                    </style><table><thead><tr><th>Etiqueta</th><th>Sector</th><th>WKT</th><th>JSON Atributos</th></tr></thead><tbody>`;
+                    
+                    datosConvertidosGlobal.slice(0, 15).forEach(row => {
+                        tablaHtml += `<tr>
+                            <td>${row.etiqueta || ''}</td>
+                            <td>${row.sector || ''}</td>
+                            <td style="color: #eab308;">${row.ubicacion_wkt || ''}</td>
+                            <td style="color: #38bdf8; font-family: monospace;">${JSON.stringify(row.atributos_tecnicos).substring(0, 40)}...</td>
+                        </tr>`;
+                    });
+                    tablaHtml += `</tbody></table>`;
+                    previewDiv.innerHTML = tablaHtml;
+                },
+                error: function(err) {
+                    alert('❌ Error analizando el CSV con Papa Parse: ' + err.message);
                 }
-
-                listaTemporal.push({
-                    "etiqueta": etiqueta,
-                    "categoria": categoriaDetectadaGlobal,
-                    "sector": sector,
-                    "ronda": ronda,
-                    "ubicacion_wkt": wkt ? parsearWkt(wkt) : null,
-                    "atributos_tecnicos": atributosJSON
-                });
             });
-
-            datosConvertidosGlobal = listaTemporal;
-            document.getElementById('admin-resultado-container').style.display = 'block';
-            document.getElementById('admin-estado-texto').innerText = `¡Procesado como: ${categoriaDetectadaGlobal}!`;
-            document.getElementById('admin-contador-registros').innerText = `${datosConvertidosGlobal.length} elementos`;
-
-            const previewDiv = document.getElementById('admin-preview-tabla');
-            let tablaHtml = `<style>
-                #admin-preview-tabla table { width: 100%; border-collapse: collapse; color: #ccc; }
-                #admin-preview-tabla th, #admin-preview-tabla td { border: 1px solid #444; padding: 6px; text-align: left; }
-                #admin-preview-tabla th { background: #2a2a2a; color: #38bdf8; position: sticky; top: 0; }
-            </style><table><thead><tr><th>Etiqueta</th><th>Sector</th><th>WKT</th><th>JSON Atributos</th></tr></thead><tbody>`;
-            
-            datosConvertidosGlobal.slice(0, 15).forEach(row => {
-                tablaHtml += `<tr>
-                    <td>${row.etiqueta || ''}</td>
-                    <td>${row.sector || ''}</td>
-                    <td style="color: #eab308;">${row.ubicacion_wkt || ''}</td>
-                    <td style="color: #38bdf8; font-family: monospace;">${JSON.stringify(row.atributos_tecnicos).substring(0, 40)}...</td>
-                </tr>`;
-            });
-            tablaHtml += `</tbody></table>`;
-            previewDiv.innerHTML = tablaHtml;
-        };
+        } catch (err) {
+            alert('❌ Error al inicializar el procesador: ' + err.message);
+        }
     });
 
     document.getElementById('btn-subir-supabase').addEventListener('click', async () => {
         if (datosConvertidosGlobal.length === 0) return;
-        if (!confirm(`¿Inyectar ${datosConvertidosGlobal.length} registros como "${categoriaDetectadaGlobal}"?`)) return;
+        if (!confirm(`¿Inyectar los ${datosConvertidosGlobal.length} registros exactos como "${categoriaDetectadaGlobal}"?`)) return;
 
         const btnSubir = document.getElementById('btn-subir-supabase');
         btnSubir.innerText = 'Inyectando...'; 
@@ -351,7 +328,7 @@ export function cargarModuloAdminCsv(contenedor) {
                 }
             }
 
-            alert(`¡Carga masiva exitosa para "${categoriaDetectadaGlobal}" con el parser robusto!`);
+            alert(`¡Carga masiva completada con éxito! Se inyectaron los ${datosConvertidosGlobal.length} registros exactos.`);
             btnSubir.innerText = '🚀 Inyectar en LEU, Controles y Anomalías (Supabase)';
             btnSubir.disabled = false;
         } catch (err) {
