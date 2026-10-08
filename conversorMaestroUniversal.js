@@ -86,7 +86,7 @@ export function cargarModuloAdminCsv(contenedor) {
                 
                 <div id="admin-preview-tabla" style="max-height: 280px; overflow: auto; margin-bottom: 15px; font-size: 12px; background: #121212; padding: 10px; border-radius: 4px; border: 1px solid #444;"></div>
                 
-                <button id="btn-subir-supabase" style="background: #38bdf8; color: #000; border: none; padding: 12px 20px; border-radius: 5px; font-weight: bold; cursor: pointer; width: 100%; font-size: 14px;">🚀 Inyectar en LEU y Controles (Supabase)</button>
+                <button id="btn-subir-supabase" style="background: #38bdf8; color: #000; border: none; padding: 12px 20px; border-radius: 5px; font-weight: bold; cursor: pointer; width: 100%; font-size: 14px;">🚀 Inyectar en LEU, Controles y Anomalías (Supabase)</button>
             </div>
         </div>
     `;
@@ -218,7 +218,7 @@ export function cargarModuloAdminCsv(contenedor) {
                 return valores.map(v => v.replace(/^"|"$/g, '').trim());
             };
 
-            const aliasEtiqueta = ['nombre de etiqueta', 'nombre', 'etiqueta', 'identificador', 'elemento', 'valvula eca'];
+            const aliasEtiqueta = ['nombre de etiqueta', 'nombre', 'etiqueta', 'identificador', 'elemento', 'valvula eca', 'valvula eca 1'];
             const aliasSector = ['sector', 'departamento'];
             const aliasRonda = ['ronda', 'uet'];
             const aliasWkt = ['wkt', 'geom'];
@@ -277,7 +277,6 @@ export function cargarModuloAdminCsv(contenedor) {
 
                 if (!etiqueta) etiqueta = `Sin Etiqueta Fila ${index + 1}`;
 
-                // LIMPIEZA INTELIGENTE PARA EXTINTORES: 
                 let etiquetaLimpia = etiqueta;
                 if (categoriaSeleccionada === 'Extintores') {
                     etiquetaLimpia = etiqueta.replace(/^extintor\s*/i, '');
@@ -328,13 +327,13 @@ export function cargarModuloAdminCsv(contenedor) {
     });
 
     // ==========================================
-    // SINCRONIZACIÓN BIFURCADA (LEU + CONTROLES)
+    // SINCRONIZACIÓN BIFURCADA (LEU + CONTROLES + ANOMALÍAS)
     // ==========================================
     document.getElementById('btn-subir-supabase').addEventListener('click', async () => {
         if (datosConvertidosGlobal.length === 0) return;
         const categoriaSeleccionada = document.getElementById('admin-categoria-destino').value;
 
-        if (!confirm(`¿Inyectar los ${datosConvertidosGlobal.length} registros de "${categoriaSeleccionada}" en LEU y sus respectivas tablas de control?`)) {
+        if (!confirm(`¿Inyectar los ${datosConvertidosGlobal.length} registros de "${categoriaSeleccionada}" en LEU, Controles y Anomalías?`)) {
             return;
         }
 
@@ -357,13 +356,20 @@ export function cargarModuloAdminCsv(contenedor) {
             const arrayLEU = [];
             const arrayControlesH = [];
             const arrayControlesE = [];
+            const arrayControlesV = [];
+            const arrayControlesEcas = [];
+            const arrayControlesVecas = [];
+            const arrayControlesC = [];
+            const arrayControlesPc = [];
+            const arrayControlesEs = [];
+            const arrayAnomalias = [];
 
             datosConvertidosGlobal.forEach((item) => {
                 maxId++;
                 const idActivo = maxId;
                 const attrs = item.atributos_tecnicos;
 
-                // A. Guardamos en LEU
+                // 1. Guardar en LEU (Enciclopedia Universal)
                 arrayLEU.push({
                     id: idActivo,
                     categoria: item.categoria,
@@ -374,9 +380,27 @@ export function cargarModuloAdminCsv(contenedor) {
                     atributos_tecnicos: { fuente: 'My Maps CSV', atributos_originales: attrs }
                 });
 
-                // B. Detectamos HIDRANTES
+                // 2. Extracción transversal de anomalías (si el registro reporta anomalía)
+                const textoAnomalia = attrs['ANOMALIAS SI / NO'] || attrs['anomalias'] || attrs['Novedades'] || null;
+                if (textoAnomalia && String(textoAnomalia).trim() !== '' && String(textoAnomalia).toUpperCase() !== 'NULL' && String(textoAnomalia).toUpperCase() !== 'NO' && String(textoAnomalia).toUpperCase() !== '0') {
+                    arrayAnomalias.push({
+                        id_activo: idActivo,
+                        modulo_origen: categoriaSeleccionada.toLowerCase(),
+                        evento_numero: attrs['Evento Numero'] || null,
+                        anomalia_detectada: String(textoAnomalia),
+                        detalle_informe: attrs['Detalle Informe'] || attrs['Observacion'] || attrs['Observaciones'] || null,
+                        observacion: attrs['Observacion'] || attrs['Comentario'] || null,
+                        reportado_fecha: parseFecha(attrs['Reportado Fecha']),
+                        reportado_por: attrs['Reportado Por'] || attrs['Reportado por'] || null,
+                        estado_resolucion: 'Abierta'
+                    });
+                }
+
+                // 3. Distribución inteligente según tablas de control
+                const matchNum = item.etiqueta.match(/([0-9]+)/);
+
+                // A. Hidrantes
                 if (attrs['Prueba 2026 Fecha'] !== undefined || attrs['Llave Alimentacion'] !== undefined) {
-                    const matchNum = item.etiqueta.match(/([0-9]+)/);
                     arrayControlesH.push({
                         id_activo: idActivo,
                         idch_original: matchNum ? matchNum[1] : null,
@@ -393,94 +417,4 @@ export function cargarModuloAdminCsv(contenedor) {
                         llave_teatro_izquierdo: attrs['Llave Teatro Izquierdo'] || null,
                         detalle_t_izquierdo: attrs['Detalle T Izquierdo'] || null,
                         observacion: attrs['Observacion'] || null,
-                        anomalias: attrs['ANOMALIAS SI / NO'] || null,
-                        reportado_fecha: parseFecha(attrs['Reportado Fecha']),
-                        reportado_por: attrs['Reportado Por'] || null
-                    });
-                }
-                // C. Detectamos EXTINTORES (Mapeo exacto con las columnas de tu tabla controles_e)
-                else if (categoriaSeleccionada === 'Extintores') {
-                    const matchNum = item.etiqueta.match(/([0-9]+)/);
-                    
-                    let tipoDetectado = attrs['Tipo de Extintor'] || attrs['tipo'] || null;
-                    if (!tipoDetectado) {
-                        const textoCompleto = (item.etiqueta + ' ' + JSON.stringify(attrs)).toUpperCase();
-                        if (textoCompleto.includes('CO2')) tipoDetectado = 'CO2';
-                        else if (textoCompleto.includes('PQS')) tipoDetectado = 'PQS';
-                        else if (textoCompleto.includes('HALON')) tipoDetectado = 'HALON';
-                        else if (textoCompleto.includes('K')) tipoDetectado = 'K';
-                        else tipoDetectado = 'GENERAL';
-                    }
-
-                    arrayControlesE.push({
-                        id_extintor: matchNum ? parseInt(matchNum[1], 10) : null,
-                        nombreetiqueta: item.etiqueta, // AHORA SÍ ESTÁ CORRECTO 
-                        puntogps: attrs['Punto GPS'] || null,
-                        sector: item.sector,
-                        ronda: item.ronda,
-                        controlmensual: attrs['CONTROL MENSUAL (Mes)'] || null,
-                        controlrealizadopor: attrs['Control M. realizado por'] || attrs['Realizo'] || null,
-                        tipoextintor: tipoDetectado ? tipoDetectado.trim() : 'GENERAL',
-                        vencimiento: parseFecha(attrs['Vencimiento']),
-                        pruebahidraulica: attrs['Prueba Hidraulica'] || null,
-                        observacion: attrs['Observacion'] || null
-                    });
-                }
-            });
-
-            const chunkSize = 500;
-
-            // 3. Inyección en LEU
-            btnSubir.innerText = `Inyectando ${arrayLEU.length} activos en LEU...`;
-            for (let i = 0; i < arrayLEU.length; i += chunkSize) {
-                const chunk = arrayLEU.slice(i, i + chunkSize);
-                const { error } = await clienteSupabase.from('leu').insert(chunk);
-                if (error) throw new Error("Fallo inyectando en LEU: " + error.message);
-            }
-
-            // 4. Inyección en Controles Hidrantes
-            if (arrayControlesH.length > 0) {
-                btnSubir.innerText = `Inyectando ${arrayControlesH.length} controles en controles_h...`;
-                for (let i = 0; i < arrayControlesH.length; i += chunkSize) {
-                    const chunk = arrayControlesH.slice(i, i + chunkSize);
-                    const { error } = await clienteSupabase.from('controles_h').insert(chunk);
-                    if (error) throw new Error("Fallo inyectando en controles_h: " + error.message);
-                }
-            }
-
-            // 5. Inyección en Controles Extintores
-            if (arrayControlesE.length > 0) {
-                btnSubir.innerText = `Inyectando ${arrayControlesE.length} controles en controles_e...`;
-                for (let i = 0; i < arrayControlesE.length; i += chunkSize) {
-                    const chunk = arrayControlesE.slice(i, i + chunkSize);
-                    const { error } = await clienteSupabase.from('controles_e').insert(chunk);
-                    if (error) throw new Error("Fallo inyectando en controles_e: " + error.message);
-                }
-            }
-
-            let msgExito = `¡Migración exitosa para la categoría "${categoriaSeleccionada}"!\n\nSe procesaron:\n- ${arrayLEU.length} Activos registrados en LEU.`;
-            if (arrayControlesH.length > 0) msgExito += `\n- ${arrayControlesH.length} Historiales de Hidrantes.`;
-            if (arrayControlesE.length > 0) msgExito += `\n- ${arrayControlesE.length} Historiales de Extintores (con tipo clasificado).`;
-
-            alert(msgExito);
-            btnSubir.innerText = '🚀 Inyectar en LEU y Controles (Supabase)';
-            btnSubir.disabled = false;
-
-        } catch (err) {
-            alert('❌ Ocurrió un error crítico:\n' + err.message);
-            btnSubir.innerText = '🚀 Inyectar en LEU y Controles (Supabase)';
-            btnSubir.disabled = false;
-        }
-    });
-}
-
-function parseFecha(val) {
-    if (!val || typeof val !== 'string' || val.trim() === '' || val.toUpperCase() === 'NULL') return null;
-    const parts = val.split('/');
-    if (parts.length === 3) {
-        const parsed = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T00:00:00`);
-        return isNaN(parsed.getTime()) ? null : parsed.toISOString().split('T')[0];
-    }
-    const parsed = new Date(val);
-    return isNaN(parsed.getTime()) ? null : parsed.toISOString().split('T')[0];
-}
+                        an
