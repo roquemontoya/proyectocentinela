@@ -577,7 +577,7 @@ export function cargarModuloAdminCsv(contenedor) {
                         if (indiceWkt < 0 || indiceWkt >= copia.length) return copia;
 
                         const wkt = limpiarTextoSeguro(copia[indiceWkt]);
-                        const matchWkt = wkt?.match(/POINT\\s*\\(\\s*([-\\d.]+)\\s+([-\\d.]+)\\s*\\)/i);
+                        const matchWkt = wkt?.match(/POINT\s*\(\s*([-\d.]+)\s+([-\d.]+)\s*\)/i);
                         if (!matchWkt) return copia;
 
                         const longitud = Number(matchWkt[1]);
