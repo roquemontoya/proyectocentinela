@@ -719,6 +719,21 @@ export function cargarModuloAdminCsv(contenedor) {
 
                     previewDiv.innerHTML = resumenAuditoria;
 
+                    if (auditoria.reparacionesGpsCanonicas.length > 0) {
+                        const reparacionesDiv = document.createElement('pre');
+                        reparacionesDiv.style.cssText = 'margin-top:12px;background:#2a2410;border:1px solid #eab308;padding:12px;border-radius:6px;color:#fde68a;white-space:pre-wrap;font-size:11px;';
+                        reparacionesDiv.textContent =
+                            '🛠️ REPARACIONES GPS DETERMINISTAS (' + auditoria.reparacionesGpsCanonicas.length + ')\\n\\n' +
+                            auditoria.reparacionesGpsCanonicas.map(r =>
+                                'Fila CSV: ' + r.filaCsv + '\\n' +
+                                'Etiqueta: ' + r.etiqueta + '\\n' +
+                                'Sector: ' + r.sectorAntes + ' → ' + r.sectorDespues + '\\n' +
+                                'Ronda: ' + r.rondaAntes + ' → ' + r.rondaDespues + '\\n' +
+                                'WKT: ' + r.wkt
+                            ).join('\\n\\n');
+                        previewDiv.appendChild(reparacionesDiv);
+                    }
+
                     let tablaHtml = `<style>
                         #admin-preview-tabla table { width: 100%; border-collapse: collapse; color: #ccc; }
                         #admin-preview-tabla th, #admin-preview-tabla td { border: 1px solid #444; padding: 6px; text-align: left; }
