@@ -5,8 +5,24 @@
 import { cargarModuloAdminCsv } from './conversorMaestroUniversal.js';
 import { cargarModuloGestorTablas } from './gestorTablas.js';
 
+// 1. SOLUCIÓN AL ERROR: Exponer toggleMenu de forma global para el onclick del HTML
+window.toggleMenu = function() {
+    const sidebar = document.querySelector('aside') || document.querySelector('.sidebar') || document.querySelector('.modules-sidebar') || document.querySelector('#sidebar');
+    if (sidebar) {
+        sidebar.classList.toggle('active');
+        sidebar.classList.toggle('open');
+        if (sidebar.style.display === 'none') {
+            sidebar.style.display = 'block';
+        } else if (sidebar.style.width === '0px' || sidebar.style.width === '') {
+            sidebar.style.width = '250px';
+        } else {
+            sidebar.style.display = 'none';
+        }
+    }
+};
+
 document.addEventListener('DOMContentLoaded', () => {
-    // 1. Contenedor principal de la PWA
+    // 2. Contenedor principal de la PWA
     let contenedorPrincipal = document.getElementById('contenedor-principal');
     if (!contenedorPrincipal) {
         contenedorPrincipal = document.createElement('main');
@@ -15,7 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.appendChild(contenedorPrincipal);
     }
 
-    // 2. Inyectar automáticamente el botón del Gestor de Tablas en la barra lateral existente
+    // 3. Inyectar automáticamente el botón del Gestor de Tablas en el menú lateral existente
     const sidebar = document.querySelector('aside') || document.querySelector('.modules-sidebar') || document.querySelector('.sidebar') || document.body;
     
     let btnGestor = document.getElementById('nav-gestor-tablas');
@@ -27,7 +43,6 @@ document.addEventListener('DOMContentLoaded', () => {
         btnGestor.innerHTML = '🎛️ Gestor de Tablas';
         btnGestor.style.cssText = 'color: #38bdf8; font-weight: bold; display: block; padding: 12px 15px; text-decoration: none; border-left: 3px solid #38bdf8; margin-top: 8px; background: rgba(56, 189, 248, 0.08); cursor: pointer; font-family: Arial, sans-serif; font-size: 13px;';
         
-        // Buscar el botón de CMU para ponerlo justo debajo
         const linkCmu = document.getElementById('nav-cmu') || sidebar.querySelector('[href*="CMU"]') || sidebar.querySelector('a');
         if (linkCmu && linkCmu.parentNode) {
             linkCmu.parentNode.insertBefore(btnGestor, linkCmu.nextSibling);
@@ -36,7 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // 3. Vincular evento para el Bibliotecario (CMU)
+    // 4. Vincular evento para el Bibliotecario (CMU)
     const linkCmu = document.getElementById('nav-cmu') || Array.from(document.querySelectorAll('a')).find(el => el.textContent.includes('CMU'));
     if (linkCmu) {
         linkCmu.addEventListener('click', (e) => {
@@ -46,12 +61,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 4. Vincular evento para el Gestor Universal de Tablas (Solucionador de errores)
+    // 5. Vincular evento para el Gestor Universal de Tablas
     btnGestor.addEventListener('click', (e) => {
         e.preventDefault();
         contenedorPrincipal.innerHTML = '';
         cargarModuloGestorTablas(contenedorPrincipal);
     });
 
-    console.log('🚀 app.js sincronizado: Bibliotecario y Gestor Universal listos.');
+    console.log('🚀 app.js sincronizado: Ámbito global corregido y Gestor Universal activo.');
 });
