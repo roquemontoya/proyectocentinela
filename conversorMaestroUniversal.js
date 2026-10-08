@@ -1040,10 +1040,6 @@ export function cargarModuloAdminCsv(contenedor) {
                 // En exportaciones IPP antiguas la anomalía puede venir dentro de
                 // la descripción multilinea como "ANOMALIAS: ...".
                 if (!textoAnomalia && categoriaDetectadaGlobal === 'IPP (Macro Sectores)') {
-                    const descripcionIpp = obtenerValor(
-                        datosConvertidosGlobal.find(() => false) || [],
-                        -1
-                    );
 
                     // El texto completo de descripción permanece en los atributos originales.
                     const claveDescripcion = Object.keys(attrs).find(k =>
@@ -1053,10 +1049,10 @@ export function cargarModuloAdminCsv(contenedor) {
 
                     const descripcionCompleta = claveDescripcion ? attrs[claveDescripcion] : null;
                     if (descripcionCompleta) {
-                        const lineas = String(descripcionCompleta).split(/\\r?\\n/);
+                        const lineas = String(descripcionCompleta).split(/\r?\n/);
 
                         for (const linea of lineas) {
-                            const match = linea.match(/^\\s*(ANOMALIAS(?: SI \/ NO)?|NOVEDADES)\\s*:\\s*(.+)\\s*$/i);
+                            const match = linea.match(/^\s*(ANOMALIAS(?: SI \/ NO)?|NOVEDADES)\s*:\s*(.+)\s*$/i);
                             if (match && match[2].trim()) {
                                 textoAnomalia = match[2].trim();
                                 break;
