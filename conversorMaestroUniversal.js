@@ -414,7 +414,7 @@ export function cargarModuloAdminCsv(contenedor) {
 
                     arrayControlesE.push({
                         id_extintor: matchNum ? parseInt(matchNum[1], 10) : null,
-                        nombreequetiqueta: item.etiqueta,
+                        nombreetiqueta: item.etiqueta, // AHORA SÍ ESTÁ CORRECTO 
                         puntogps: attrs['Punto GPS'] || null,
                         sector: item.sector,
                         ronda: item.ronda,
