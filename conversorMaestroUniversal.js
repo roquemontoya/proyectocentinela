@@ -417,4 +417,257 @@ export function cargarModuloAdminCsv(contenedor) {
                         llave_teatro_izquierdo: attrs['Llave Teatro Izquierdo'] || null,
                         detalle_t_izquierdo: attrs['Detalle T Izquierdo'] || null,
                         observacion: attrs['Observacion'] || null,
-                        an
+                        anomalias: attrs['ANOMALIAS SI / NO'] || null,
+                        reportado_fecha: parseFecha(attrs['Reportado Fecha']),
+                        reportado_por: attrs['Reportado Por'] || null
+                    });
+                }
+                // B. Extintores
+                else if (categoriaSeleccionada === 'Extintores') {
+                    let tipoDetectado = attrs['Tipo de Extintor'] || attrs['tipo'] || null;
+                    if (!tipoDetectado) {
+                        const textoCompleto = (item.etiqueta + ' ' + JSON.stringify(attrs)).toUpperCase();
+                        if (textoCompleto.includes('CO2')) tipoDetectado = 'CO2';
+                        else if (textoCompleto.includes('PQS')) tipoDetectado = 'PQS';
+                        else if (textoCompleto.includes('HALON')) tipoDetectado = 'HALON';
+                        else if (textoCompleto.includes('K')) tipoDetectado = 'K';
+                        else tipoDetectado = 'GENERAL';
+                    }
+
+                    arrayControlesE.push({
+                        id_extintor: matchNum ? parseInt(matchNum[1], 10) : null,
+                        nombreetiqueta: item.etiqueta,
+                        puntogps: attrs['Punto GPS'] || null,
+                        sector: item.sector,
+                        ronda: item.ronda,
+                        controlmensual: attrs['CONTROL MENSUAL (Mes)'] || null,
+                        controlrealizadopor: attrs['Control M. realizado por'] || attrs['Realizo'] || null,
+                        tipoextintor: tipoDetectado ? tipoDetectado.trim() : 'GENERAL',
+                        vencimiento: parseFecha(attrs['Vencimiento']),
+                        pruebahidraulica: attrs['Prueba Hidraulica'] || null,
+                        observacion: attrs['Observacion'] || null
+                    });
+                }
+                // C. Válvulas
+                else if (attrs['Prueba 2026 Fecha'] !== undefined && attrs['Vueltas1'] !== undefined) {
+                    arrayControlesV.push({
+                        id_activo: idActivo,
+                        idv_original: matchNum ? matchNum[1] : null,
+                        nombreetiqueta: item.etiqueta,
+                        puntogps: attrs['Punto GPS'] || null,
+                        sector: item.sector,
+                        ubicacion: attrs['Ubicación'] || null,
+                        estado: attrs['Estado'] || null,
+                        prueba_fecha: parseFecha(attrs['Prueba 2026 Fecha']),
+                        prueba_mes: attrs['PRUEBA MES.'] || null,
+                        realizo_prueba: attrs['Realizo la Prueba.'] || null,
+                        planing_prueba_mes: attrs['Planing Prueba Mes'] || null,
+                        control_mensual: attrs['CONTROL MENSUAL (Mes)'] || null,
+                        control_realizado_por: attrs['Control M. realizado por'] || null,
+                        tipo: attrs['Tipo'] || null,
+                        nivel: attrs['Nivel'] || null,
+                        vueltas: attrs['Vueltas1'] ? parseFloat(attrs['Vueltas1']) : null,
+                        prueba_con: attrs['Prueba Con'] || null,
+                        cadena_candado: attrs['Cadena y Candado'] || null,
+                        chapa: attrs['Chapa'] || null,
+                        observacion: attrs['Observacion'] || null,
+                        observaciones: attrs['Observaciones'] || null,
+                        anomalias: attrs['ANOMALIAS SI / NO'] || null,
+                        evento_numero: attrs['Evento Numero'] || null,
+                        reportado_fecha: parseFecha(attrs['Reportado Fecha']),
+                        reportado_por: attrs['Reportado Por'] || null,
+                        detalle_informe: attrs['Detalle Informe'] || null,
+                        programado: attrs['Programado'] || null,
+                        intervencion_realizada_por: attrs['Intervencion  realizada por'] || null,
+                        fecha: parseFecha(attrs['Fecha']),
+                        motivo: attrs['Motivo'] || null,
+                        informe: attrs['Informe'] || null
+                    });
+                }
+                // D. ECAS
+                else if (attrs['Central que reporta'] !== undefined && attrs['P/ENTRADA'] !== undefined) {
+                    arrayControlesEcas.push({
+                        id_activo: idActivo,
+                        ideca_original: matchNum ? matchNum[1] : null,
+                        nombreetiqueta: item.etiqueta,
+                        puntogps: attrs['Punto GPS'] || null,
+                        ubicacion: attrs['Ubicación'] || null,
+                        sector: item.sector,
+                        central_que_reporta: attrs['Central que reporta'] || null,
+                        estado: attrs['Estado'] || null,
+                        fecha_inspeccion_2025: parseFecha(attrs['Fecha Inspeccion 2025']),
+                        mes: attrs['Mes'] || null,
+                        p_entrada: attrs['P/ENTRADA'] || null,
+                        p_salida: attrs['P/SALIDA'] || null,
+                        t_gong: attrs['T/GONG'] || null,
+                        t_central: attrs['T central'] || null,
+                        t_monitoreo: attrs['T.monitoreo'] || null,
+                        rotulo_central: attrs['ROTULO CENTRAL'] || null,
+                        rotulo_base: attrs['ROTULO BASE'] || null,
+                        observaciones: attrs['Observaciones'] || null,
+                        parametros_reporte: attrs['Parametros / Reporte 2025'] || null,
+                        control_semana_n: attrs['CONTROL SEMANA N°'] || null,
+                        control_s_realizado_por: attrs['Control S. realizado por'] || null,
+                        p_entrada_semanal: attrs['P/ Entrada Semanal'] || null,
+                        p_salida_semanal: attrs['P/ Salida Semanal'] || null,
+                        status: attrs['STATUS'] || null,
+                        anomalias: attrs['ANOMALIAS SI / NO'] || null,
+                        evento_numero: attrs['Evento Numero'] || null,
+                        observacion: attrs['Observacion'] || null,
+                        reportado_fecha: parseFecha(attrs['Reportado Fecha']),
+                        reportado_por: attrs['Reportado Por'] || null
+                    });
+                }
+                // E. VECAS (Válvulas de ECAS)
+                else if (attrs['Valvula ECA'] !== undefined) {
+                    arrayControlesVecas.push({
+                        id_activo: idActivo,
+                        idvecas_original: matchNum ? matchNum[1] : null,
+                        valvula_eca: attrs['Valvula ECA'] || null,
+                        puntogps: attrs['Punto GPS'] || null,
+                        ubicacion: attrs['Ubicación'] || null,
+                        sector: item.sector,
+                        central_que_reporta: attrs['Central que reporta'] || null,
+                        estado: attrs['Estado'] || null,
+                        reporta: attrs['Reporta'] || null,
+                        fecha: parseFecha(attrs['Fecha']),
+                        tiempo: attrs['Tiempo'] ? parseFloat(attrs['Tiempo']) : null,
+                        rotulo: attrs['Rotulo'] || null,
+                        cadena_candado: attrs['Cadena y Candado'] || null,
+                        realizo_la_prueba: attrs['Realizo la Prueba'] || null,
+                        comentario: attrs['Comentario'] || null
+                    });
+                }
+                // F. Ceniceros
+                else if (attrs['Arena OK/NO'] !== undefined || attrs['Colillas OK/NO'] !== undefined) {
+                    arrayControlesC.push({
+                        id_activo: idActivo,
+                        idcenicero_original: attrs['N° serial'] ? parseFloat(attrs['N° serial']) : (matchNum ? parseInt(matchNum[1], 10) : null),
+                        nombreetiqueta: item.etiqueta,
+                        puntogps: attrs['Punto GPS'] || null,
+                        sector: item.sector,
+                        responsable_de_area: attrs['Responsable De Area'] || null,
+                        controlado_semana: attrs['CONTROLADO SEMANA'] || null,
+                        control_realizado_por: attrs['Control realizado por'] || null,
+                        limpieza: attrs['Limpieza OK/NO.'] || null,
+                        carteleria: attrs['Carteleria OK/NO'] || null,
+                        pintura: attrs['Pintura OK/NO'] || null,
+                        demarcacion: attrs['Demarcacion OK/NO '] || null,
+                        arena: attrs['Arena OK/NO'] || null,
+                        colillas: attrs['Colillas OK/NO'] || null,
+                        cadena: attrs['Cadena OK/NO'] || null,
+                        estado_de_cenicero: attrs['Estado de Cenicero'] || null,
+                        observaciones: attrs['Observaciones'] || null,
+                        novedades: attrs['Novedades'] || null,
+                        n_serial: attrs['N° serial'] ? parseFloat(attrs['N° serial']) : null
+                    });
+                }
+                // G. Puertas Cortafuego
+                else if (attrs['CONTROL SEMANAL'] !== undefined && attrs['Observaciones1'] !== undefined) {
+                    arrayControlesPc.push({
+                        id_activo: idActivo,
+                        idpc_original: matchNum ? matchNum[1] : null,
+                        nombreetiqueta: item.etiqueta,
+                        puntogps: attrs['Punto GPS'] || null,
+                        sector: item.sector,
+                        ubicacion: attrs['Ubicación'] || null,
+                        control_semanal: attrs['CONTROL SEMANAL'] || null,
+                        control_s_realizado_por: attrs['Control S. realizado por'] || null,
+                        observaciones1: attrs['Observaciones1'] || null,
+                        anomalias: attrs['ANOMALIAS SI / NO'] || null,
+                        reportado_fecha: parseFecha(attrs['Reportado Fecha']),
+                        reportado_por: attrs['Reportado por'] || null
+                    });
+                }
+                // H. Espumígenos
+                else if (attrs['CONTROL SEMANAL'] !== undefined && (attrs['Observaciones'] !== undefined || attrs['Punto GPS'] !== undefined)) {
+                    arrayControlesEs.push({
+                        id_activo: idActivo,
+                        idesp_original: matchNum ? matchNum[1] : null,
+                        puntogps: attrs['Punto GPS'] || null,
+                        nombreetiqueta: item.etiqueta,
+                        sector: item.sector,
+                        ubicacion: attrs['Ubicación'] || null,
+                        control_semanal: attrs['CONTROL SEMANAL'] || null,
+                        control_s_realizado_por: attrs['Control S. realizado por'] || null,
+                        observaciones: attrs['Observaciones'] || null
+                    });
+                }
+            });
+
+            const chunkSize = 500;
+
+            // 4. Inyección en LEU
+            btnSubir.innerText = `Inyectando ${arrayLEU.length} activos en LEU...`;
+            for (let i = 0; i < arrayLEU.length; i += chunkSize) {
+                const chunk = arrayLEU.slice(i, i + chunkSize);
+                const { error } = await clienteSupabase.from('leu').insert(chunk);
+                if (error) throw new Error("Fallo inyectando en LEU: " + error.message);
+            }
+
+            // 5. Inyección en la Tabla Transversal de Anomalías
+            if (arrayAnomalias.length > 0) {
+                btnSubir.innerText = `Inyectando ${arrayAnomalias.length} anomalías en tabla general...`;
+                for (let i = 0; i < arrayAnomalias.length; i += chunkSize) {
+                    const chunk = arrayAnomalias.slice(i, i + chunkSize);
+                    const { error } = await clienteSupabase.from('anomalias').insert(chunk);
+                    if (error) throw new Error("Fallo inyectando en anomalias: " + error.message);
+                }
+            }
+
+            // 6. Inyección en Tablas de Control Específicas
+            const tablasControlMap = [
+                { data: arrayControlesH, tabla: 'controles_h' },
+                { data: arrayControlesE, tabla: 'controles_e' },
+                { data: arrayControlesV, tabla: 'controles_v' },
+                { data: arrayControlesEcas, tabla: 'controles_ecas' },
+                { data: arrayControlesVecas, tabla: 'controles_vecas' },
+                { data: arrayControlesC, tabla: 'controles_c' },
+                { data: arrayControlesPc, tabla: 'controles_pc' },
+                { data: arrayControlesEs, tabla: 'controles_es' }
+            ];
+
+            for (const itemCtrl of tablasControlMap) {
+                if (itemCtrl.data.length > 0) {
+                    btnSubir.innerText = `Inyectando ${itemCtrl.data.length} registros en ${itemCtrl.tabla}...`;
+                    for (let i = 0; i < itemCtrl.data.length; i += chunkSize) {
+                        const chunk = itemCtrl.data.slice(i, i + chunkSize);
+                        const { error } = await clienteSupabase.from(itemCtrl.tabla).insert(chunk);
+                        if (error) throw new Error(`Fallo inyectando en ${itemCtrl.tabla}: ` + error.message);
+                    }
+                }
+            }
+
+            let msgExito = `¡Migración exitosa para la categoría "${categoriaSeleccionada}"!\n\nSe procesaron:\n- ${arrayLEU.length} Activos registrados en LEU.`;
+            if (arrayAnomalias.length > 0) msgExito += `\n- ${arrayAnomalias.length} Anomalías centralizadas.`;
+            if (arrayControlesH.length > 0) msgExito += `\n- ${arrayControlesH.length} Historiales de Hidrantes.`;
+            if (arrayControlesE.length > 0) msgExito += `\n- ${arrayControlesE.length} Historiales de Extintores.`;
+            if (arrayControlesV.length > 0) msgExito += `\n- ${arrayControlesV.length} Historiales de Válvulas.`;
+            if (arrayControlesEcas.length > 0) msgExito += `\n- ${arrayControlesEcas.length} Historiales de ECAS.`;
+            if (arrayControlesVecas.length > 0) msgExito += `\n- ${arrayControlesVecas.length} Historiales de VECAS.`;
+            if (arrayControlesC.length > 0) msgExito += `\n- ${arrayControlesC.length} Historiales de Ceniceros.`;
+            if (arrayControlesPc.length > 0) msgExito += `\n- ${arrayControlesPc.length} Historiales de Puertas Cortafuego.`;
+            if (arrayControlesEs.length > 0) msgExito += `\n- ${arrayControlesEs.length} Historiales de Espumígenos.`;
+
+            alert(msgExito);
+            btnSubir.innerText = '🚀 Inyectar en LEU, Controles y Anomalías (Supabase)';
+            btnSubir.disabled = false;
+
+        } catch (err) {
+            alert('❌ Ocurrió un error crítico:\n' + err.message);
+            btnSubir.innerText = '🚀 Inyectar en LEU, Controles y Anomalías (Supabase)';
+            btnSubir.disabled = false;
+        }
+    });
+}
+
+function parseFecha(val) {
+    if (!val || typeof val !== 'string' || val.trim() === '' || val.toUpperCase() === 'NULL') return null;
+    const parts = val.split('/');
+    if (parts.length === 3) {
+        const parsed = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T00:00:00`);
+        return isNaN(parsed.getTime()) ? null : parsed.toISOString().split('T')[0];
+    }
+    const parsed = new Date(val);
+    return isNaN(parsed.getTime()) ? null : parsed.toISOString().split('T')[0];
+}
