@@ -1,4 +1,4 @@
-content = r"""// ==========================================
+// ==========================================
 // MÓDULO: CMU (Conversor Maestro Universal)
 // Versión Definitiva con Papa Parse (Cero Pérdida de Datos)
 // ==========================================
@@ -604,8 +604,3 @@ export function cargarModuloAdminCsv(contenedor) {
         }
     });
 }
-"""
-path = "/mnt/data/conversorMaestroUniversal.js"
-with open(path, "w", encoding="utf-8") as f:
-    f.write(content)
-print(f"[Descargar el conversorMaestroUniversal.js](sandbox:{path})")
