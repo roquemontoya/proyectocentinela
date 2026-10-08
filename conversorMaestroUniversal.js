@@ -404,7 +404,7 @@ export function cargarModuloAdminCsv(contenedor) {
                         }
 
                         const primerCampo = String(fila[0]).trim();
-                        if (!/^(?:SRID=\\d+;)?(?:POINT|LINESTRING|POLYGON|MULTIPOINT|MULTILINESTRING|MULTIPOLYGON|GEOMETRYCOLLECTION)\\s*\\(/i.test(primerCampo)) {
+                        if (!/^(?:SRID=\d+;)?(?:POINT|LINESTRING|POLYGON|MULTIPOINT|MULTILINESTRING|MULTIPOLYGON|GEOMETRYCOLLECTION)\s*\(/i.test(primerCampo)) {
                             return null;
                         }
 
