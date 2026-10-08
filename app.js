@@ -5,29 +5,42 @@
 import { cargarModuloAdminCsv } from './conversorMaestroUniversal.js';
 import { cargarModuloGestorTablas } from './gestorTablas.js';
 
-// 1. EXPONER TODAS LAS FUNCIONES GLOBALES QUE EL HTML LLAMA POR ONCLICK
+// 1. FUNCIÓN GLOBAL ROBUSTA PARA EL MENÚ LATERAL (Tres rayitas)
 window.toggleMenu = function() {
-    const sidebar = document.querySelector('aside') || document.querySelector('.sidebar') || document.querySelector('.modules-sidebar') || document.querySelector('#sidebar');
+    // Buscar la barra lateral por cualquier selector posible en el proyecto
+    const sidebar = document.querySelector('.sidebar') || 
+                    document.querySelector('aside') || 
+                    document.querySelector('#sidebar') || 
+                    document.querySelector('.modules-sidebar') || 
+                    document.querySelector('[class*="sidebar"]') ||
+                    document.querySelector('[class*="menu"]');
+    
     if (sidebar) {
+        // Alternar visibilidad de forma directa y segura
+        const currentDisplay = window.getComputedStyle(sidebar).display;
+        if (currentDisplay === 'none' || sidebar.style.display === 'none') {
+            sidebar.style.display = 'block';
+            sidebar.style.width = '260px';
+        } else {
+            sidebar.style.display = 'none';
+        }
         sidebar.classList.toggle('active');
         sidebar.classList.toggle('open');
-        if (sidebar.style.display === 'block') {
-            sidebar.style.display = 'none';
-        } else {
-            sidebar.style.display = 'block';
-        }
+    } else {
+        console.error("❌ No se encontró la barra lateral en el DOM.");
     }
 };
 
+// 2. FUNCIÓN GLOBAL PARA EL BOTÓN DE INICIO
 window.irInicio = function() {
     const contenedorPrincipal = document.getElementById('contenedor-principal');
     if (contenedorPrincipal) {
-        contenedorPrincipal.innerHTML = ''; // Limpia el módulo actual y vuelve al panel principal
+        contenedorPrincipal.innerHTML = ''; 
     }
 };
 
 document.addEventListener('DOMContentLoaded', () => {
-    // 2. Contenedor principal de la PWA
+    // 3. Contenedor principal de la PWA
     let contenedorPrincipal = document.getElementById('contenedor-principal');
     if (!contenedorPrincipal) {
         contenedorPrincipal = document.createElement('main');
@@ -36,8 +49,8 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.appendChild(contenedorPrincipal);
     }
 
-    // 3. Inyectar automáticamente el botón del Gestor de Tablas en el menú lateral existente
-    const sidebar = document.querySelector('aside') || document.querySelector('.modules-sidebar') || document.querySelector('.sidebar') || document.body;
+    // 4. Inyectar automáticamente el botón del Gestor de Tablas en el menú lateral
+    const sidebar = document.querySelector('.sidebar') || document.querySelector('aside') || document.querySelector('#sidebar') || document.body;
     
     let btnGestor = document.getElementById('nav-gestor-tablas');
     if (!btnGestor) {
@@ -56,7 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // 4. Vincular evento para el Bibliotecario (CMU)
+    // 5. Vincular evento para el Bibliotecario (CMU)
     const linkCmu = document.getElementById('nav-cmu') || Array.from(document.querySelectorAll('a')).find(el => el.textContent.includes('CMU'));
     if (linkCmu) {
         linkCmu.addEventListener('click', (e) => {
@@ -66,12 +79,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 5. Vincular evento para el Gestor Universal de Tablas
+    // 6. Vincular evento para el Gestor Universal de Tablas
     btnGestor.addEventListener('click', (e) => {
         e.preventDefault();
         contenedorPrincipal.innerHTML = '';
         cargarModuloGestorTablas(contenedorPrincipal);
     });
 
-    console.log('🚀 app.js definitivo: Funciones globales (toggleMenu, irInicio) y Gestor Universal activos.');
+    console.log('🚀 app.js reparado: toggleMenu y Gestor Universal enlazados.');
 });
