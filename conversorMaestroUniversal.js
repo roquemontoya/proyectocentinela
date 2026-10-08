@@ -35,6 +35,48 @@ async function asegurarPapaParse() {
     });
 }
 
+
+/**
+ * Convierte el WKT de IPP al formato de geometría que acepta public.ipp.geom.
+ * La tabla ipp usa geometry(Polygon,4326), por lo que una GEOMETRYCOLLECTION
+ * solo es convertible cuando contiene exactamente un POLYGON.
+ */
+function convertirWktIppAGeometria(valor) {
+    if (valor === null || valor === undefined) return null;
+
+    let wkt = String(valor)
+        .replace(/^\uFEFF/, '')
+        .replace(/[\u00A0\u1680\u2000-\u200B\u202F\u205F\u3000]/g, ' ')
+        .trim();
+
+    if (!wkt) return null;
+
+    // Quitar SRID previo para normalizar la salida.
+    wkt = wkt.replace(/^SRID=\s*\d+\s*;\s*/i, '').trim();
+
+    // POLYGON ya es compatible; normalizamos siempre a SRID 4326.
+    if (/^POLYGON\s*\(/i.test(wkt)) {
+        return /^SRID=/i.test(wkt) ? wkt : `SRID=4326;${wkt}`;
+    }
+
+    // GEOMETRYCOLLECTION: aceptar únicamente una colección que contenga
+    // exactamente un POLYGON. Si hay varios polígonos, no se puede insertar
+    // directamente en geometry(Polygon,4326) sin decidir cómo fusionarlos.
+    const gc = wkt.match(/^GEOMETRYCOLLECTION\s*\((.*)\)\s*$/is);
+    if (gc) {
+        const contenido = gc[1];
+        const poligonos = contenido.match(/POLYGON\s*\(\((?:[^()]|\([^()]*\))*\)\)/gi) || [];
+
+        if (poligonos.length === 1) {
+            return `SRID=4326;${poligonos[0].trim()}`;
+        }
+
+        return null;
+    }
+
+    return null;
+}
+
 export function cargarModuloAdminCsv(contenedor) {
     contenedor.style.width = '100%';
     contenedor.style.padding = '20px';
