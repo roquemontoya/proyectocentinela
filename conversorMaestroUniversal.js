@@ -134,12 +134,11 @@ export function cargarModuloAdminCsv(contenedor) {
         categoriaDetectadaGlobal = detectarCategoria(file.name);
 
         if (!categoriaDetectadaGlobal) {
-            document.getElementById('texto-cat-detectada').innerText = 'NO RECONOCIDA';
+            document.getElementById('texto-cat-detectada').innerText =
+                'Pendiente: la detectaré por la estructura del CSV';
             document.getElementById('badge-categoria-detectada').style.display = 'block';
             document.getElementById('iframe-container').innerHTML =
-                '<div style="color:#ef4444; padding:20px; text-align:center;">❌ No pude identificar la categoría por el nombre del archivo. Renómbralo con una categoría conocida antes de procesarlo.</div>';
-            document.getElementById('btn-procesar-csv').disabled = true;
-            return;
+                '<div style="color:#aaa; padding:20px; text-align:center;">🧭 La categoría no está en el nombre del archivo. La identificaré por los encabezados al procesarlo.</div>';
         }
 
         document.getElementById('btn-procesar-csv').disabled = false;
@@ -270,6 +269,37 @@ export function cargarModuloAdminCsv(contenedor) {
                     const indiceSector = buscarIndice(['Sector', 'Departamento']);
                     const indiceRonda = buscarIndice(['Ronda', 'UET'], { exacto: 'Ronda' });
                     const indiceWkt = buscarIndice(['WKT', 'Geom']);
+
+                    const detectarCategoriaPorCabeceras = () => {
+                        const claves = new Set(
+                            encabezadosOriginales.map(normalizarCabecera)
+                        );
+
+                        // IPP (Macro Sectores): capa zonal con nombre + descripción
+                        // y controles/referencias de protección contra incendios.
+                        if (
+                            claves.has('wkt') &&
+                            claves.has('nombre') &&
+                            claves.has('descripcion') &&
+                            claves.has('extintores') &&
+                            claves.has('hidrantes') &&
+                            claves.has('ecas')
+                        ) {
+                            return 'IPP (Macro Sectores)';
+                        }
+
+                        return null;
+                    };
+
+                    if (!categoriaDetectadaGlobal) {
+                        const categoriaPorEstructura = detectarCategoriaPorCabeceras();
+                        if (categoriaPorEstructura) {
+                            categoriaDetectadaGlobal = categoriaPorEstructura;
+                            document.getElementById('texto-cat-detectada').innerText =
+                                categoriaDetectadaGlobal + ' (detectada por estructura)';
+                            document.getElementById('badge-categoria-detectada').style.display = 'block';
+                        }
+                    }
 
                     // "Punto GPS" está en GMS y es redundante para la PWA.
                     // No lo copiamos a atributos_tecnicos: WKT es la fuente geométrica.
