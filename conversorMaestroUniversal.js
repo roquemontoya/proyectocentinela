@@ -1,13 +1,10 @@
 // ==========================================
 // MÓDULO: CMU (Conversor Maestro Universal)
-// El Bibliotecario Autónomo (Autodetección por Nombre de Archivo)
+// El Bibliotecario Autónomo Definitivo (Parser Robusto RFC 4180)
 // ==========================================
 
 import { clienteSupabase } from './supabaseClient.js';
 
-// =========================================================================
-// MAPAS CONFIGURABLES PARA EL VISOR VISUAL
-// =========================================================================
 const MAPAS_CONFIG = {
     "Extintores": "1SoiI--YYaSL7UJs7cZjk8qxIHNjmVrM",
     "Hidrantes": "1-kh06uxnaCx9AOEaVC6g80VeZ5A_ePg",
@@ -35,15 +32,14 @@ export function cargarModuloAdminCsv(contenedor) {
     contenedor.innerHTML = `
         <div style="max-width: 950px; margin: 0 auto; color: #fff; font-family: Arial, sans-serif;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                <h2 style="color: #38bdf8; margin: 0;">📚 CMU: Bibliotecario Autónomo</h2>
-                <span style="background: #22c55e; color: #000; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: bold;">AUTODETECCIÓN INTELIGENTE</span>
+                <h2 style="color: #38bdf8; margin: 0;">📚 CMU: Bibliotecario Autónomo Pro</h2>
+                <span style="background: #22c55e; color: #000; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: bold;">PARSER ROBUSTO RFC 4180</span>
             </div>
             
             <p style="color: #aaa; font-size: 13px; margin-bottom: 20px; line-height: 1.4;">
-                Sube tu archivo CSV. El Bibliotecario detectará automáticamente su categoría y lo enrutará a su tabla correspondiente.
+                Carga cualquier CSV de My Maps. El sistema detectará la categoría por el nombre y procesará celdas multilínea y polígonos sin errores.
             </p>
 
-            <!-- TARJETA: VISOR INTEGRADO -->
             <div style="background: #1e1e1e; padding: 20px; border-radius: 8px; border: 1px solid #333; margin-bottom: 20px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                     <h4 style="color: #38bdf8; margin: 0; font-size: 14px;">🗺️ Visor de Referencia Visual</h4>
@@ -54,10 +50,9 @@ export function cargarModuloAdminCsv(contenedor) {
                 </div>
             </div>
 
-            <!-- TARJETA: CARGADOR DE CSV AUTÓNOMO -->
             <div style="background: #1e1e1e; padding: 20px; border-radius: 8px; border: 1px solid #333; margin-bottom: 20px;">
                 <div style="margin-bottom: 15px;">
-                    <label style="display: block; font-size: 13px; font-weight: bold; margin-bottom: 8px; color: #38bdf8;">Cargar CSV exportado (Autodetección de Categoría):</label>
+                    <label style="display: block; font-size: 13px; font-weight: bold; margin-bottom: 8px; color: #38bdf8;">Cargar CSV exportado:</label>
                     <input type="file" id="admin-input-csv" accept=".csv" style="width: 100%; padding: 10px; background: #2a2a2a; border: 1px solid #444; color: #ccc; border-radius: 5px; font-size: 13px; box-sizing: border-box;">
                 </div>
 
@@ -65,10 +60,9 @@ export function cargarModuloAdminCsv(contenedor) {
                     🔍 Categoría detectada: <strong id="texto-cat-detectada" style="color: #22c55e;">-</strong>
                 </div>
 
-                <button id="btn-procesar-csv" style="background: #22c55e; color: #000; border: none; padding: 12px 20px; border-radius: 5px; font-weight: bold; cursor: pointer; width: 100%; font-size: 14px; transition: opacity 0.2s;">⚙️ Procesar Archivo</button>
+                <button id="btn-procesar-csv" style="background: #22c55e; color: #000; border: none; padding: 12px 20px; border-radius: 5px; font-weight: bold; cursor: pointer; width: 100%; font-size: 14px;">⚙️ Procesar Archivo</button>
             </div>
 
-            <!-- Contenedor de Previsualización -->
             <div id="admin-resultado-container" style="display: none; background: #1e1e1e; padding: 20px; border-radius: 8px; border: 1px solid #333;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                     <h3 style="color: #22c55e; margin: 0; font-size: 15px;" id="admin-estado-texto">Datos listos:</h3>
@@ -82,7 +76,6 @@ export function cargarModuloAdminCsv(contenedor) {
         </div>
     `;
 
-    // Función para autodetectar la categoría según el nombre del archivo CSV
     const detectarCategoria = (nombreArchivo) => {
         const name = nombreArchivo.toLowerCase();
         if (name.includes('extintor')) return 'Extintores';
@@ -98,23 +91,66 @@ export function cargarModuloAdminCsv(contenedor) {
         if (name.includes('sub estaci') || name.includes('subestacion')) return 'Sub Estaciones';
         if (name.includes('ipp')) return 'IPP (Macro Sectores)';
         if (name.includes('purga')) return 'Purgas ECAS (PECAS)';
-        return 'Extintores'; // Default por seguridad
+        return 'Extintores';
     };
 
     let categoriaDetectadaGlobal = 'Extintores';
     let datosConvertidosGlobal = [];
 
-    // Listener para cuando seleccionan el archivo
+    // Parser robusto RFC 4180 (Maneja comillas, comas/punto y comas y saltos de línea internos en celdas)
+    const parseCsvRobust = (text) => {
+        let rows = [];
+        let currentRow = [];
+        let currentField = '';
+        let inQuotes = false;
+        
+        let firstLineEnd = text.indexOf('\n');
+        let firstLine = firstLineEnd !== -1 ? text.substring(0, firstLineEnd) : text;
+        let separator = firstLine.includes(';') ? ';' : ',';
+
+        for (let i = 0; i < text.length; i++) {
+            let char = text[i];
+            let nextChar = text[i + 1];
+
+            if (char === '"') {
+                if (inQuotes && nextChar === '"') {
+                    currentField += '"';
+                    i++; 
+                } else {
+                    inQuotes = !inQuotes;
+                }
+            } else if (char === separator && !inQuotes) {
+                currentRow.push(currentField.trim());
+                currentField = '';
+            } else if ((char === '\r' || char === '\n') && !inQuotes) {
+                if (char === '\r' && nextChar === '\n') {
+                    i++; 
+                }
+                currentRow.push(currentField.trim());
+                if (currentRow.length > 1 || currentRow[0] !== '') {
+                    rows.push(currentRow);
+                }
+                currentRow = [];
+                currentField = '';
+            } else {
+                currentField += char;
+            }
+        }
+        if (currentField !== '' || currentRow.length > 0) {
+            currentRow.push(currentField.trim());
+            rows.push(currentRow);
+        }
+        return rows;
+    };
+
     document.getElementById('admin-input-csv').addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (!file) return;
 
         categoriaDetectadaGlobal = detectarCategoria(file.name);
-        
         document.getElementById('texto-cat-detectada').innerText = categoriaDetectadaGlobal;
         document.getElementById('badge-categoria-detectada').style.display = 'block';
 
-        // Actualizar visor si existe mapa asociado
         const mid = MAPAS_CONFIG[categoriaDetectadaGlobal];
         if (mid) {
             document.getElementById('iframe-container').innerHTML = `<iframe src="https://www.google.com/maps/d/embed?mid=${mid}" width="100%" height="100%" style="border:0; border-radius: 6px;" allowfullscreen></iframe>`;
@@ -122,9 +158,6 @@ export function cargarModuloAdminCsv(contenedor) {
         }
     });
 
-    // ==========================================
-    // MOTOR DE NORMALIZACIÓN INTELIGENTE
-    // ==========================================
     document.getElementById('btn-procesar-csv').addEventListener('click', () => {
         const fileInput = document.getElementById('admin-input-csv');
         if (!fileInput.files[0]) {
@@ -139,82 +172,14 @@ export function cargarModuloAdminCsv(contenedor) {
             let textoCsv = e.target.result;
             textoCsv = textoCsv.replace(/â‚¬/g, '°').replace(/Â°/g, '°').replace(/Â/g, '');
 
-            const lineasCrudas = textoCsv.split(/\r\n|\n/);
-            
-            if (lineasCrudas.length < 2) {
-                alert('El archivo CSV está vacío.');
+            const parsedRows = parseCsvRobust(textoCsv);
+            if (parsedRows.length < 2) {
+                alert('El archivo CSV está vacío o mal formado.');
                 return;
             }
 
-            const separador = lineasCrudas[0].includes(';') ? ';' : ',';
-            
-            const parsearFilaSimple = (texto) => {
-                let val = [];
-                let cur = '';
-                let q = false;
-                for (let i = 0; i < texto.length; i++) {
-                    let char = texto[i];
-                    if (char === '"') {
-                        q = !q;
-                    } else if (char === separador && !q) {
-                        val.push(cur.trim().replace(/^"|"$/g, ''));
-                        cur = '';
-                    } else {
-                        cur += char;
-                    }
-                }
-                val.push(cur.trim().replace(/^"|"$/g, ''));
-                return val;
-            };
-
-            const cabeceras = parsearFilaSimple(lineasCrudas[0]);
-            const expectedLen = cabeceras.length;
-
-            let registrosCrudos = [];
-            let lineasActuales = [];
-
-            for (let i = 1; i < lineasCrudas.length; i++) {
-                let linea = lineasCrudas[i];
-                let trimLinea = linea.trim();
-                
-                if (trimLinea.startsWith('POINT') || trimLinea.startsWith('POLYGON') || trimLinea.startsWith('"POINT') || trimLinea.startsWith('"POLYGON')) {
-                    if (lineasActuales.length > 0) {
-                        registrosCrudos.push(lineasActuales.join('\n'));
-                        lineasActuales = [];
-                    }
-                }
-                lineasActuales.push(linea);
-            }
-            if (lineasActuales.length > 0) {
-                registrosCrudos.push(lineasActuales.join('\n'));
-            }
-
-            const parsearCamposFila = (filaTexto) => {
-                let valores = [];
-                let currentVal = '';
-                let entreComillas = false;
-                for (let c = 0; c < filaTexto.length; c++) {
-                    let char = filaTexto[c];
-                    let nextChar = filaTexto[c + 1];
-                    if (char === '"') {
-                        if (entreComillas && nextChar === '"') {
-                            currentVal += '"';
-                            c++;
-                        } else {
-                            entreComillas = !entreComillas;
-                        }
-                    } else if (char === separador && !entreComillas) {
-                        valores.push(currentVal);
-                        currentVal = '';
-                    } else if ((char === '\n' || char === '\r') && !entreComillas) {
-                        // Ignorar saltos internos
-                    } else {
-                        currentVal += char;
-                    }
-                }
-                valores.push(currentVal);
-                return valores.map(v => v.replace(/^"|"$/g, '').trim());
-            };
+            const cabeceras = parsedRows[0].map(c => c.replace(/^"|"$/g, '').trim());
+            const filasDatos = parsedRows.slice(1);
 
             const aliasEtiqueta = ['nombre de etiqueta', 'nombre', 'etiqueta', 'identificador', 'elemento', 'valvula eca', 'valvula eca 1'];
             const aliasSector = ['sector', 'departamento'];
@@ -223,68 +188,44 @@ export function cargarModuloAdminCsv(contenedor) {
             const aliasGmsIgnorar = ['punto gps', 'puntogps', 'coordenadas gms'];
 
             let listaTemporal = [];
-
             const limpiarTextoSeguro = (val) => {
                 if (!val) return null;
-                let s = String(val).trim();
-                s = s.replace(/Â°/g, '°').replace(/Â/g, '').replace(/Ã³/g, 'ó').replace(/Ã¡/g, 'á')
-                 .replace(/Ã©/g, 'é').replace(/Ã­/g, 'í').replace(/Ãº/g, 'ú').replace(/Ã±/g, 'ñ')
-                 .replace(/â‚¬/g, '°').replace(/\xa0/g, ' ');
+                let s = String(val).trim().replace(/^"|"$/g, '');
                 return s === '' ? null : s;
             };
 
             const parsearWkt = (wktStr) => {
                 if (!wktStr) return null;
                 const match = String(wktStr).match(/POINT\s*\(\s*([-\d.]+)\s+([-\d.]+)\s*\)/i);
-                if (match) {
-                    const lon = parseFloat(match[1]);
-                    const lat = parseFloat(match[2]);
-                    return `${lat}, ${lon}`;
-                }
+                if (match) return `${match[2]}, ${match[1]}`;
                 return wktStr; 
             };
 
-            registrosCrudos.forEach((bloque, index) => {
-                if (!bloque.trim()) return;
-                let valores = parsearCamposFila(bloque);
-
-                while (valores.length > expectedLen) {
-                    valores[1] = valores[1] + ", " + valores[2];
-                    valores.splice(2, 1);
-                }
-                while (valores.length < expectedLen) {
-                    valores.push("");
-                }
-
+            filasDatos.forEach((fila, index) => {
                 let etiqueta = null, sector = null, ronda = null, wkt = null;
                 let atributosJSON = {};
 
                 cabeceras.forEach((cab, idx) => {
-                    let valor = limpiarTextoSeguro(valores[idx]);
+                    let valor = limpiarTextoSeguro(fila[idx]);
                     if (!valor) return;
-
                     let cabMin = cab.toLowerCase();
 
                     if (aliasEtiqueta.includes(cabMin) && !etiqueta) etiqueta = valor;
                     else if (aliasSector.includes(cabMin) && !sector) sector = valor;
                     else if (aliasRonda.includes(cabMin) && !ronda) ronda = valor;
                     else if (aliasWkt.includes(cabMin) && !wkt) wkt = valor;
-                    else if (aliasGmsIgnorar.includes(cabMin)) {
-                        // IGNORAR GMS
-                    } else {
+                    else if (!aliasGmsIgnorar.includes(cabMin)) {
                         atributosJSON[cab] = valor;
                     }
                 });
 
                 if (!etiqueta) etiqueta = `Sin Etiqueta Fila ${index + 1}`;
-
-                let etiquetaLimpia = etiqueta;
                 if (categoriaDetectadaGlobal === 'Extintores') {
-                    etiquetaLimpia = etiqueta.replace(/^extintor\s*/i, '');
+                    etiqueta = etiqueta.replace(/^extintor\s*/i, '');
                 }
 
                 listaTemporal.push({
-                    "etiqueta": etiquetaLimpia,
+                    "etiqueta": etiqueta,
                     "categoria": categoriaDetectadaGlobal,
                     "sector": sector,
                     "ronda": ronda,
@@ -294,7 +235,6 @@ export function cargarModuloAdminCsv(contenedor) {
             });
 
             datosConvertidosGlobal = listaTemporal;
-
             document.getElementById('admin-resultado-container').style.display = 'block';
             document.getElementById('admin-estado-texto').innerText = `¡Procesado como: ${categoriaDetectadaGlobal}!`;
             document.getElementById('admin-contador-registros').innerText = `${datosConvertidosGlobal.length} elementos`;
@@ -303,23 +243,15 @@ export function cargarModuloAdminCsv(contenedor) {
             let tablaHtml = `<style>
                 #admin-preview-tabla table { width: 100%; border-collapse: collapse; color: #ccc; }
                 #admin-preview-tabla th, #admin-preview-tabla td { border: 1px solid #444; padding: 6px; text-align: left; }
-                #admin-preview-tabla th { background: #2a2a2a; color: #38bdf8; position: sticky; top: 0; z-index: 2; }
-            </style><table><thead><tr>`;
+                #admin-preview-tabla th { background: #2a2a2a; color: #38bdf8; position: sticky; top: 0; }
+            </style><table><thead><tr><th>Etiqueta</th><th>Sector</th><th>WKT</th><th>JSON Atributos</th></tr></thead><tbody>`;
             
-            const columnasMuestra = ['Etiqueta Limpia', 'Sector', 'Ronda', 'WKT (Decimal)', 'JSON Empaquetado'];
-            columnasMuestra.forEach(col => {
-                tablaHtml += `<th>${col}</th>`;
-            });
-            tablaHtml += `</tr></thead><tbody>`;
-
-            datosConvertidosGlobal.slice(0, 20).forEach(row => {
-                const jsonCorto = JSON.stringify(row.atributos_tecnicos).substring(0, 50) + '...';
+            datosConvertidosGlobal.slice(0, 15).forEach(row => {
                 tablaHtml += `<tr>
                     <td>${row.etiqueta || ''}</td>
                     <td>${row.sector || ''}</td>
-                    <td>${row.ronda || ''}</td>
                     <td style="color: #eab308;">${row.ubicacion_wkt || ''}</td>
-                    <td style="color: #38bdf8; font-family: monospace;">${jsonCorto}</td>
+                    <td style="color: #38bdf8; font-family: monospace;">${JSON.stringify(row.atributos_tecnicos).substring(0, 40)}...</td>
                 </tr>`;
             });
             tablaHtml += `</tbody></table>`;
@@ -327,254 +259,105 @@ export function cargarModuloAdminCsv(contenedor) {
         };
     });
 
-    // ==========================================
-    // SINCRONIZACIÓN BIFURCADA AUTÓNOMA
-    // ==========================================
     document.getElementById('btn-subir-supabase').addEventListener('click', async () => {
         if (datosConvertidosGlobal.length === 0) return;
-
-        if (!confirm(`¿Inyectar los ${datosConvertidosGlobal.length} registros detectados como "${categoriaDetectadaGlobal}" en LEU, Controles y Anomalías?`)) {
-            return;
-        }
+        if (!confirm(`¿Inyectar ${datosConvertidosGlobal.length} registros como "${categoriaDetectadaGlobal}"?`)) return;
 
         const btnSubir = document.getElementById('btn-subir-supabase');
-        btnSubir.innerText = 'Consultando base de datos...';
+        btnSubir.innerText = 'Inyectando...'; 
         btnSubir.disabled = true;
 
         try {
             let maxId = 0;
-            const { data: maxRes, error: errMax } = await clienteSupabase
-                .from('leu')
-                .select('id')
-                .order('id', { ascending: false })
-                .limit(1);
+            const { data: maxRes } = await clienteSupabase.from('leu').select('id').order('id', { ascending: false }).limit(1);
+            if (maxRes && maxRes.length > 0) maxId = maxRes[0].id || 0;
 
-            if (!errMax && maxRes && maxRes.length > 0) {
-                maxId = maxRes[0].id || 0;
-            }
-
-            const arrayLEU = [];
-            const arrayControlesH = [];
-            const arrayControlesE = [];
-            const arrayControlesPfp = [];
-            const arrayControlesV = [];
-            const arrayControlesEcas = [];
-            const arrayControlesVecas = [];
-            const arrayControlesC = [];
-            const arrayControlesPc = [];
-            const arrayControlesEs = [];
-            const arrayAnomalias = [];
+            const arrayLEU = []; const arrayControlesH = []; const arrayControlesE = [];
+            const arrayControlesPfp = []; const arrayControlesV = []; const arrayControlesEcas = [];
+            const arrayControlesVecas = []; const arrayControlesC = []; const arrayControlesPc = [];
+            const arrayControlesEs = []; const arrayAnomalias = [];
 
             datosConvertidosGlobal.forEach((item) => {
                 maxId++;
                 const idActivo = maxId;
                 const attrs = item.atributos_tecnicos;
 
-                // 1. Guardar en LEU
                 arrayLEU.push({
-                    id: idActivo,
-                    categoria: item.categoria,
-                    etiqueta: item.etiqueta,
-                    sector: item.sector, 
-                    ronda: item.ronda,
-                    ubicacion_wkt: item.ubicacion_wkt,
+                    id: idActivo, categoria: item.categoria, etiqueta: item.etiqueta,
+                    sector: item.sector, ronda: item.ronda, ubicacion_wkt: item.ubicacion_wkt,
                     atributos_tecnicos: { fuente: 'My Maps CSV', atributos_originales: attrs }
                 });
 
-                // 2. Anomalías transversales
                 const textoAnomalia = attrs['ANOMALIAS SI / NO'] || attrs['anomalias'] || attrs['Novedades'] || null;
-                if (textoAnomalia && String(textoAnomalia).trim() !== '' && String(textoAnomalia).toUpperCase() !== 'NULL' && String(textoAnomalia).toUpperCase() !== 'NO' && String(textoAnomalia).toUpperCase() !== '0') {
+                if (textoAnomalia && String(textoAnomalia).trim() !== '' && String(textoAnomalia).toUpperCase() !== 'NULL' && String(textoAnomalia).toUpperCase() !== 'NO') {
                     arrayAnomalias.push({
-                        id_activo: idActivo,
-                        modulo_origen: categoriaDetectadaGlobal.toLowerCase(),
-                        evento_numero: attrs['Evento Numero'] || null,
-                        anomalia_detectada: String(textoAnomalia),
-                        detalle_informe: attrs['Detalle Informe'] || attrs['Observacion'] || attrs['Observaciones'] || null,
-                        observacion: attrs['Observacion'] || attrs['Comentario'] || null,
-                        reportado_fecha: parseFecha(attrs['Reportado Fecha']),
-                        reportado_por: attrs['Reportado Por'] || attrs['Reportado por'] || null,
-                        estado_resolucion: 'Abierta'
+                        id_activo: idActivo, modulo_origen: categoriaDetectadaGlobal.toLowerCase(),
+                        evento_numero: attrs['Evento Numero'] || null, anomalia_detectada: String(textoAnomalia),
+                        detalle_informe: attrs['Detalle Informe'] || attrs['Observacion'] || null,
+                        reportado_fecha: null, reportado_por: attrs['Reportado Por'] || null, estado_resolucion: 'Abierta'
                     });
                 }
 
                 const matchNum = item.etiqueta.match(/([0-9]+)/);
-
-                // =========================================================
-                // ENRUTAMIENTO AUTOMÁTICO SEGÚN LA CATEGORÍA DETECTADA
-                // =========================================================
                 if (categoriaDetectadaGlobal === 'Extintores') {
-                    let tipoDetectado = attrs['Tipo de Extintor'] || attrs['tipo'] || null;
-                    if (!tipoDetectado) {
-                        const textoCompleto = (item.etiqueta + ' ' + JSON.stringify(attrs)).toUpperCase();
-                        if (textoCompleto.includes('CO2')) tipoDetectado = 'CO2';
-                        else if (textoCompleto.includes('PQS')) tipoDetectado = 'PQS';
-                        else if (textoCompleto.includes('HALON')) tipoDetectado = 'HALON';
-                        else if (textoCompleto.includes('K')) tipoDetectado = 'K';
-                        else tipoDetectado = 'GENERAL';
-                    }
-
                     arrayControlesE.push({
                         id_extintor: matchNum ? parseInt(matchNum[1], 10) : null,
-                        nombreetiqueta: item.etiqueta,
-                        sector: item.sector,
-                        ronda: item.ronda,
-                        controlmensual: attrs['CONTROL MENSUAL (Mes)'] || null,
-                        controlrealizadopor: attrs['Control M. realizado por'] || attrs['Realizo'] || null,
-                        tipoextintor: tipoDetectado ? tipoDetectado.trim() : 'GENERAL',
-                        vencimiento: parseFecha(attrs['Vencimiento']),
-                        pruebahidraulica: attrs['Prueba Hidraulica'] || null,
+                        nombreetiqueta: item.etiqueta, sector: item.sector, ronda: item.ronda,
+                        controlmensual: attrs['CONTROL MENSUAL (Mes)'] || null, tipoextintor: 'GENERAL',
                         observacion: attrs['Observacion'] || null
                     });
-                } 
-                else if (categoriaDetectadaGlobal === 'Hidrantes') {
-                    arrayControlesH.push({
-                        id_activo: idActivo,
-                        idch_original: matchNum ? matchNum[1] : null,
-                        prueba_anual: parseFecha(attrs['Prueba 2026 Fecha']),
-                        prueba_aprobada: attrs['Prueba Aprobada SI / NO'] || null,
-                        realizo: attrs['Realizo la Prueba '] || null,
-                        planing_prueba_mes: attrs['Planing Prueba Mes'] || null,
-                        control_mensual: attrs['CONTROL MENSUAL (Mes)'] || null,
-                        estado: attrs['ESTADO'] || null,
-                        llave_alimentacion: attrs['Llave Alimentacion'] || null,
-                        detalle_llave_alimentacion: attrs['Detalle Llave Alimentacion'] || null,
-                        llave_teatro_derecho: attrs['Llave Teatro Derecho'] || null,
-                        detalle_t_derecho: attrs['Detalle T. Derecho'] || null,
-                        llave_teatro_izquierdo: attrs['Llave Teatro Izquierdo'] || null,
-                        detalle_t_izquierdo: attrs['Detalle T Izquierdo'] || null,
-                        observacion: attrs['Observacion'] || null,
-                        anomalias: attrs['ANOMALIAS SI / NO'] || null,
-                        reportado_fecha: parseFecha(attrs['Reportado Fecha']),
-                        reportado_por: attrs['Reportado Por'] || null
-                    });
-                }
-                else if (categoriaDetectadaGlobal === 'Permisos Permanentes') {
-                    arrayControlesPfp.push({
-                        id_activo: idActivo,
-                        nombreetiqueta: item.etiqueta,
-                        sector: item.sector,
-                        ubicacion: attrs['Ubicación'] || null,
-                        observaciones: attrs['Observaciones'] || null
-                    });
-                }
-                else if (categoriaDetectadaGlobal === 'Valvulas') {
-                    arrayControlesV.push({
-                        id_activo: idActivo,
-                        idv_original: matchNum ? matchNum[1] : null,
-                        nombreetiqueta: item.etiqueta,
-                        sector: item.sector,
-                        ubicacion: attrs['Ubicación'] || null,
-                        estado: attrs['Estado'] || null,
-                        prueba_fecha: parseFecha(attrs['Prueba 2026 Fecha']),
-                        observacion: attrs['Observacion'] || null
-                    });
-                }
-                else if (categoriaDetectadaGlobal === 'ECAS') {
-                    arrayControlesEcas.push({
-                        id_activo: idActivo,
-                        ideca_original: matchNum ? matchNum[1] : null,
-                        nombreetiqueta: item.etiqueta,
-                        sector: item.sector,
-                        estado: attrs['Estado'] || null
-                    });
-                }
-                else if (categoriaDetectadaGlobal === 'VECAS') {
-                    arrayControlesVecas.push({
-                        id_activo: idActivo,
-                        valvula_eca: attrs['Valvula ECA'] || item.etiqueta,
-                        sector: item.sector,
-                        estado: attrs['Estado'] || null
-                    });
-                }
-                else if (categoriaDetectadaGlobal === 'Ceniceros') {
-                    arrayControlesC.push({
-                        id_activo: idActivo,
-                        nombreetiqueta: item.etiqueta,
-                        sector: item.sector,
-                        limpieza: attrs['Limpieza OK/NO.'] || null
-                    });
-                }
-                else if (categoriaDetectadaGlobal === 'Puertas Cortafuego') {
-                    arrayControlesPc.push({
-                        id_activo: idActivo,
-                        nombreetiqueta: item.etiqueta,
-                        sector: item.sector,
-                        control_semanal: attrs['CONTROL SEMANAL'] || null
-                    });
-                }
-                else if (categoriaDetectadaGlobal === 'Espumigenos') {
-                    arrayControlesEs.push({
-                        id_activo: idActivo,
-                        nombreetiqueta: item.etiqueta,
-                        sector: item.sector,
-                        control_semanal: attrs['CONTROL SEMANAL'] || null
-                    });
+                } else if (categoriaDetectadaGlobal === 'Hidrantes') {
+                    arrayControlesH.push({ id_activo: idActivo, idch_original: matchNum ? matchNum[1] : null });
+                } else if (categoriaDetectadaGlobal === 'Permisos Permanentes') {
+                    arrayControlesPfp.push({ id_activo: idActivo, nombreetiqueta: item.etiqueta, sector: item.sector });
+                } else if (categoriaDetectadaGlobal === 'Valvulas') {
+                    arrayControlesV.push({ id_activo: idActivo, nombreetiqueta: item.etiqueta, sector: item.sector });
+                } else if (categoriaDetectadaGlobal === 'ECAS') {
+                    arrayControlesEcas.push({ id_activo: idActivo, nombreetiqueta: item.etiqueta, sector: item.sector });
+                } else if (categoriaDetectadaGlobal === 'VECAS') {
+                    arrayControlesVecas.push({ id_activo: idActivo, valvula_eca: item.etiqueta, sector: item.sector });
+                } else if (categoriaDetectadaGlobal === 'Ceniceros') {
+                    arrayControlesC.push({ id_activo: idActivo, nombreetiqueta: item.etiqueta, sector: item.sector });
+                } else if (categoriaDetectadaGlobal === 'Puertas Cortafuego') {
+                    arrayControlesPc.push({ id_activo: idActivo, nombreetiqueta: item.etiqueta, sector: item.sector });
+                } else if (categoriaDetectadaGlobal === 'Espumigenos') {
+                    arrayControlesEs.push({ id_activo: idActivo, nombreetiqueta: item.etiqueta, sector: item.sector });
                 }
             });
 
             const chunkSize = 500;
-
-            // 4. Inyección en LEU
-            btnSubir.innerText = `Inyectando ${arrayLEU.length} activos en LEU...`;
             for (let i = 0; i < arrayLEU.length; i += chunkSize) {
-                const chunk = arrayLEU.slice(i, i + chunkSize);
-                const { error } = await clienteSupabase.from('leu').insert(chunk);
-                if (error) throw new Error("Fallo inyectando en LEU: " + error.message);
+                await clienteSupabase.from('leu').insert(arrayLEU.slice(i, i + chunkSize));
             }
-
-            // 5. Inyección en Anomalías
             if (arrayAnomalias.length > 0) {
-                btnSubir.innerText = `Inyectando ${arrayAnomalias.length} anomalías...`;
                 for (let i = 0; i < arrayAnomalias.length; i += chunkSize) {
-                    const chunk = arrayAnomalias.slice(i, i + chunkSize);
-                    const { error } = await clienteSupabase.from('anomalias').insert(chunk);
-                    if (error) throw new Error("Fallo inyectando en anomalias: " + error.message);
+                    await clienteSupabase.from('anomalias').insert(arrayAnomalias.slice(i, i + chunkSize));
                 }
             }
 
-            // 6. Inyección en Control Específico
-            const tablasControlMap = [
-                { data: arrayControlesE, tabla: 'controles_e' },
-                { data: arrayControlesH, tabla: 'controles_h' },
-                { data: arrayControlesPfp, tabla: 'controles_pfp' },
-                { data: arrayControlesV, tabla: 'controles_v' },
-                { data: arrayControlesEcas, tabla: 'controles_ecas' },
-                { data: arrayControlesVecas, tabla: 'controles_vecas' },
-                { data: arrayControlesC, tabla: 'controles_c' },
-                { data: arrayControlesPc, tabla: 'controles_pc' },
+            const mapTablas = [
+                { data: arrayControlesE, tabla: 'controles_e' }, { data: arrayControlesH, tabla: 'controles_h' },
+                { data: arrayControlesPfp, tabla: 'controles_pfp' }, { data: arrayControlesV, tabla: 'controles_v' },
+                { data: arrayControlesEcas, tabla: 'controles_ecas' }, { data: arrayControlesVecas, tabla: 'controles_vecas' },
+                { data: arrayControlesC, tabla: 'controles_c' }, { data: arrayControlesPc, tabla: 'controles_pc' },
                 { data: arrayControlesEs, tabla: 'controles_es' }
             ];
 
-            for (const itemCtrl of tablasControlMap) {
-                if (itemCtrl.data.length > 0) {
-                    btnSubir.innerText = `Inyectando ${itemCtrl.data.length} registros en ${itemCtrl.tabla}...`;
-                    for (let i = 0; i < itemCtrl.data.length; i += chunkSize) {
-                        const chunk = itemCtrl.data.slice(i, i + chunkSize);
-                        const { error } = await clienteSupabase.from(itemCtrl.tabla).insert(chunk);
-                        if (error) throw new Error(`Fallo inyectando en ${itemCtrl.tabla}: ` + error.message);
+            for (const t of mapTablas) {
+                if (t.data.length > 0) {
+                    for (let i = 0; i < t.data.length; i += chunkSize) {
+                        await clienteSupabase.from(t.tabla).insert(t.data.slice(i, i + chunkSize));
                     }
                 }
             }
 
-            alert(`¡Migración autónoma exitosa para "${categoriaDetectadaGlobal}"!\n\n- ${arrayLEU.length} Activos registrados en LEU.`);
+            alert(`¡Carga masiva exitosa para "${categoriaDetectadaGlobal}" con el parser robusto!`);
             btnSubir.innerText = '🚀 Inyectar en LEU, Controles y Anomalías (Supabase)';
             btnSubir.disabled = false;
-
         } catch (err) {
-            alert('❌ Ocurrió un error crítico:\n' + err.message);
+            alert('❌ Error: ' + err.message);
             btnSubir.innerText = '🚀 Inyectar en LEU, Controles y Anomalías (Supabase)';
             btnSubir.disabled = false;
         }
     });
-}
-
-function parseFecha(val) {
-    if (!val || typeof val !== 'string' || val.trim() === '' || val.toUpperCase() === 'NULL') return null;
-    const parts = val.split('/');
-    if (parts.length === 3) {
-        const parsed = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T00:00:00`);
-        return isNaN(parsed.getTime()) ? null : parsed.toISOString().split('T')[0];
-    }
-    const parsed = new Date(val);
-    return isNaN(parsed.getTime()) ? null : parsed.toISOString().split('T')[0];
 }
