@@ -451,7 +451,11 @@ export function cargarModuloAdminCsv(contenedor) {
                         );
                     }
 
-                    const filasCanonicas = [];
+                    
+                    // DIAGNOSTICO TEMPORAL F12 — eliminar después de identificar las 6 filas.
+                    const filasDiagnostico = new Set([354, 355, 799, 900, 906, 1047]);
+
+const filasCanonicas = [];
 
                     if (COLUMNAS_ESPERADAS === 14) {
                         const filasDatos = filasCrudas.slice(1);
@@ -461,6 +465,16 @@ export function cargarModuloAdminCsv(contenedor) {
                             const numeroFilaCsv = index + 2;
 
                             let resultado = repararFilaEstructuralmente(fila, numeroFilaCsv);
+
+                            if (filasDiagnostico.has(numeroFilaCsv)) {
+                                console.log("🔎 CMU FILA DIAGNOSTICO", {
+                                    fila: numeroFilaCsv,
+                                    columnas: fila.length,
+                                    contenido: fila,
+                                    resultadoInicial: resultado
+                                });
+                            }
+
 
                             // CASO 4: un registro lógico fue partido en dos filas físicas.
                             // Solo intentamos unirlas cuando:
