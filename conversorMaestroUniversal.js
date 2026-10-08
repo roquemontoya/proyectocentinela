@@ -45,7 +45,7 @@ export function cargarModuloAdminCsv(contenedor) {
         <div style="max-width: 950px; margin: 0 auto; color: #fff; font-family: Arial, sans-serif;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                 <h2 style="color: #38bdf8; margin: 0;">📚 CMU: Bibliotecario con Papa Parse</h2>
-                <span style="background: #22c55e; color: #000; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: bold;">100% PRECISIÓN DE FILAS</span>
+                <span style="background: #22c55e; color: #000; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: bold;">Papa Parse · CONTROL DE DATOS</span>
             </div>
             
             <p style="color: #aaa; font-size: 13px; margin-bottom: 20px; line-height: 1.4;">
@@ -88,22 +88,33 @@ export function cargarModuloAdminCsv(contenedor) {
         </div>
     `;
 
+    const normalizarClave = (texto) => String(texto || '')
+        .normalize('NFD')
+        .replace(/[\\u0300-\\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '');
+
     const detectarCategoria = (nombreArchivo) => {
-        const name = nombreArchivo.toLowerCase();
+        const name = normalizarClave(nombreArchivo);
+
+        // Categorías controladas: generan LEU + controles_*.
         if (name.includes('extintor')) return 'Extintores';
         if (name.includes('hidrante')) return 'Hidrantes';
         if (name.includes('permiso')) return 'Permisos Permanentes';
-        if (name.includes('valvulasecas') || name.includes('valvulas eca')) return 'VECAS';
+        if (name.includes('valvulasecas') || name.includes('valvulaseca') || name.includes('valvulaeca')) return 'VECAS';
         if (name.includes('valvula')) return 'Valvulas';
         if (name.includes('ecas')) return 'ECAS';
         if (name.includes('cenicero')) return 'Ceniceros';
         if (name.includes('cortafuego') || name.includes('puertas')) return 'Puertas Cortafuego';
         if (name.includes('espumigeno')) return 'Espumigenos';
+
+        // Categorías informativas: generan solamente LEU.
         if (name.includes('centrales')) return 'Centrales de Alarmas';
-        if (name.includes('sub estaci') || name.includes('subestacion')) return 'Sub Estaciones';
+        if (name.includes('subestaci')) return 'Sub Estaciones';
         if (name.includes('ipp')) return 'IPP (Macro Sectores)';
         if (name.includes('purga')) return 'Purgas ECAS (PECAS)';
-        return 'Extintores';
+
+        return null;
     };
 
     let categoriaDetectadaGlobal = 'Extintores';
@@ -114,6 +125,17 @@ export function cargarModuloAdminCsv(contenedor) {
         if (!file) return;
 
         categoriaDetectadaGlobal = detectarCategoria(file.name);
+
+        if (!categoriaDetectadaGlobal) {
+            document.getElementById('texto-cat-detectada').innerText = 'NO RECONOCIDA';
+            document.getElementById('badge-categoria-detectada').style.display = 'block';
+            document.getElementById('iframe-container').innerHTML =
+                '<div style="color:#ef4444; padding:20px; text-align:center;">❌ No pude identificar la categoría por el nombre del archivo. Renómbralo con una categoría conocida antes de procesarlo.</div>';
+            document.getElementById('btn-procesar-csv').disabled = true;
+            return;
+        }
+
+        document.getElementById('btn-procesar-csv').disabled = false;
         document.getElementById('texto-cat-detectada').innerText = categoriaDetectadaGlobal;
         document.getElementById('badge-categoria-detectada').style.display = 'block';
 
@@ -135,96 +157,210 @@ export function cargarModuloAdminCsv(contenedor) {
             const Papa = await asegurarPapaParse();
 
             Papa.parse(fileInput.files[0], {
-                header: true,
+                // header:false es intencional:
+                // el CSV real contiene columnas duplicadas (Ronda/ronda). Así no perdemos
+                // ninguna columna ni dependemos del tratamiento interno de Papa Parse
+                // para encabezados repetidos.
+                header: false,
                 skipEmptyLines: true,
                 encoding: 'UTF-8',
                 complete: function(results) {
-                    const filasDatos = results.data;
-                    
-                    if (!filasDatos || filasDatos.length === 0) {
-                        alert('El archivo CSV está vacío o no se pudo leer.');
+                    const filasCrudas = results.data;
+
+                    if (!filasCrudas || filasCrudas.length < 2) {
+                        alert('El archivo CSV está vacío o no contiene una fila de encabezados y datos.');
                         return;
                     }
 
-                    const aliasEtiqueta = ['nombre de etiqueta', 'nombre', 'etiqueta', 'identificador', 'elemento', 'valvula eca', 'valvula eca 1'];
-                    const aliasSector = ['sector', 'departamento'];
-                    const aliasRonda = ['ronda', 'uet'];
-                    const aliasWkt = ['wkt', 'geom'];
-                    const aliasGmsIgnorar = ['punto gps', 'puntogps', 'coordenadas gms'];
+                    if (results.errors && results.errors.length > 0) {
+                        const erroresRelevantes = results.errors.slice(0, 5)
+                            .map(e => e.message || 'Error de parseo')
+                            .join(' | ');
+                        alert('❌ Papa Parse detectó errores en el CSV: ' + erroresRelevantes);
+                        return;
+                    }
 
-                    let listaTemporal = [];
-
+                    // Normalización segura: conserva letras, números, símbolos válidos y
+                    // convierte espacios especiales (NBSP, espacios estrechos, etc.) en
+                    // espacios normales. NO transforma símbolos como ´ o ¨.
                     const limpiarTextoSeguro = (val) => {
-                        if (!val) return null;
-                        let s = String(val).trim();
-                        s = s.replace(/Â°/g, '°').replace(/Â/g, '').replace(/â‚¬/g, '°');
-                        return s === '' ? null : s;
+                        if (val === null || val === undefined) return null;
+
+                        let s = String(val)
+                            .replace(/^\\uFEFF/, '')
+                            .replace(/[\\u00A0\\u1680\\u2000-\\u200B\\u202F\\u205F\\u3000]/g, ' ')
+                            .trim();
+
+                        if (!s) return null;
+
+                        // Correcciones conservadoras de mojibake de grados. No sustituimos
+                        // caracteres arbitrarios (por ejemplo â‚¬) por ° porque eso destruye datos.
+                        s = s.replace(/Â°/g, '°').replace(/Ã‚°/g, '°');
+
+                        return s.trim() || null;
+                    };
+
+                    const normalizarCabecera = (valor) => {
+                        return limpiarTextoSeguro(valor)
+                            ?.normalize('NFD')
+                            .replace(/[\\u0300-\\u036f]/g, '')
+                            .toLowerCase()
+                            .replace(/[^a-z0-9]+/g, '') || '';
                     };
 
                     const parsearWkt = (wktStr) => {
-                        if (!wktStr) return null;
-                        const match = String(wktStr).match(/POINT\s*\(\s*([-\d.]+)\s+([-\d.]+)\s*\)/i);
-                        if (match) return `${match[2]}, ${match[1]}`;
-                        return wktStr; 
-                    };
+                        const limpio = limpiarTextoSeguro(wktStr);
+                        if (!limpio) return null;
 
-                    filasDatos.forEach((fila, index) => {
-                        let etiqueta = null, sector = null, ronda = null, wkt = null;
-                        let atributosJSON = {};
-
-                        // Recorrer las llaves del objeto devuelto por Papa Parse
-                        Object.keys(fila).forEach(cabeceraOriginal => {
-                            const cabLimpieza = cabeceraOriginal.trim();
-                            const valor = limpiarTextoSeguro(fila[cabeceraOriginal]);
-                            if (!valor) return;
-
-                            const cabMin = cabLimpieza.toLowerCase();
-
-                            if (aliasEtiqueta.includes(cabMin) && !etiqueta) etiqueta = valor;
-                            else if (aliasSector.includes(cabMin) && !sector) sector = valor;
-                            else if (aliasRonda.includes(cabMin) && !ronda) ronda = valor;
-                            else if (aliasWkt.includes(cabMin) && !wkt) wkt = valor;
-                            else if (!aliasGmsIgnorar.includes(cabMin)) {
-                                atributosJSON[cabLimpieza] = valor;
-                            }
-                        });
-
-                        if (!etiqueta) etiqueta = `Sin Etiqueta Fila ${index + 1}`;
-                        if (categoriaDetectadaGlobal === 'Extintores') {
-                            etiqueta = etiqueta.replace(/^extintor\s*/i, '');
+                        const match = limpio.match(/POINT\\s*\\(\\s*([-\\d.]+)\\s+([-\\d.]+)\\s*\\)/i);
+                        if (match) {
+                            // WKT de My Maps = POINT(longitud latitud).
+                            // La PWA existente trabaja con "latitud, longitud".
+                            return \`${match[2]}, ${match[1]}\`;
                         }
 
+                        return limpio;
+                    };
+
+                    const encabezadosOriginales = filasCrudas[0].map((cabecera, indice) => {
+                        const limpia = limpiarTextoSeguro(cabecera) || \`Columna ${indice + 1}\`;
+                        return limpia;
+                    });
+
+                    const indicesPorCabecera = {};
+                    encabezadosOriginales.forEach((cabecera, indice) => {
+                        const clave = normalizarCabecera(cabecera);
+                        if (!indicesPorCabecera[clave]) indicesPorCabecera[clave] = [];
+                        indicesPorCabecera[clave].push(indice);
+                    });
+
+                    const buscarIndice = (alias, opciones = {}) => {
+                        const candidatos = alias.map(normalizarCabecera);
+
+                        // Para Ronda priorizamos deliberadamente la columna escrita
+                        // exactamente como "Ronda", no la segunda "ronda".
+                        if (opciones.exacto) {
+                            const indiceExacto = encabezadosOriginales.findIndex(
+                                h => h === opciones.exacto
+                            );
+                            if (indiceExacto >= 0) return indiceExacto;
+                        }
+
+                        for (const candidato of candidatos) {
+                            if (indicesPorCabecera[candidato]?.length) {
+                                return indicesPorCabecera[candidato][0];
+                            }
+                        }
+
+                        return -1;
+                    };
+
+                    const indiceEtiqueta = buscarIndice([
+                        'Nombre de etiqueta', 'Nombre', 'Etiqueta', 'Identificador',
+                        'Elemento', 'Valvula ECA', 'Valvula ECA 1'
+                    ]);
+
+                    const indiceSector = buscarIndice(['Sector', 'Departamento']);
+                    const indiceRonda = buscarIndice(['Ronda', 'UET'], { exacto: 'Ronda' });
+                    const indiceWkt = buscarIndice(['WKT', 'Geom']);
+
+                    // "Punto GPS" está en GMS y es redundante para la PWA.
+                    // No lo copiamos a atributos_tecnicos: WKT es la fuente geométrica.
+                    const columnasRedundantes = new Set([
+                        'puntogps',
+                        'coordenadasgms'
+                    ]);
+
+                    const obtenerValor = (fila, indice) => {
+                        if (indice < 0 || indice >= fila.length) return null;
+                        return limpiarTextoSeguro(fila[indice]);
+                    };
+
+                    const claveAtributoUnica = (cabecera, indice, usados) => {
+                        const base = cabecera || \`Columna ${indice + 1}\`;
+                        let clave = base;
+                        let contador = 2;
+
+                        while (usados.has(clave)) {
+                            clave = \`${base}__${contador}\`;
+                            contador++;
+                        }
+
+                        usados.add(clave);
+                        return clave;
+                    };
+
+                    let listaTemporal = [];
+
+                    filasCrudas.slice(1).forEach((fila, index) => {
+                        if (!Array.isArray(fila)) return;
+
+                        let etiqueta = obtenerValor(fila, indiceEtiqueta);
+                        const sector = obtenerValor(fila, indiceSector);
+                        const ronda = obtenerValor(fila, indiceRonda);
+                        const wkt = obtenerValor(fila, indiceWkt);
+                        const atributosJSON = {};
+                        const clavesUsadas = new Set();
+
+                        encabezadosOriginales.forEach((cabeceraOriginal, indice) => {
+                            const claveNormalizada = normalizarCabecera(cabeceraOriginal);
+                            if (columnasRedundantes.has(claveNormalizada)) return;
+                            if (indice === indiceWkt || indice === indiceEtiqueta || indice === indiceSector || indice === indiceRonda) return;
+
+                            const valor = limpiarTextoSeguro(fila[indice]);
+                            if (valor === null) return;
+
+                            const clave = claveAtributoUnica(cabeceraOriginal, indice, clavesUsadas);
+                            atributosJSON[clave] = valor;
+                        });
+
+                        // IMPORTANTE:
+                        // Ya NO eliminamos la palabra "Extintor". En LEU conviven todos
+                        // los elementos y necesitamos que "Extintor 54 PQS", "Extintor 54
+                        // HALON" y "Extintor 54 CO2" sean identificables sin ambigüedad.
+                        if (!etiqueta) etiqueta = \`Sin Etiqueta Fila ${index + 2}\`;
+
                         listaTemporal.push({
-                            "etiqueta": etiqueta,
-                            "categoria": categoriaDetectadaGlobal,
-                            "sector": sector,
-                            "ronda": ronda,
-                            "ubicacion_wkt": wkt ? parsearWkt(wkt) : null,
-                            "atributos_tecnicos": atributosJSON
+                            etiqueta,
+                            categoria: categoriaDetectadaGlobal,
+                            sector,
+                            ronda,
+                            ubicacion_wkt: wkt ? parsearWkt(wkt) : null,
+                            atributos_tecnicos: atributosJSON
                         });
                     });
 
+                    if (listaTemporal.length === 0) {
+                        alert('❌ No se encontraron registros de datos después de procesar el CSV.');
+                        return;
+                    }
+
                     datosConvertidosGlobal = listaTemporal;
+
                     document.getElementById('admin-resultado-container').style.display = 'block';
-                    document.getElementById('admin-estado-texto').innerText = `¡Procesado con Papa Parse: ${categoriaDetectadaGlobal}!`;
-                    document.getElementById('admin-contador-registros').innerText = `${datosConvertidosGlobal.length} elementos`;
+                    document.getElementById('admin-estado-texto').innerText =
+                        \`¡Procesado con Papa Parse: ${categoriaDetectadaGlobal}!\`;
+                    document.getElementById('admin-contador-registros').innerText =
+                        \`${datosConvertidosGlobal.length} elementos\`;
 
                     const previewDiv = document.getElementById('admin-preview-tabla');
-                    let tablaHtml = `<style>
+                    let tablaHtml = \`<style>
                         #admin-preview-tabla table { width: 100%; border-collapse: collapse; color: #ccc; }
                         #admin-preview-tabla th, #admin-preview-tabla td { border: 1px solid #444; padding: 6px; text-align: left; }
                         #admin-preview-tabla th { background: #2a2a2a; color: #38bdf8; position: sticky; top: 0; }
-                    </style><table><thead><tr><th>Etiqueta</th><th>Sector</th><th>WKT</th><th>JSON Atributos</th></tr></thead><tbody>`;
-                    
+                    </style><table><thead><tr><th>Etiqueta</th><th>Sector</th><th>Ronda</th><th>WKT</th><th>JSON Atributos</th></tr></thead><tbody>\`;
+
                     datosConvertidosGlobal.slice(0, 15).forEach(row => {
-                        tablaHtml += `<tr>
+                        tablaHtml += \`<tr>
                             <td>${row.etiqueta || ''}</td>
                             <td>${row.sector || ''}</td>
+                            <td>${row.ronda || ''}</td>
                             <td style="color: #eab308;">${row.ubicacion_wkt || ''}</td>
-                            <td style="color: #38bdf8; font-family: monospace;">${JSON.stringify(row.atributos_tecnicos).substring(0, 40)}...</td>
-                        </tr>`;
+                            <td style="color: #38bdf8; font-family: monospace;">${JSON.stringify(row.atributos_tecnicos).substring(0, 80)}...</td>
+                        </tr>\`;
                     });
-                    tablaHtml += `</tbody></table>`;
+
+                    tablaHtml += '</tbody></table>';
                     previewDiv.innerHTML = tablaHtml;
                 },
                 error: function(err) {
@@ -238,102 +374,232 @@ export function cargarModuloAdminCsv(contenedor) {
 
     document.getElementById('btn-subir-supabase').addEventListener('click', async () => {
         if (datosConvertidosGlobal.length === 0) return;
-        if (!confirm(`¿Inyectar los ${datosConvertidosGlobal.length} registros exactos como "${categoriaDetectadaGlobal}"?`)) return;
+        if (!categoriaDetectadaGlobal) {
+            alert('❌ No hay una categoría válida para importar.');
+            return;
+        }
+
+        if (!confirm(\`¿Inyectar los ${datosConvertidosGlobal.length} registros exactos como "${categoriaDetectadaGlobal}"?\`)) return;
 
         const btnSubir = document.getElementById('btn-subir-supabase');
-        btnSubir.innerText = 'Inyectando...'; 
+        btnSubir.innerText = 'Inyectando...';
         btnSubir.disabled = true;
+
+        const exigir = (respuesta, tabla) => {
+            if (respuesta.error) {
+                throw new Error(\`Error insertando en ${tabla}: ${respuesta.error.message}\`);
+            }
+        };
 
         try {
             let maxId = 0;
-            const { data: maxRes } = await clienteSupabase.from('leu').select('id').order('id', { ascending: false }).limit(1);
-            if (maxRes && maxRes.length > 0) maxId = maxRes[0].id || 0;
+            const { data: maxRes, error: maxError } = await clienteSupabase
+                .from('leu')
+                .select('id')
+                .order('id', { ascending: false })
+                .limit(1);
 
-            const arrayLEU = []; const arrayControlesH = []; const arrayControlesE = [];
-            const arrayControlesPfp = []; const arrayControlesV = []; const arrayControlesEcas = [];
-            const arrayControlesVecas = []; const arrayControlesC = []; const arrayControlesPc = [];
-            const arrayControlesEs = []; const arrayAnomalias = [];
+            if (maxError) throw new Error('No se pudo obtener el último ID de LEU: ' + maxError.message);
+            if (maxRes && maxRes.length > 0) maxId = Number(maxRes[0].id) || 0;
+
+            const arrayLEU = [];
+            const arrayControlesH = [];
+            const arrayControlesE = [];
+            const arrayControlesPfp = [];
+            const arrayControlesV = [];
+            const arrayControlesEcas = [];
+            const arrayControlesVecas = [];
+            const arrayControlesC = [];
+            const arrayControlesPc = [];
+            const arrayControlesEs = [];
+            const arrayAnomalias = [];
+
+            const obtenerAtributo = (attrs, nombres) => {
+                for (const nombre of nombres) {
+                    const clave = Object.keys(attrs).find(k =>
+                        k === nombre ||
+                        normalizarClave(k) === normalizarClave(nombre)
+                    );
+                    if (clave && attrs[clave] !== null && attrs[clave] !== undefined && String(attrs[clave]).trim() !== '') {
+                        return attrs[clave];
+                    }
+                }
+                return null;
+            };
 
             datosConvertidosGlobal.forEach((item) => {
                 maxId++;
                 const idActivo = maxId;
-                const attrs = item.atributos_tecnicos;
+                const attrs = item.atributos_tecnicos || {};
 
                 arrayLEU.push({
-                    id: idActivo, categoria: item.categoria, etiqueta: item.etiqueta,
-                    sector: item.sector, ronda: item.ronda, ubicacion_wkt: item.ubicacion_wkt,
-                    atributos_tecnicos: { fuente: 'My Maps CSV', atributos_originales: attrs }
+                    id: idActivo,
+                    categoria: item.categoria,
+                    etiqueta: item.etiqueta,
+                    sector: item.sector,
+                    ronda: item.ronda,
+                    ubicacion_wkt: item.ubicacion_wkt,
+                    atributos_tecnicos: {
+                        fuente: 'My Maps CSV',
+                        atributos_originales: attrs
+                    }
                 });
 
-                const textoAnomalia = attrs['ANOMALIAS SI / NO'] || attrs['anomalias'] || attrs['Novedades'] || null;
-                if (textoAnomalia && String(textoAnomalia).trim() !== '' && String(textoAnomalia).toUpperCase() !== 'NULL' && String(textoAnomalia).toUpperCase() !== 'NO') {
+                const textoAnomalia = obtenerAtributo(attrs, [
+                    'ANOMALIAS SI / NO',
+                    'anomalias',
+                    'Novedades'
+                ]);
+
+                if (
+                    textoAnomalia &&
+                    String(textoAnomalia).trim() !== '' &&
+                    String(textoAnomalia).trim().toUpperCase() !== 'NULL' &&
+                    String(textoAnomalia).trim().toUpperCase() !== 'NO'
+                ) {
                     arrayAnomalias.push({
-                        id_activo: idActivo, modulo_origen: categoriaDetectadaGlobal.toLowerCase(),
-                        evento_numero: attrs['Evento Numero'] || null, anomalia_detectada: String(textoAnomalia),
-                        detalle_informe: attrs['Detalle Informe'] || attrs['Observacion'] || null,
-                        reportado_fecha: null, reportado_por: attrs['Reportado Por'] || null, estado_resolucion: 'Abierta'
+                        id_activo: idActivo,
+                        modulo_origen: categoriaDetectadaGlobal.toLowerCase(),
+                        evento_numero: obtenerAtributo(attrs, ['Evento Numero']),
+                        anomalia_detectada: String(textoAnomalia),
+                        detalle_informe: obtenerAtributo(attrs, ['Detalle Informe', 'Observacion']),
+                        reportado_fecha: null,
+                        reportado_por: obtenerAtributo(attrs, ['Reportado Por']),
+                        estado_resolucion: 'Abierta'
                     });
                 }
 
-                const matchNum = item.etiqueta.match(/([0-9]+)/);
+                // El número que aparece en el nombre del extintor NO es una FK.
+                // Hay series independientes (PQS, HALON, CO2, etc.) y pueden repetirse.
+                // La FK real es SIEMPRE el ID generado para esta fila de LEU.
+                const matchNum = String(item.etiqueta || '').match(/(?:^|\\s)(\\d+)(?=\\s|['´¨"”]|$)/);
+                const numeroOriginal = matchNum ? matchNum[1] : null;
+
                 if (categoriaDetectadaGlobal === 'Extintores') {
                     arrayControlesE.push({
-                        id_extintor: matchNum ? parseInt(matchNum[1], 10) : null,
-                        nombreetiqueta: item.etiqueta, sector: item.sector, ronda: item.ronda,
-                        controlmensual: attrs['CONTROL MENSUAL (Mes)'] || null, tipoextintor: 'GENERAL',
-                        observacion: attrs['Observacion'] || null
+                        id_activo: idActivo,
+                        nombreetiqueta: item.etiqueta,
+                        sector: item.sector,
+                        ronda: item.ronda,
+                        controlmensual: obtenerAtributo(attrs, ['CONTROL MENSUAL (Mes)']),
+                        controlrealizadopor: obtenerAtributo(attrs, ['Control M. realizado por']),
+                        tipoextintor: obtenerAtributo(attrs, ['Tipo de Extintor']),
+                        vencimiento: obtenerAtributo(attrs, ['Vencimiento']),
+                        pruebahidraulica: obtenerAtributo(attrs, ['Prueba Hidraulica']),
+                        observacion: obtenerAtributo(attrs, ['Observacion'])
                     });
                 } else if (categoriaDetectadaGlobal === 'Hidrantes') {
-                    arrayControlesH.push({ id_activo: idActivo, idch_original: matchNum ? matchNum[1] : null });
+                    arrayControlesH.push({
+                        id_activo: idActivo,
+                        idch_original: numeroOriginal
+                    });
                 } else if (categoriaDetectadaGlobal === 'Permisos Permanentes') {
-                    arrayControlesPfp.push({ id_activo: idActivo, nombreetiqueta: item.etiqueta, sector: item.sector });
+                    arrayControlesPfp.push({
+                        id_activo: idActivo,
+                        nombreetiqueta: item.etiqueta,
+                        sector: item.sector
+                    });
                 } else if (categoriaDetectadaGlobal === 'Valvulas') {
-                    arrayControlesV.push({ id_activo: idActivo, nombreetiqueta: item.etiqueta, sector: item.sector });
+                    arrayControlesV.push({
+                        id_activo: idActivo,
+                        nombreetiqueta: item.etiqueta,
+                        sector: item.sector
+                    });
                 } else if (categoriaDetectadaGlobal === 'ECAS') {
-                    arrayControlesEcas.push({ id_activo: idActivo, nombreetiqueta: item.etiqueta, sector: item.sector });
+                    arrayControlesEcas.push({
+                        id_activo: idActivo,
+                        nombreetiqueta: item.etiqueta,
+                        sector: item.sector
+                    });
                 } else if (categoriaDetectadaGlobal === 'VECAS') {
-                    arrayControlesVecas.push({ id_activo: idActivo, valvula_eca: item.etiqueta, sector: item.sector });
+                    arrayControlesVecas.push({
+                        id_activo: idActivo,
+                        valvula_eca: item.etiqueta,
+                        sector: item.sector
+                    });
                 } else if (categoriaDetectadaGlobal === 'Ceniceros') {
-                    arrayControlesC.push({ id_activo: idActivo, nombreetiqueta: item.etiqueta, sector: item.sector });
+                    arrayControlesC.push({
+                        id_activo: idActivo,
+                        nombreetiqueta: item.etiqueta,
+                        sector: item.sector
+                    });
                 } else if (categoriaDetectadaGlobal === 'Puertas Cortafuego') {
-                    arrayControlesPc.push({ id_activo: idActivo, nombreetiqueta: item.etiqueta, sector: item.sector });
+                    arrayControlesPc.push({
+                        id_activo: idActivo,
+                        nombreetiqueta: item.etiqueta,
+                        sector: item.sector
+                    });
                 } else if (categoriaDetectadaGlobal === 'Espumigenos') {
-                    arrayControlesEs.push({ id_activo: idActivo, nombreetiqueta: item.etiqueta, sector: item.sector });
+                    arrayControlesEs.push({
+                        id_activo: idActivo,
+                        nombreetiqueta: item.etiqueta,
+                        sector: item.sector
+                    });
                 }
             });
 
             const chunkSize = 500;
+
             for (let i = 0; i < arrayLEU.length; i += chunkSize) {
-                await clienteSupabase.from('leu').insert(arrayLEU.slice(i, i + chunkSize));
+                const respuesta = await clienteSupabase
+                    .from('leu')
+                    .insert(arrayLEU.slice(i, i + chunkSize));
+                exigir(respuesta, 'LEU');
             }
+
             if (arrayAnomalias.length > 0) {
                 for (let i = 0; i < arrayAnomalias.length; i += chunkSize) {
-                    await clienteSupabase.from('anomalias').insert(arrayAnomalias.slice(i, i + chunkSize));
+                    const respuesta = await clienteSupabase
+                        .from('anomalias')
+                        .insert(arrayAnomalias.slice(i, i + chunkSize));
+                    exigir(respuesta, 'anomalias');
                 }
             }
 
             const mapTablas = [
-                { data: arrayControlesE, tabla: 'controles_e' }, { data: arrayControlesH, tabla: 'controles_h' },
-                { data: arrayControlesPfp, tabla: 'controles_pfp' }, { data: arrayControlesV, tabla: 'controles_v' },
-                { data: arrayControlesEcas, tabla: 'controles_ecas' }, { data: arrayControlesVecas, tabla: 'controles_vecas' },
-                { data: arrayControlesC, tabla: 'controles_c' }, { data: arrayControlesPc, tabla: 'controles_pc' },
+                { data: arrayControlesE, tabla: 'controles_e' },
+                { data: arrayControlesH, tabla: 'controles_h' },
+                { data: arrayControlesPfp, tabla: 'controles_pfp' },
+                { data: arrayControlesV, tabla: 'controles_v' },
+                { data: arrayControlesEcas, tabla: 'controles_ecas' },
+                { data: arrayControlesVecas, tabla: 'controles_vecas' },
+                { data: arrayControlesC, tabla: 'controles_c' },
+                { data: arrayControlesPc, tabla: 'controles_pc' },
                 { data: arrayControlesEs, tabla: 'controles_es' }
             ];
 
             for (const t of mapTablas) {
-                if (t.data.length > 0) {
-                    for (let i = 0; i < t.data.length; i += chunkSize) {
-                        await clienteSupabase.from(t.tabla).insert(t.data.slice(i, i + chunkSize));
-                    }
+                if (t.data.length === 0) continue;
+
+                for (let i = 0; i < t.data.length; i += chunkSize) {
+                    const respuesta = await clienteSupabase
+                        .from(t.tabla)
+                        .insert(t.data.slice(i, i + chunkSize));
+                    exigir(respuesta, t.tabla);
                 }
             }
 
-            alert(`¡Carga masiva completada con éxito! Se inyectaron los ${datosConvertidosGlobal.length} registros exactos.`);
+            const totalControles =
+                arrayControlesE.length +
+                arrayControlesH.length +
+                arrayControlesPfp.length +
+                arrayControlesV.length +
+                arrayControlesEcas.length +
+                arrayControlesVecas.length +
+                arrayControlesC.length +
+                arrayControlesPc.length +
+                arrayControlesEs.length;
+
+            alert(
+                \`¡Carga masiva completada!\n\nLEU: ${arrayLEU.length}\nControles: ${totalControles}\nAnomalías: ${arrayAnomalias.length}\n\nCategoría: ${categoriaDetectadaGlobal}\`
+            );
+
             btnSubir.innerText = '🚀 Inyectar en LEU, Controles y Anomalías (Supabase)';
             btnSubir.disabled = false;
         } catch (err) {
-            alert('❌ Error: ' + err.message);
-            btnSubir.innerText = '🚀 Inyectar en LEU, Controles y Anomalías (Supabase)';
+            console.error('CMU - error de carga:', err);
+            alert('❌ Error durante la carga. No se confirmó la importación completa: ' + err.message);
+            btnSubir.innerText = '🚀 Reintentar inyección';
             btnSubir.disabled = false;
         }
     });
