@@ -1180,7 +1180,7 @@ const convertirWktIppAGeometria = (valor) => {
                     const esInicioRegistroRedTroncal = (fila) => {
                         return categoriaDetectadaGlobal === 'Red Troncal' &&
                             Array.isArray(fila) &&
-                            /^(?:SRID=\\d+;)?LINESTRING\\s*\\(/i.test(String(fila[0] ?? '').trim()) &&
+                            /^(?:SRID=\d+;)?LINESTRING\s*\(/i.test(String(fila[0] ?? '').trim()) &&
                             !esTextoVacio(fila[1]);
                     };
 
@@ -1211,7 +1211,7 @@ const convertirWktIppAGeometria = (valor) => {
                         const filaCanonica = new Array(COLUMNAS_ESPERADAS).fill(null);
                         filaCanonica[0] = String(inicio[0]).trim();
                         filaCanonica[1] = String(inicio[1]).trim();
-                        filaCanonica[2] = lineasDescripcion.join('\\n');
+                        filaCanonica[2] = lineasDescripcion.join('\n');
 
                         // Recuperar cualquier valor "Campo: valor" en su columna
                         // únicamente cuando el nombre coincide con un encabezado real.
@@ -1221,7 +1221,7 @@ const convertirWktIppAGeometria = (valor) => {
                         });
 
                         for (const linea of lineasDescripcion) {
-                            const coincidencia = String(linea).match(/^\\s*([^:]+?)\\s*:\\s*(.*?)\\s*$/);
+                            const coincidencia = String(linea).match(/^\s*([^:]+?)\s*:\s*(.*?)\s*$/);
                             if (!coincidencia) continue;
                             const indiceCampo = indicePorCabecera.get(normalizarCabecera(coincidencia[1]));
                             const valor = coincidencia[2].trim();
