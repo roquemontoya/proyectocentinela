@@ -1036,13 +1036,13 @@ const convertirWktIppAGeometria = (valor) => {
                             categoriaDetectadaGlobal === 'EPI' &&
                             filaOriginal.length === COLUMNAS_ESPERADAS + 1 &&
                             wktEsValido(filaOriginal[0]) &&
-                            /^POINT\\s*\\(/i.test(String(filaOriginal[0] ?? '').trim()) &&
+                            /^POINT\s*\(/i.test(String(filaOriginal[0] ?? '').trim()) &&
                             coordenadaValida(filaOriginal[1], -90, 90) &&
                             coordenadaValida(filaOriginal[2], -180, 180)
                         ) {
                             const filaEpi = [filaOriginal[0], ...filaOriginal.slice(3)];
                             const indiceCampoVacio = encabezadosOriginales.findIndex((h, i) =>
-                                i > 0 && /^Columna\\s+\\d+$/i.test(String(h).trim())
+                                i > 0 && /^Columna\s+\d+$/i.test(String(h).trim())
                             );
                             if (indiceCampoVacio >= 0 && filaEpi.length < COLUMNAS_ESPERADAS) {
                                 filaEpi.splice(indiceCampoVacio, 0, null);
