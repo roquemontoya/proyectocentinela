@@ -839,9 +839,9 @@ const convertirWktIppAGeometria = (valor) => {
                             coordenadaValida(filaOriginal[2], -90, 90) &&
                             coordenadaValida(filaOriginal[3], -180, 180) &&
                             !esTextoVacio(filaOriginal[4]) &&
-                            /^\\s*Reportan\\s+ECAS\\b/i.test(String(filaOriginal[5] ?? '')) &&
+                            /^\s*Reportan\s+ECAS\b/i.test(String(filaOriginal[5] ?? '')) &&
                             filaOriginal.slice(6).every(valor =>
-                                esTextoVacio(valor) || /^\\s*\\d+\\s*$/.test(String(valor))
+                                esTextoVacio(valor) || /^\s*\d+\s*$/.test(String(valor))
                             )
                         ) {
                             const valoresControl = filaOriginal.slice(5)
