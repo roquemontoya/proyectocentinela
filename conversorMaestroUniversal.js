@@ -1268,6 +1268,33 @@ const convertirWktIppAGeometria = (valor) => {
                 return null;
             };
 
+            // Convierte fechas de exportación argentina (DD/MM/AAAA) a ISO (AAAA-MM-DD)
+            // antes de enviarlas a columnas PostgreSQL de tipo DATE.
+            const normalizarFechaParaPostgres = (valor) => {
+                if (valor === null || valor === undefined || String(valor).trim() === '') return null;
+                const texto = String(valor).trim();
+
+                // Ya está en formato ISO: conservar únicamente la parte de fecha.
+                const iso = texto.match(/^(\\d{4})-(\\d{2})-(\\d{2})(?:$|[T\\s])/);
+                if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+
+                // Exportaciones locales: día/mes/año, opcionalmente seguido de una hora.
+                const local = texto.match(/^(\\d{1,2})[\\/.-](\\d{1,2})[\\/.-](\\d{4})(?:\\s.*)?$/);
+                if (local) {
+                    const dia = Number(local[1]);
+                    const mes = Number(local[2]);
+                    const anio = Number(local[3]);
+                    const fecha = new Date(Date.UTC(anio, mes - 1, dia));
+                    if (fecha.getUTCFullYear() !== anio || fecha.getUTCMonth() !== mes - 1 || fecha.getUTCDate() !== dia) {
+                        throw new Error(`Fecha inválida en el CSV: "${texto}"`);
+                    }
+                    return `${String(anio).padStart(4, '0')}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+                }
+
+                // No adivinar otros formatos: dejar que el error identifique el valor inesperado.
+                return texto;
+            };
+
             datosConvertidosGlobal.forEach((item) => {
                 maxId++;
                 const idActivo = maxId;
@@ -1365,14 +1392,14 @@ const convertirWktIppAGeometria = (valor) => {
                         habilitada: obtenerAtributo(attrs, ['Habilitada']),
                         control_semanal: obtenerAtributo(attrs, ['CONTROL SEMANAL']),
                         control_s_realizado_por: obtenerAtributo(attrs, ['Control S. realizado por', 'Control S realizado por']),
-                        auditoria_fecha: obtenerAtributo(attrs, ['AUDITORIA (Fecha)', 'Auditoria Fecha']),
+                        auditoria_fecha: normalizarFechaParaPostgres(obtenerAtributo(attrs, ['AUDITORIA (Fecha)', 'Auditoria Fecha'])),
                         auditoria_semana: obtenerAtributo(attrs, ['Auditoria Semana']),
                         auditoria_realizada_por: obtenerAtributo(attrs, ['Auditoria realizada por']),
                         estado: obtenerAtributo(attrs, ['Estado']),
                         empresa: obtenerAtributo(attrs, ['Empresa']),
                         ubicacion: obtenerAtributo(attrs, ['Ubicación', 'Ubicacion']),
-                        fecha_inicio: obtenerAtributo(attrs, ['Fecha Inicio']),
-                        fecha_cierre: obtenerAtributo(attrs, ['Fecha Cierre']),
+                        fecha_inicio: normalizarFechaParaPostgres(obtenerAtributo(attrs, ['Fecha Inicio'])),
+                        fecha_cierre: normalizarFechaParaPostgres(obtenerAtributo(attrs, ['Fecha Cierre'])),
                         activa: obtenerAtributo(attrs, ['Activa'])
                     });
                 } else if (categoriaDetectadaGlobal === 'Valvulas') {
