@@ -752,7 +752,7 @@ const convertirWktIppAGeometria = (valor) => {
                     // Solo actúa si la fila tiene exactamente una columna extra y ambos números
                     // coinciden con las coordenadas del WKT de esa misma fila.
                     const repararPuntoDecimalPorEncabezado = (fila) => {
-                        if (!Array.isArray(fila) || fila.length !== COLUMNAS_ESPERADAS + 1) return null;
+                        if (!Array.isArray(fila) || ![COLUMNAS_ESPERADAS, COLUMNAS_ESPERADAS + 1].includes(fila.length)) return null;
 
                         // "Punto GPS" también es un encabezado válido; no exigir solo "Punto".
                         const indicePunto = encabezadosOriginales.findIndex(
@@ -811,6 +811,7 @@ const convertirWktIppAGeometria = (valor) => {
                         const reparada = [...fila];
                         reparada[indicePunto] = primeroTexto + ', ' + segundoTexto;
                         reparada.splice(indicePunto + 1, 1);
+                        while (reparada.length < COLUMNAS_ESPERADAS) reparada.push(null);
 
                         if (reparada.length !== COLUMNAS_ESPERADAS) return null;
                         return {
@@ -824,6 +825,9 @@ const convertirWktIppAGeometria = (valor) => {
                         let filaOriginal = Array.isArray(fila) ? [...fila] : [];
 
                         if (filaOriginal.length === COLUMNAS_ESPERADAS) {
+                            const gpsPorEncabezado = repararPuntoDecimalPorEncabezado(filaOriginal);
+                            if (gpsPorEncabezado) return gpsPorEncabezado;
+
                             const gpsPartido = repararGpsDecimalPartidoEnFilaCanonica(filaOriginal);
                             if (gpsPartido) return gpsPartido;
 
