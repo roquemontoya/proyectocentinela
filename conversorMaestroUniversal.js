@@ -146,6 +146,7 @@ export function cargarModuloAdminCsv(contenedor) {
         // Ej.: "EXTINTORES- Centrales de Alarmas.csv" debe ser informativo,
         // no una importación de extintores.
         if (name.includes('centrales')) return 'Centrales de Alarmas';
+        if (name.includes('redtroncal') || name.includes('reddeincendio') || name.includes('tuberiastroncales')) return 'Red Troncal';
         if (name.includes('subestaci')) return 'Sub Estaciones';
         if (name.includes('permisopermanente') || name.includes('permiso')) return 'Permisos Permanentes';
 
@@ -345,6 +346,23 @@ export function cargarModuloAdminCsv(contenedor) {
                         // IPP (Macro Sectores): basta con la firma estructural WKT + nombre +
                         // descripción y al menos una referencia de protección. No dependemos de que
                         // todas las columnas estén presentes o hayan conservado exactamente su nombre.
+                        // Red Troncal: capa lineal de tuberías. Su CSV tiene una firma
+                        // distinta a IPP: WKT + nombre + descripción + Punto GPS + atributos
+                        // de inspección. No depende del nombre del archivo.
+                        if (
+                            claves.has('wkt') &&
+                            claves.has('nombre') &&
+                            claves.has('descripcion') &&
+                            claves.has('puntogps') &&
+                            claves.has('sector') &&
+                            claves.has('ubicacion') &&
+                            claves.has('cadenaycandado') &&
+                            claves.has('chapa') &&
+                            claves.has('observacion')
+                        ) {
+                            return 'Red Troncal';
+                        }
+
                         if (
                             claves.has('wkt') &&
                             claves.has('nombre') &&
@@ -1155,9 +1173,87 @@ const convertirWktIppAGeometria = (valor) => {
                     const filasCanonicas = [];
                     const filasDatos = filasCrudas.slice(1);
 
+                    // En la exportación de Red Troncal, la descripción con etiquetas
+                    // ("Punto GPS:", "Sector:", "Ubicación:", etc.) contiene saltos de línea
+                    // sin comillas CSV. Papa Parse la divide en filas físicas. Cada bloque
+                    // lógico comienza inequívocamente con LINESTRING + nombre de la tubería.
+                    const esInicioRegistroRedTroncal = (fila) => {
+                        return categoriaDetectadaGlobal === 'Red Troncal' &&
+                            Array.isArray(fila) &&
+                            /^(?:SRID=\\d+;)?LINESTRING\\s*\\(/i.test(String(fila[0] ?? '').trim()) &&
+                            !esTextoVacio(fila[1]);
+                    };
+
+                    const reconstruirRegistroRedTroncalMultilinea = (filas, indiceInicio) => {
+                        const inicio = filas[indiceInicio];
+                        if (!esInicioRegistroRedTroncal(inicio)) return null;
+
+                        let indiceFin = indiceInicio + 1;
+                        const lineasDescripcion = [];
+                        const agregarCelda = (valor) => {
+                            const texto = valor === null || valor === undefined ? '' : String(valor).trim();
+                            if (texto) lineasDescripcion.push(texto);
+                        };
+
+                        // La tercera columna puede contener la primera etiqueta ("Punto GPS:").
+                        agregarCelda(inicio[2]);
+
+                        while (indiceFin < filas.length && !esInicioRegistroRedTroncal(filas[indiceFin])) {
+                            const parte = filas[indiceFin];
+                            if (Array.isArray(parte)) {
+                                parte.forEach(agregarCelda);
+                            } else {
+                                agregarCelda(parte);
+                            }
+                            indiceFin++;
+                        }
+
+                        const filaCanonica = new Array(COLUMNAS_ESPERADAS).fill(null);
+                        filaCanonica[0] = String(inicio[0]).trim();
+                        filaCanonica[1] = String(inicio[1]).trim();
+                        filaCanonica[2] = lineasDescripcion.join('\\n');
+
+                        // Recuperar cualquier valor "Campo: valor" en su columna
+                        // únicamente cuando el nombre coincide con un encabezado real.
+                        const indicePorCabecera = new Map();
+                        encabezadosOriginales.forEach((cabecera, indice) => {
+                            indicePorCabecera.set(normalizarCabecera(cabecera), indice);
+                        });
+
+                        for (const linea of lineasDescripcion) {
+                            const coincidencia = String(linea).match(/^\\s*([^:]+?)\\s*:\\s*(.*?)\\s*$/);
+                            if (!coincidencia) continue;
+                            const indiceCampo = indicePorCabecera.get(normalizarCabecera(coincidencia[1]));
+                            const valor = coincidencia[2].trim();
+                            if (indiceCampo === undefined || indiceCampo <= 1 || indiceCampo === 2 || !valor) continue;
+                            filaCanonica[indiceCampo] = valor;
+                        }
+
+                        return {
+                            fila: filaCanonica,
+                            indiceFin: indiceFin - 1,
+                            segura: true,
+                            reparada: true,
+                            motivo: 'Registro multilinea de Red Troncal reconstruido desde LINESTRING y etiquetas de campos',
+                            tipoReparacion: 'red_troncal_multilinea'
+                        };
+                    };
+
                     for (let index = 0; index < filasDatos.length; index++) {
                             const fila = filasDatos[index];
                             const numeroFilaCsv = index + 2;
+
+                            // Red Troncal: reconstruir los bloques de etiquetas multilinea
+                            // antes de auditar filas físicas individuales.
+                            if (esInicioRegistroRedTroncal(fila)) {
+                                const redReconstruida = reconstruirRegistroRedTroncalMultilinea(filasDatos, index);
+                                if (redReconstruida?.fila) {
+                                    filasCanonicas.push(redReconstruida.fila);
+                                    auditoria.filasReparadas++;
+                                    index = redReconstruida.indiceFin;
+                                    continue;
+                                }
+                            }
 
                             // IPP: reconstrucción determinística de descripciones multilinea
                             // antes de aplicar las reglas estructurales generales.
