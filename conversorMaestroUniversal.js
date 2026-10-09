@@ -831,7 +831,7 @@ const convertirWktIppAGeometria = (valor) => {
                             fila.length <= COLUMNAS_ESPERADAS || fila.length < 6) return null;
 
                         const wkt = String(fila[0] ?? '').trim();
-                        const matchWkt = wkt.match(/(?:SRID=\\d+;)?POINT\\s*\\(\\s*(-?\\d+(?:\\.\\d+)?)\\s+(-?\\d+(?:\\.\\d+)?)\\s*\\)/i);
+                        const matchWkt = wkt.match(/(?:SRID=\d+;)?POINT\s*\(\s*(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s*\)/i);
                         if (!matchWkt || esTextoVacio(fila[1])) return null;
 
                         const lat = Number(String(fila[2] ?? '').trim());
@@ -865,7 +865,7 @@ const convertirWktIppAGeometria = (valor) => {
                         ]);
                         const esFecha = (v) => {
                             const s = String(v ?? '').trim();
-                            return !s || /^(?:\\d{1,2}[\\/.-]\\d{1,2}[\\/.-]\\d{2,4}|\\d{4}-\\d{2}-\\d{2})$/.test(s);
+                            return !s || /^(?:\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2,4}|\d{4}-\d{2}-\d{2})$/.test(s);
                         };
                         const puntuar = (cabecera, valor) => {
                             const h = normalizarCabecera(cabecera);
