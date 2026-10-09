@@ -146,6 +146,7 @@ export function cargarModuloAdminCsv(contenedor) {
         // Ej.: "EXTINTORES- Centrales de Alarmas.csv" debe ser informativo,
         // no una importación de extintores.
         if (name.includes('centrales')) return 'Centrales de Alarmas';
+        if (name.includes('equiposdesegundaintervencion') || name.includes('esi')) return 'ESI';
         if (name.includes('epi')) return 'EPI';
         if (name.includes('redtroncal') || name.includes('reddeincendio') || name.includes('tuberiastroncales')) return 'Red Troncal';
         if (name.includes('subestaci')) return 'Sub Estaciones';
@@ -1483,6 +1484,9 @@ const convertirWktIppAGeometria = (valor) => {
                         // como identificador legible del activo, sin inventar números.
                         if (!etiqueta && categoriaDetectadaGlobal === 'EPI' && sector) {
                             etiqueta = 'EPI - ' + sector;
+                        }
+                        if (!etiqueta && categoriaDetectadaGlobal === 'ESI' && sector) {
+                            etiqueta = 'ESI - ' + sector;
                         }
                         if (!etiqueta) etiqueta = `Sin Etiqueta Fila ${index + 2}`;
 
