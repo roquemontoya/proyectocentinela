@@ -94,7 +94,7 @@
 
     <!-- Modal de Nuevo Control (Agnóstico) -->
     <div id="modal-control" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 9999; justify-content: center; align-items: center; padding: 20px; box-sizing: border-box;">
-        <div style="background: #1e1e1e; border: 1px solid #333; width: 100%; max-width: 550px; max-height: 90vh; overflow-y: auto; border-radius: 10px; padding: 20px; color: #fff; font-family: Arial, sans-serif;">
+        <div style="background: #1e1e1e; border: 1px solid #333; width: 100%; max-width: 760px; max-height: 90vh; overflow-y: auto; border-radius: 10px; padding: 20px; color: #fff; font-family: Arial, sans-serif;">
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 15px;">
                 <h3 id="modal-titulo-elemento" style="margin: 0; color: #22c55e; font-size: 18px;">Nuevo Control</h3>
                 <button type="button" onclick="cerrarFormularioControl()" style="background: none; border: none; color: #fff; font-size: 24px; cursor: pointer;">&times;</button>
@@ -105,13 +105,6 @@
                 <input type="hidden" id="input-idch">
                 <input type="hidden" id="input-tabla">
 
-                <!-- Inspector General -->
-                <label style="display: block; margin-bottom: 5px; font-size: 14px; font-weight: bold; color: #22c55e;">Control realizado por:</label>
-                <input type="hidden" id="input-realizo" required>
-                <div id="grid-seleccion-bombero" style="display: flex; gap: 10px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 12px; scrollbar-width: thin;">
-                    <p style="color: #aaa; font-size: 13px;">Cargando personal...</p>
-                </div>
-
                 <!-- CONTENEDOR DINÁMICO -->
                 <div id="contenedor-componentes-dinamicos"></div>
 
@@ -121,6 +114,13 @@
 
                 <label style="display: block; margin-bottom: 5px; font-size: 14px;">Foto de Auditoría (Obligatoria):</label>
                 <input type="file" id="input-foto" accept="image/*" capture="environment" required style="width: 100%; margin-bottom: 20px; color: #ccc;">
+
+                <!-- Inspector General -->
+                <label style="display: block; margin-bottom: 5px; font-size: 14px; font-weight: bold; color: #22c55e;">Control realizado por:</label>
+                <input type="hidden" id="input-realizo" required>
+                <div id="grid-seleccion-bombero" style="display: flex; gap: 10px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 12px; scrollbar-width: thin;">
+                    <p style="color: #aaa; font-size: 13px;">Cargando personal...</p>
+                </div>
 
                 <div style="display: flex; gap: 10px;">
                     <button type="submit" style="flex: 1; background: #22c55e; color: #000; border: none; padding: 12px; border-radius: 5px; font-weight: bold; cursor: pointer;">Guardar Control</button>
