@@ -235,18 +235,18 @@ export function cargarModuloAdminCsv(contenedor) {
             let fuenteCsv = fileInput.files[0];
             if (categoriaDetectadaGlobal === 'EPI') {
                 let textoEpi = await fileInput.files[0].text();
-                const lineasEpi = textoEpi.replace(/^\\uFEFF/, '').split(/\\r?\\n/);
+                const lineasEpi = textoEpi.replace(/^\uFEFF/, '').split(/\r?\n/);
                 if (lineasEpi.length > 0) {
-                    lineasEpi[0] = lineasEpi[0].replace(/^WKT\\s*,\\s*Punto GPS\\s*,/i, 'WKT,');
+                    lineasEpi[0] = lineasEpi[0].replace(/^WKT\s*,\s*Punto GPS\s*,/i, 'WKT,');
                 }
                 for (let i = 1; i < lineasEpi.length; i++) {
                     const linea = lineasEpi[i];
                     if (!linea.trim()) continue;
-                    const inicio = linea.match(/^("POINT\\s*\\([^"]+\\)"),(.*)$/i);
+                    const inicio = linea.match(/^("POINT\s*\([^"]+\)"),(.*)$/i);
                     if (!inicio) continue;
                     let resto = inicio[2];
                     // GPS decimal partido: latitud, longitud, siguiente columna.
-                    const decimal = resto.match(/^-?\\d+(?:\\.\\d+)?\\s*,\\s*-?\\d+(?:\\.\\d+)?\\s*,/);
+                    const decimal = resto.match(/^-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?\s*,/);
                     if (decimal) {
                         resto = resto.slice(decimal[0].length);
                     } else {
@@ -256,7 +256,7 @@ export function cargarModuloAdminCsv(contenedor) {
                     }
                     lineasEpi[i] = inicio[1] + ',' + resto;
                 }
-                fuenteCsv = lineasEpi.join('\\n');
+                fuenteCsv = lineasEpi.join('\n');
             }
 
             Papa.parse(fuenteCsv, {
