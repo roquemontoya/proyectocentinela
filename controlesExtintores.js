@@ -4,7 +4,7 @@
 // ==========================================
 
 import { clienteSupabase } from './supabaseClient.js';
-import { cargarBomberosEnModal, cerrarFormularioControl, subirFotoStorage } from './controlesBase.js';
+import { aplicarTituloControl, cargarBomberosEnModal, cerrarFormularioControl, subirFotoStorage } from './controlesBase.js';
 
 let activoLEU = null;
 
@@ -86,8 +86,7 @@ export async function abrirControlExtintor(dbId, idElemento) {
     const estado = preCalcularEstadoExtintor(vencimiento);
 
     if (titulo) {
-        titulo.innerText = `Control de Extintor: ${activoLEU.etiqueta}`;
-        titulo.style.color = estado === 'Vencido' ? '#ef4444' : estado === 'Por Vencer' ? '#eab308' : '#22c55e';
+        aplicarTituloControl(titulo, 'Extintor', activoLEU.etiqueta, estado);
     }
 
     renderizarFormularioExtintorHTML(activoLEU, attrs, estado);
@@ -95,42 +94,97 @@ export async function abrirControlExtintor(dbId, idElemento) {
     if (modal) modal.style.display = 'flex';
 }
 
+function fechaISOParaInput(valor) {
+    if (!valor) return '';
+    const s = String(valor).trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    let m = s.match(/^(\d{1,2})[\/\-](\d{2,4})$/);
+    if (m) {
+        let anio = Number(m[2]); if (anio < 100) anio += 2000;
+        return `${anio}-${String(Number(m[1])).padStart(2,'0')}-01`;
+    }
+    const d = new Date(s);
+    return Number.isNaN(d.getTime()) ? '' : `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
 function renderizarFormularioExtintorHTML(leu, attrs, estadoSugerido) {
     const c = document.getElementById('contenedor-componentes-dinamicos');
     if (!c) return;
 
     const tipo = valorAtributo(attrs, 'Tipo de Extintor', 'TipoExtintor');
-    const vencimiento = valorAtributo(attrs, 'Vencimiento');
+    const vencimiento = valorAtributo(attrs, 'Vencimiento', 'vencimiento');
     const prueba = valorAtributo(attrs, 'Prueba Hidraulica', 'PruebaHidraulica');
+    const fechaVencimiento = fechaISOParaInput(vencimiento);
+    const anioActual = new Date().getFullYear();
+    const anioPrueba = Number(String(prueba).match(/\d{4}/)?.[0]) || anioActual;
+    const opcionesTipo = ['PQS','Co2','Halon','K'];
+    const tipoNormalizado = opcionesTipo.find(t => t.toLowerCase() === String(tipo).toLowerCase()) || 'PQS';
+    const opcionesAnios = Array.from({length: 31}, (_, i) => anioActual + i)
+        .map(anio => `<option value="${anio}" ${anio === Math.max(anioActual, anioPrueba) ? 'selected' : ''}>${anio}</option>`).join('');
 
     c.innerHTML = `
-        <fieldset style="border:1px solid #38bdf8;border-radius:5px;padding:12px;margin-bottom:12px;background:#182830;">
-            <legend style="font-size:13px;color:#38bdf8;padding:0 5px;font-weight:bold;">📌 Datos del elemento — LEU</legend>
-            <div style="font-size:12px;color:#ddd;line-height:1.7;">
-                <strong>Etiqueta:</strong> ${leu.etiqueta || 'N/D'}<br>
-                <strong>Sector:</strong> ${leu.sector || 'N/D'}<br>
-                <strong>Ronda:</strong> ${leu.ronda || 'N/D'}<br>
-                <strong>Tipo:</strong> ${tipo || 'N/D'}<br>
-                <strong>Vencimiento:</strong> ${vencimiento || 'N/D'}<br>
-                <strong>Prueba hidráulica:</strong> ${prueba || 'N/D'}<br>
-                <strong>Ubicación:</strong> ${leu.ubicacion_wkt || 'N/D'}
+        <div style="display:grid;grid-template-columns:minmax(0,1.25fr) minmax(150px,0.75fr);gap:12px;align-items:stretch;margin-bottom:12px;">
+            <fieldset style="min-width:0;border:1px solid #38bdf8;border-radius:5px;padding:10px;background:#182830;margin:0;">
+                <legend style="font-size:13px;color:#38bdf8;padding:0 5px;font-weight:bold;">📌 Datos del elemento</legend>
+                <div style="font-size:12px;color:#ddd;line-height:1.7;overflow-wrap:anywhere;">
+                    <div><strong>Etiqueta:</strong> ${leu.etiqueta || 'N/D'}</div>
+                    <div><strong>Sector:</strong> ${leu.sector || 'N/D'}</div>
+                    <div><strong>Ronda:</strong> ${leu.ronda || 'N/D'}</div>
+                </div>
+            </fieldset>
+            <div style="min-width:0;">
+                <div style="font-size:12px;color:#ddd;margin-bottom:5px;font-weight:bold;">📍 Ubicación del extintor</div>
+                <div id="mini-mapa-extintor" role="img" aria-label="Mapa centrado en la ubicación del extintor" style="width:100%;height:132px;border:1px solid #38bdf8;border-radius:5px;overflow:hidden;background:#111;"></div>
             </div>
-        </fieldset>
+        </div>
 
         <fieldset style="border:1px solid #444;border-radius:5px;padding:10px;margin-bottom:12px;">
-            <legend style="font-size:13px;color:#aaa;padding:0 5px;">Evaluación del control</legend>
+            <legend style="font-size:13px;color:#aaa;padding:0 5px;">Control Mensual</legend>
             <label style="display:block;font-size:13px;margin-bottom:5px;">Condición:</label>
             <select id="input-condicion-extintor" required style="width:100%;padding:8px;margin-bottom:10px;background:#2a2a2a;border:1px solid #444;color:#fff;border-radius:5px;">
                 <option value="Vigente" ${estadoSugerido === 'Vigente' ? 'selected' : ''}>Vigente</option>
                 <option value="Por Vencer" ${estadoSugerido === 'Por Vencer' ? 'selected' : ''}>Por Vencer</option>
                 <option value="Vencido" ${estadoSugerido === 'Vencido' ? 'selected' : ''}>Vencido</option>
             </select>
+
+            <label style="display:block;font-size:13px;margin-bottom:5px;">Tipo de extintor:</label>
+            <select id="input-tipo-extintor" required style="width:100%;padding:8px;margin-bottom:10px;background:#2a2a2a;border:1px solid #444;color:#fff;border-radius:5px;">
+                ${opcionesTipo.map(t => `<option value="${t}" ${t === tipoNormalizado ? 'selected' : ''}>${t}</option>`).join('')}
+            </select>
+
+            <label style="display:block;font-size:13px;margin-bottom:5px;">Vencimiento:</label>
+            <input type="date" id="input-vencimiento-extintor" value="${fechaVencimiento}" required style="width:100%;box-sizing:border-box;padding:8px;margin-bottom:10px;background:#2a2a2a;border:1px solid #444;color:#fff;border-radius:5px;">
+
+            <label style="display:block;font-size:13px;margin-bottom:5px;">Prueba hidráulica (año):</label>
+            <select id="input-prueba-hidraulica-extintor" required style="width:100%;padding:8px;margin-bottom:10px;background:#2a2a2a;border:1px solid #444;color:#fff;border-radius:5px;">
+                ${opcionesAnios}
+            </select>
+
             <label style="display:block;font-size:13px;margin-bottom:5px;">Ronda del control:</label>
-            <input type="text" id="input-ronda-control" value="${leu.ronda || ''}" style="width:100%;padding:6px;margin-bottom:8px;background:#2a2a2a;border:1px solid #444;color:#fff;border-radius:4px;">
+            <input type="text" id="input-ronda-control" value="${leu.ronda || ''}" style="width:100%;box-sizing:border-box;padding:8px;margin-bottom:8px;background:#2a2a2a;border:1px solid #444;color:#fff;border-radius:4px;">
             <label style="display:block;font-size:13px;margin-bottom:5px;">Mes del control:</label>
-            <input type="text" id="input-control-mensual" value="${mesActual()}" readonly style="width:100%;padding:6px;margin-bottom:8px;background:#222;border:1px solid #444;color:#aaa;border-radius:4px;">
+            <input type="text" id="input-control-mensual" value="${mesActual()}" readonly style="width:100%;box-sizing:border-box;padding:8px;background:#222;border:1px solid #444;color:#aaa;border-radius:4px;">
         </fieldset>
     `;
+
+    // Mapa mini: reutiliza Leaflet, con zoom máximo y marcador del activo.
+    const mapaEl = document.getElementById('mini-mapa-extintor');
+    if (mapaEl && window.L) {
+        const raw = String(leu.ubicacion_wkt || '');
+        const m = raw.match(/^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/);
+        if (m) {
+            const lat = Number(m[1]), lng = Number(m[2]);
+            const mini = L.map(mapaEl, {zoomControl:false, attributionControl:false, dragging:false, scrollWheelZoom:false, doubleClickZoom:false, boxZoom:false, keyboard:false, tap:false});
+            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {maxZoom:22}).addTo(mini);
+            L.circleMarker([lat,lng], {radius:7,color:'#fff',weight:2,fillColor:'#ef4444',fillOpacity:1}).addTo(mini);
+            mini.setView([lat,lng], 21);
+            setTimeout(() => mini.invalidateSize(), 100);
+        } else {
+            mapaEl.innerHTML = '<div style="padding:12px;color:#aaa;font-size:11px;text-align:center;">Ubicación no disponible</div>';
+        }
+    } else if (mapaEl) {
+        mapaEl.innerHTML = '<div style="padding:12px;color:#aaa;font-size:11px;text-align:center;">Mapa no disponible</div>';
+    }
 }
 
 export async function guardarControlExtintor(event) {
