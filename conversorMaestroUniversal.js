@@ -964,6 +964,34 @@ const convertirWktIppAGeometria = (valor) => {
                     const repararFilaEstructuralmente = (fila, numeroFilaCsv) => {
                         let filaOriginal = Array.isArray(fila) ? [...fila] : [];
 
+                        // Purgas ECAS (PECAS): el CSV tiene tres columnas (WKT, etiqueta,
+                        // descripción), pero algunas descripciones incluyen comas sin comillas.
+                        // Si el WKT POINT y la etiqueta están intactos, todos los campos desde
+                        // la tercera columna pertenecen a la descripción y se pueden recomponer
+                        // sin desplazar ni descartar información.
+                        if (
+                            categoriaDetectadaGlobal === 'Purgas ECAS (PECAS)' &&
+                            filaOriginal.length > COLUMNAS_ESPERADAS &&
+                            COLUMNAS_ESPERADAS === 3 &&
+                            wktEsValido(filaOriginal[0]) &&
+                            /^POINT\\s*\\(/i.test(String(filaOriginal[0] ?? '').trim()) &&
+                            !esTextoVacio(filaOriginal[1]) &&
+                            filaOriginal.slice(2).some(valor => !esTextoVacio(valor))
+                        ) {
+                            const descripcion = filaOriginal
+                                .slice(2)
+                                .map(valor => String(valor ?? '').trim())
+                                .filter(valor => valor !== '')
+                                .join(', ');
+
+                            return {
+                                fila: [filaOriginal[0], filaOriginal[1], descripcion],
+                                reparada: true,
+                                motivo: 'Descripción de PECAS dividida por comas no entrecomilladas; campos reunidos en la tercera columna',
+                                tipoReparacion: 'pecas_descripcion_con_comas'
+                            };
+                        }
+
                         const valvulasReconstruida = repararCsvValvulasConComasInternas(filaOriginal);
                         if (valvulasReconstruida) return valvulasReconstruida;
 
