@@ -1121,6 +1121,61 @@ const convertirWktIppAGeometria = (valor) => {
                             };
                         }
 
+                        // Espumígenos: el WKT es la geometría útil para la PWA; ignorar Punto GPS.
+                        // Algunas filas traen GMS en una celda y otras latitud/longitud decimales
+                        // partidas en dos celdas. Además, Observaciones puede contener comas sin comillas.
+                        if (
+                            categoriaDetectadaGlobal === 'Espumigenos' &&
+                            filaOriginal.length >= COLUMNAS_ESPERADAS &&
+                            wktEsValido(filaOriginal[0]) &&
+                            /^POINT\s*\(/i.test(String(filaOriginal[0] ?? '').trim())
+                        ) {
+                            const filaEspumigenos = [...filaOriginal];
+                            const gpsGms = /^\s*\d{1,3}°\s*\d{1,2}'\s*\d*(?:[.,]\d+)?["]\s*[NS]\s*$/i.test(String(filaEspumigenos[1] ?? '').trim());
+                            const gpsDecimalPartido =
+                                /^\s*-?\d+(?:\.\d+)?\s*$/.test(String(filaEspumigenos[1] ?? '').trim()) &&
+                                /^\s*-?\d+(?:\.\d+)?\s*$/.test(String(filaEspumigenos[2] ?? '').trim()) &&
+                                /espum[ií]geno/i.test(String(filaEspumigenos[3] ?? ''));
+
+                            if (
+                                (gpsGms && /espum[ií]geno/i.test(String(filaEspumigenos[2] ?? ''))) ||
+                                gpsDecimalPartido
+                            ) {
+                                if (gpsDecimalPartido) {
+                                    // Retirar latitud y longitud decimales redundantes, dejando Punto GPS vacío.
+                                    filaEspumigenos.splice(1, 2, '');
+                                } else {
+                                    // Retirar/ignorar el campo GMS redundante.
+                                    filaEspumigenos[1] = '';
+                                }
+
+                                // En el esquema de 8 columnas, Observaciones está en índice 7.
+                                // Reunir allí los campos extra generados por comas no entrecomilladas.
+                                const extras = filaEspumigenos.length - COLUMNAS_ESPERADAS;
+                                if (extras > 0) {
+                                    const indiceObservaciones = 7;
+                                    if (indiceObservaciones + extras < filaEspumigenos.length) {
+                                        filaEspumigenos.splice(
+                                            indiceObservaciones,
+                                            extras + 1,
+                                            filaEspumigenos.slice(indiceObservaciones, indiceObservaciones + extras + 1)
+                                                .map(valor => String(valor ?? '').trim())
+                                                .join(', ')
+                                        );
+                                    }
+                                }
+
+                                if (filaEspumigenos.length === COLUMNAS_ESPERADAS) {
+                                    return {
+                                        fila: filaEspumigenos,
+                                        reparada: true,
+                                        motivo: 'Espumígenos: coordenadas redundantes de Punto GPS ignoradas y comas de Observaciones recompuestas',
+                                        tipoReparacion: 'espumigenos_gps_y_observaciones'
+                                    };
+                                }
+                            }
+                        }
+
                         // Regla general para Ceniceros: la PWA utiliza el WKT como geometría.
                         // Las coordenadas GMS de "Punto GPS" son redundantes y se dejan vacías.
                         // Si la coma separó latitud/longitud en dos celdas, se retiran ambas
