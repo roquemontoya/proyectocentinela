@@ -5,7 +5,9 @@
 import { clienteSupabase } from './supabaseClient.js';
 
 export function verificarEstadoControl() {
-    const estado = document.getElementById('input-estado').value;
+    const inputEstado = document.getElementById('input-estado');
+    if (!inputEstado) return; // Los formularios, como Extintores, pueden no tener estado general compartido.
+    const estado = inputEstado.value;
     const bloqueAnomalia = document.getElementById('bloque-anomalia');
     const razonInput = document.getElementById('input-anomalia-razon');
     const inputReportadoPor = document.getElementById('input-reportado-por');
