@@ -128,15 +128,27 @@ async function consultarActivos(categoria) {
     return todos;
 }
 
-async function consultarUltimasFotosHidrantes() {
+const TABLAS_FOTOS_CONTROLES = {
+    hidrantes: { tabla: 'controles_h', orden: 'creado_el' },
+    extintores: { tabla: 'controles_e', orden: 'created_at' },
+    ecas: { tabla: 'controles_ecas', orden: 'created_at' },
+    pecas: { tabla: 'controles_pecas', orden: 'created_at' },
+    vecas: { tabla: 'controles_vecas', orden: 'created_at' },
+    valvulas: { tabla: 'controles_v', orden: 'created_at' }
+};
+
+async function consultarUltimasFotos(moduloKey) {
+    const configFotos = TABLAS_FOTOS_CONTROLES[moduloKey];
+    if (!configFotos) return new Map();
+
     const { data, error } = await clienteSupabase
-        .from('controles_h')
-        .select('id_activo, foto, fecha_foto, creado_el')
+        .from(configFotos.tabla)
+        .select('id_activo, foto, ' + configFotos.orden)
         .not('foto', 'is', null)
         .neq('foto', '')
-        .order('creado_el', { ascending: false });
+        .order(configFotos.orden, { ascending: false });
     if (error) {
-        console.warn('[Centinela mapa] No se pudieron consultar las fotos de hidrantes:', error.message);
+        console.warn('[Centinela mapa] No se pudieron consultar las fotos de ' + moduloKey + ':', error.message);
         return new Map();
     }
     const ultimas = new Map();
@@ -245,15 +257,13 @@ function popupActivo(item, moduloKey, config, estado, esExtintor, ultimaFoto = '
         (tipo ? '<div style="font-size:11px;margin-bottom:4px">Tipo: ' + escaparHtml(tipo) + '</div>' : '') +
         (vencimiento ? '<div style="font-size:11px;margin-bottom:6px">Vencimiento: <b>' + escaparHtml(vencimiento) + '</b></div>' : '') +
         '<div style="font-size:11px;margin-bottom:9px">Estado: <b style="color:' + estado.color + '">' + escaparHtml(estado.estado) + '</b></div>' +
-        (moduloKey === 'hidrantes'
-            ? '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:0 0 9px;align-items:start">' +
-                '<div style="min-width:0"><div style="font-size:10px;font-weight:bold;margin-bottom:3px">Última foto</div>' +
-                (ultimaFoto
-                    ? '<img src="' + escaparHtml(ultimaFoto) + '" alt="Última foto del control" loading="lazy" style="display:block;width:100%;height:92px;object-fit:cover;border-radius:4px;background:#111;border:1px solid #bbb">' 
-                    : '<div style="height:92px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:11px;font-weight:bold;color:#888;background:#171717;border:1px solid #777;border-radius:4px">NO IMAGE</div>') +
-                '</div><div style="min-width:0"><div style="font-size:10px;font-weight:bold;margin-bottom:3px">Ubicación</div>' +
-                '<div id="popup-mini-mapa-' + Number(item.id) + '" style="width:100%;height:92px;border:1px solid #bbb;border-radius:4px;overflow:hidden;background:#171717"></div></div></div>'
-            : '') +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:0 0 9px;align-items:start">' +
+            '<div style="min-width:0"><div style="font-size:10px;font-weight:bold;margin-bottom:3px">Última foto</div>' +
+            (ultimaFoto
+                ? '<img src="' + escaparHtml(ultimaFoto) + '" alt="Última foto del control" loading="lazy" style="display:block;width:100%;height:92px;object-fit:cover;border-radius:4px;background:#111;border:1px solid #bbb">' 
+                : '<div style="height:92px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:11px;font-weight:bold;color:#888;background:#171717;border:1px solid #777;border-radius:4px">NO IMAGE</div>') +
+            '</div><div style="min-width:0"><div style="font-size:10px;font-weight:bold;margin-bottom:3px">Ubicación</div>' +
+            '<div id="popup-mini-mapa-' + Number(item.id) + '" style="width:100%;height:92px;border:1px solid #bbb;border-radius:4px;overflow:hidden;background:#171717"></div></div></div>' +
         boton + '</div>';
 }
 
@@ -287,9 +297,7 @@ export async function cargarModuloMapa(moduloKey, contenedor) {
     }
     if (miSolicitud !== solicitudMapa) return;
 
-    const ultimasFotosHidrantes = moduloKey === 'hidrantes'
-        ? await consultarUltimasFotosHidrantes()
-        : new Map();
+    const ultimasFotos = await consultarUltimasFotos(moduloKey);
     if (miSolicitud !== solicitudMapa) return;
 
     if (mapaActivo) {
@@ -316,17 +324,15 @@ export async function cargarModuloMapa(moduloKey, contenedor) {
         if (!geometria) { sinUbicacion++; continue; }
 
         const nombre = item.etiqueta || item.nombre || 'Activo #' + item.id;
-        const popup = popupActivo(item, moduloKey, config, estado, esExtintor, ultimasFotosHidrantes.get(Number(item.id)) || '');
+        const popup = popupActivo(item, moduloKey, config, estado, esExtintor, ultimasFotos.get(Number(item.id)) || '');
 
         if (geometria.tipo === 'punto') {
             const coords = geometria.coordenadas;
             const marcador = L.marker(coords, { icon: crearIcono(estado.color), title: nombre })
                 .addTo(mapaActivo).bindPopup(popup);
-            if (moduloKey === 'hidrantes') {
-                marcador.on('popupopen', evento => {
-                    inicializarMiniMapaPopup(evento.popup, item);
-                });
-            }
+            marcador.on('popupopen', evento => {
+                inicializarMiniMapaPopup(evento.popup, item);
+            });
             limites.push(coords);
             puntosDibujados++;
         } else {
