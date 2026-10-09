@@ -388,7 +388,8 @@ export function cargarModuloAdminCsv(contenedor) {
                     // No lo copiamos a atributos_tecnicos: WKT es la fuente geométrica.
                     const columnasRedundantes = new Set([
                         'puntogps',
-                        'coordenadasgms'
+                        'coordenadasgms',
+                        'punto'
                     ]);
 
                     const obtenerValor = (fila, indice) => {
