@@ -10,6 +10,7 @@ import { cargarModuloBomberos } from './bomberos.js';
 import { abrirControlExtintor, guardarControlExtintor } from './controlesExtintores.js';
 import { abrirControlHidrante, guardarControlHidrante } from './controlesHidrantes.js';
 import { cerrarFormularioControl } from './controlesBase.js';
+import { abrirControlOtro, guardarControlOtro } from './controlesOtros.js';
 
 // Control del menú lateral.
 window.toggleMenu = function() {
@@ -58,6 +59,11 @@ window.abrirFormularioControl = async function(tabla, dbId, idElemento) {
         return abrirControlHidrante(dbId, idElemento);
     }
 
+    if (['ecas', 'pecas', 'vecas', 'valvulas', 'válvulas'].includes(tablaNormalizada)) {
+        const modulo = tablaNormalizada === 'válvulas' ? 'valvulas' : tablaNormalizada;
+        return abrirControlOtro(modulo, dbId, idElemento);
+    }
+
     alert(`El módulo de controles para "${tabla}" todavía no está implementado.`);
     console.warn('⚠️ No existe un formulario de control registrado para:', tabla);
 };
@@ -71,6 +77,10 @@ window.guardarControl = async function(event) {
 
     if (tabla === 'hidrantes' || tabla === 'hidrante') {
         return guardarControlHidrante(event);
+    }
+
+    if (['ecas', 'pecas', 'vecas', 'valvulas', 'válvulas'].includes(tabla)) {
+        return guardarControlOtro(event);
     }
 
     alert(`No existe un guardado de control implementado para "${tabla}".`);
