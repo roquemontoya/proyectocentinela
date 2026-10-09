@@ -191,7 +191,7 @@ function popupActivo(item, moduloKey, config, estado, esExtintor) {
     const sector = item.sector || buscarAtributo(item, 'Sector', 'Ubicación', 'Ubicacion') || 'N/D';
     const vencimiento = esExtintor ? buscarAtributo(item, 'Vencimiento') : '';
     const tipo = esExtintor ? buscarAtributo(item, 'Tipo de Extintor', 'TipoExtintor') : '';
-    const controlPermitido = ['extintores', 'hidrantes'].includes(moduloKey);
+    const controlPermitido = ['extintores', 'hidrantes', 'ecas', 'pecas', 'vecas', 'valvulas'].includes(moduloKey);
     const boton = controlPermitido
         ? '<button onclick="window.abrirFormularioControl(\'' + moduloKey + '\',\'' + item.id + '\',\'' +
             escaparHtml(String(etiqueta).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\r/g, '\\r').replace(/\n/g, '\\n')) +
