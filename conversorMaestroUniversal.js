@@ -146,6 +146,7 @@ export function cargarModuloAdminCsv(contenedor) {
         // Ej.: "EXTINTORES- Centrales de Alarmas.csv" debe ser informativo,
         // no una importación de extintores.
         if (name.includes('centrales')) return 'Centrales de Alarmas';
+        if (name.includes('epi')) return 'EPI';
         if (name.includes('redtroncal') || name.includes('reddeincendio') || name.includes('tuberiastroncales')) return 'Red Troncal';
         if (name.includes('subestaci')) return 'Sub Estaciones';
         if (name.includes('permisopermanente') || name.includes('permiso')) return 'Permisos Permanentes';
@@ -227,7 +228,38 @@ export function cargarModuloAdminCsv(contenedor) {
         try {
             const Papa = await asegurarPapaParse();
 
-            Papa.parse(fileInput.files[0], {
+            // En EPI, Punto GPS es redundante respecto del WKT. Además, algunos
+            // registros traen coordenadas decimales sin comillas (dos campos) y otros
+            // GMS con comillas de segundos sin escapar, que rompen el CSV. Eliminamos
+            // esa columna del texto ANTES de parsearlo; la geometría WKT queda intacta.
+            let fuenteCsv = fileInput.files[0];
+            if (categoriaDetectadaGlobal === 'EPI') {
+                let textoEpi = await fileInput.files[0].text();
+                const lineasEpi = textoEpi.replace(/^\\uFEFF/, '').split(/\\r?\\n/);
+                if (lineasEpi.length > 0) {
+                    lineasEpi[0] = lineasEpi[0].replace(/^WKT\\s*,\\s*Punto GPS\\s*,/i, 'WKT,');
+                }
+                for (let i = 1; i < lineasEpi.length; i++) {
+                    const linea = lineasEpi[i];
+                    if (!linea.trim()) continue;
+                    const inicio = linea.match(/^("POINT\\s*\\([^"]+\\)"),(.*)$/i);
+                    if (!inicio) continue;
+                    let resto = inicio[2];
+                    // GPS decimal partido: latitud, longitud, siguiente columna.
+                    const decimal = resto.match(/^-?\\d+(?:\\.\\d+)?\\s*,\\s*-?\\d+(?:\\.\\d+)?\\s*,/);
+                    if (decimal) {
+                        resto = resto.slice(decimal[0].length);
+                    } else {
+                        // GPS GMS o vacío: quitar el campo hasta la primera coma.
+                        const separador = resto.indexOf(',');
+                        if (separador >= 0) resto = resto.slice(separador + 1);
+                    }
+                    lineasEpi[i] = inicio[1] + ',' + resto;
+                }
+                fuenteCsv = lineasEpi.join('\\n');
+            }
+
+            Papa.parse(fuenteCsv, {
                 // header:false es intencional:
                 // el CSV real contiene columnas duplicadas (Ronda/ronda). Así no perdemos
                 // ninguna columna ni dependemos del tratamiento interno de Papa Parse
@@ -1414,6 +1446,11 @@ const convertirWktIppAGeometria = (valor) => {
                         // Ya NO eliminamos la palabra "Extintor". En LEU conviven todos
                         // los elementos y necesitamos que "Extintor 54 PQS", "Extintor 54
                         // HALON" y "Extintor 54 CO2" sean identificables sin ambigüedad.
+                        // EPI no tiene una columna de etiqueta propia; usar el Sector
+                        // como identificador legible del activo, sin inventar números.
+                        if (!etiqueta && categoriaDetectadaGlobal === 'EPI' && sector) {
+                            etiqueta = 'EPI - ' + sector;
+                        }
                         if (!etiqueta) etiqueta = `Sin Etiqueta Fila ${index + 2}`;
 
                         listaTemporal.push({
