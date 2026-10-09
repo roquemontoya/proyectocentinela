@@ -172,10 +172,10 @@ export function cargarModuloAdminCsv(contenedor) {
         // No crea controles específicos. Se usa el nombre del archivo como subcategoría
         // para distinguir, por ejemplo, zonas de luminarias, caminos, áreas y futuras capas.
         const nombreBase = String(nombreArchivo || '')
-            .replace(/\\.[^.]+$/, '')
-            .replace(/^(?:EXTINTORES|SEGURIDAD|CENTINELA)\\s*[-_–—:]\\s*/i, '')
+            .replace(/\.[^.]+$/, '')
+            .replace(/^(?:EXTINTORES|SEGURIDAD|CENTINELA)\s*[-_–—:]\s*/i, '')
             .replace(/[_-]+/g, ' ')
-            .replace(/\\s+/g, ' ')
+            .replace(/\s+/g, ' ')
             .trim();
 
         if (nombreBase) return 'Informativo - ' + nombreBase;
