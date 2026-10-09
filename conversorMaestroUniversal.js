@@ -847,9 +847,14 @@ const convertirWktIppAGeometria = (valor) => {
                             // Algunos campos residuales contienen más de un número sin coma
                             // (p. ej. "50 51"). Dentro de esta lista ECAS, convertir cada token
                             // numérico en una referencia independiente sin tocar el resto de la fila.
-                            const valoresControl = filaOriginal.slice(5)
-                                .flatMap(valor => String(valor ?? '').trim().split(/\s+/))
-                                .filter(Boolean);
+                            // Conservar literalmente el prefijo descriptivo de Control
+                            // ("Reportan ECAS ...") y separar solo los campos extra que el CSV
+                            // partió por comas. Si uno trae "50 51", dividir ese campo numérico.
+                            const valoresControl = [
+                                String(filaOriginal[5] ?? '').trim(),
+                                ...filaOriginal.slice(6)
+                                    .flatMap(valor => String(valor ?? '').trim().split(/\s+/))
+                            ].filter(Boolean);
 
                             const filaReparada = [
                                 filaOriginal[0],
