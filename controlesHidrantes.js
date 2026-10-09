@@ -49,10 +49,56 @@ export function cambiarTipoControl() {
     const tipo = document.getElementById('input-tipocontrol')?.value;
     const bloque = document.getElementById('bloque-anual');
     const fecha = document.getElementById('input-fechapruebaanual');
+    const pruebaAprobada = document.getElementById('input-pruebaaprobada');
+    const movimientoAgua = document.getElementById('input-movimiento-agua');
+    const realizoPrueba = document.getElementById('input-realizo-prueba');
     if (!bloque) return;
     const visible = tipo === 'Anual' || tipo === 'A Solicitud';
     bloque.style.display = visible ? 'block' : 'none';
-    if (fecha) visible ? fecha.setAttribute('required','true') : fecha.removeAttribute('required');
+    if (pruebaAprobada) pruebaAprobada.required = visible;
+    if (movimientoAgua) movimientoAgua.required = visible;
+    if (realizoPrueba) realizoPrueba.required = visible;
+    if (!visible) {
+        if (pruebaAprobada) pruebaAprobada.value = 'Si';
+        if (movimientoAgua) movimientoAgua.value = '';
+        if (realizoPrueba) realizoPrueba.value = '';
+    }
+    if (fecha) {
+        // La planificación mensual/anual se conserva visible; se almacena como fecha del primer día del mes.
+        fecha.required = false;
+    }
+    actualizarAnomaliaPorPrueba();
+}
+
+function actualizarAnomaliaPorPrueba() {
+    const estado = document.getElementById('input-estado')?.value;
+    const tipo = document.getElementById('input-tipocontrol')?.value;
+    const aprobada = document.getElementById('input-pruebaaprobada')?.value;
+    const pruebaFallida = (tipo === 'Anual' || tipo === 'A Solicitud') && aprobada === 'No';
+    const bloque = document.getElementById('bloque-anomalia');
+    if (!bloque) return;
+    if (estado === 'Anomalo' || pruebaFallida) {
+        bloque.style.display = 'block';
+        const razon = document.getElementById('input-anomalia-razon');
+        const reportado = document.getElementById('input-reportado-por');
+        if (razon) razon.required = true;
+        if (reportado) reportado.required = true;
+        const fecha = document.getElementById('input-reportado-fecha');
+        if (fecha && !fecha.value) fecha.value = new Date().toISOString().split('T')[0];
+    } else {
+        // Si el estado general no es anómalo, no dejamos una anomalía de prueba fallida activa.
+        if (estado !== 'Anomalo') {
+            bloque.style.display = 'none';
+            const razon = document.getElementById('input-anomalia-razon');
+            const reportado = document.getElementById('input-reportado-por');
+            if (razon) { razon.required = false; razon.value = ''; }
+            if (reportado) { reportado.required = false; reportado.value = ''; }
+            const evento = document.getElementById('input-evento-numero');
+            const fecha = document.getElementById('input-reportado-fecha');
+            if (evento) evento.value = '';
+            if (fecha) fecha.value = '';
+        }
+    }
 }
 
 export function verificarDetalleLlave(tipo) {
@@ -152,12 +198,26 @@ function renderizarFormularioHidranteHTML(leu) {
             <div id="grid-seleccion-reportado" style="display:flex;gap:10px;overflow-x:auto;padding-bottom:8px;margin-bottom:5px;"></div>
         </div>
 
+        <fieldset style="border:1px solid #444;border-radius:5px;padding:10px;margin-bottom:12px;">
+            <legend style="font-size:13px;color:#aaa;">Planificación de prueba funcional</legend>
+            <label style="display:block;margin-bottom:5px;">¿En qué mes y año se realizará la prueba funcional?</label>
+            <input type="month" id="input-fechapruebaanual" style="width:100%;padding:6px;margin-bottom:10px;background:#2a2a2a;border:1px solid #444;color:#fff;">
+        </fieldset>
+
         <div id="bloque-anual" style="display:none;background:#252525;padding:10px;border-radius:6px;margin-bottom:12px;border:1px dashed #444;">
-            <label style="display:block;margin-bottom:5px;">Fecha de Prueba Anual:</label>
-            <input type="date" id="input-fechapruebaanual" style="width:100%;padding:6px;margin-bottom:10px;background:#2a2a2a;border:1px solid #444;color:#fff;">
-            <label style="display:block;margin-bottom:5px;">Prueba Aprobada:</label>
-            <select id="input-pruebaaprobada" style="width:100%;padding:6px;margin-bottom:10px;background:#2a2a2a;border:1px solid #444;color:#fff;"><option value="Si">Sí</option><option value="No">No</option></select>
-            <label style="display:block;margin-bottom:5px;">Planificación del mes:</label>
+            <h4 style="margin:0 0 10px;color:#38bdf8;font-size:14px;">Prueba funcional (Anual / A solicitud)</h4>
+            <label style="display:block;margin-bottom:5px;">¿Hubo movimiento de agua?</label>
+            <select id="input-movimiento-agua" style="width:100%;padding:6px;margin-bottom:10px;background:#2a2a2a;border:1px solid #444;color:#fff;">
+                <option value="">Seleccionar…</option><option value="Si">Sí</option><option value="No">No</option>
+            </select>
+            <label style="display:block;margin-bottom:5px;">Prueba aprobada:</label>
+            <select id="input-pruebaaprobada" onchange="cambiarTipoControl()" style="width:100%;padding:6px;margin-bottom:10px;background:#2a2a2a;border:1px solid #444;color:#fff;"><option value="Si">Sí</option><option value="No">No</option></select>
+            <label style="display:block;margin-bottom:5px;">Bombero que realiza la prueba:</label>
+            <input type="hidden" id="input-realizo-prueba">
+            <div id="grid-seleccion-bombero-prueba" style="display:flex;gap:10px;overflow-x:auto;padding-bottom:8px;margin-bottom:10px;">
+                <p style="color:#aaa;font-size:13px;">Cargando personal...</p>
+            </div>
+            <label style="display:block;margin-bottom:5px;">Planificación del mes (campo pendiente de definir):</label>
             <input type="text" id="input-fechapruebamensual" style="width:100%;padding:6px;background:#2a2a2a;border:1px solid #444;color:#fff;">
         </div>
 
@@ -219,9 +279,14 @@ export async function guardarControlHidrante(event) {
             id_activo:idActivo,
             idch_original:String(activoLEU.id),
             tipo_control:tipoControl,
-            prueba_anual:(tipoControl==='Anual'||tipoControl==='A Solicitud') ? (document.getElementById('input-fechapruebaanual')?.value || null) : null,
+            prueba_anual: (() => {
+                const mes = document.getElementById('input-fechapruebaanual')?.value || '';
+                return mes ? mes + '-01' : null;
+            })(),
             prueba_aprobada:(tipoControl==='Anual'||tipoControl==='A Solicitud') ? (document.getElementById('input-pruebaaprobada')?.value || null) : null,
+            movimiento_agua:(tipoControl==='Anual'||tipoControl==='A Solicitud') ? (document.getElementById('input-movimiento-agua')?.value || null) : null,
             realizo,
+            realizo_prueba:(tipoControl==='Anual'||tipoControl==='A Solicitud') ? (document.getElementById('input-realizo-prueba')?.value || null) : null,
             planing_prueba_mes:document.getElementById('input-fechapruebamensual')?.value || null,
             control_mensual:meses[ahora.getMonth()],
             estado,
@@ -243,12 +308,14 @@ export async function guardarControlHidrante(event) {
             fecha_foto:fechaHoy
         };
 
-        if(estado==='Anomalo' && !registro.reportado_por) throw new Error('Por favor selecciona quién reportó la anomalía.');
+        const pruebaFallida = (tipoControl==='Anual'||tipoControl==='A Solicitud') && registro.prueba_aprobada==='No';
+        if((estado==='Anomalo' || pruebaFallida) && !registro.anomalias) throw new Error('Por favor describe la anomalía detectada.');
+        if((estado==='Anomalo' || pruebaFallida) && !registro.reportado_por) throw new Error('Por favor selecciona quién reportó la anomalía.');
 
         const {error}=await clienteSupabase.from('controles_h').insert([registro]);
         if(error) throw new Error(error.message);
 
-        if(estado==='Anomalo'){
+        if(estado==='Anomalo' || pruebaFallida){
             const {error:errAnomalia}=await clienteSupabase.from('anomalias').insert([{
                 id_activo:idActivo,
                 modulo_origen:'Hidrantes',
