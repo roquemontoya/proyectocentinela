@@ -158,3 +158,15 @@ export async function subirFotoStorage(fotoInput) {
 
     return urlData.publicUrl;
 }
+
+// Estilo transversal de títulos de controles según el estado del elemento.
+export function aplicarTituloControl(titulo, modulo, etiqueta, estado) {
+    if (!titulo) return;
+    const nombreModulo = String(modulo || '').trim();
+    const nombreEtiqueta = String(etiqueta || '').trim();
+    titulo.textContent = nombreEtiqueta ? `Control ${nombreModulo} ${nombreEtiqueta}` : `Control ${nombreModulo}`;
+    const e = String(estado || '').toLowerCase();
+    titulo.style.color = (e.includes('vencido') || e.includes('anómalo') || e.includes('anomalo') || e.includes('no operativo'))
+        ? '#ef4444'
+        : (e.includes('por vencer') || e.includes('observado')) ? '#eab308' : '#22c55e';
+}
