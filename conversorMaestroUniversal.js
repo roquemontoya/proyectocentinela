@@ -1275,11 +1275,11 @@ const convertirWktIppAGeometria = (valor) => {
                 const texto = String(valor).trim();
 
                 // Ya está en formato ISO: conservar únicamente la parte de fecha.
-                const iso = texto.match(/^(\\d{4})-(\\d{2})-(\\d{2})(?:$|[T\\s])/);
+                const iso = texto.match(/^(\d{4})-(\d{2})-(\d{2})(?:$|[T\s])/);
                 if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
 
                 // Exportaciones locales: día/mes/año, opcionalmente seguido de una hora.
-                const local = texto.match(/^(\\d{1,2})[\\/.-](\\d{1,2})[\\/.-](\\d{4})(?:\\s.*)?$/);
+                const local = texto.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})(?:\s.*)?$/);
                 if (local) {
                     const dia = Number(local[1]);
                     const mes = Number(local[2]);
