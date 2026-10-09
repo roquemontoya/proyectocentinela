@@ -754,8 +754,9 @@ const convertirWktIppAGeometria = (valor) => {
                     const repararPuntoDecimalPorEncabezado = (fila) => {
                         if (!Array.isArray(fila) || fila.length !== COLUMNAS_ESPERADAS + 1) return null;
 
+                        // "Punto GPS" también es un encabezado válido; no exigir solo "Punto".
                         const indicePunto = encabezadosOriginales.findIndex(
-                            cabecera => normalizarCabecera(cabecera) === 'punto'
+                            cabecera => ['punto', 'puntogps'].includes(normalizarCabecera(cabecera))
                         );
                         const indiceWktCabecera = encabezadosOriginales.findIndex(
                             cabecera => ['wkt', 'geom', 'geometria', 'ubicacionwkt'].includes(normalizarCabecera(cabecera))
@@ -767,30 +768,58 @@ const convertirWktIppAGeometria = (valor) => {
                         const matchWkt = wkt.match(/(?:SRID=\d+;)?POINT\s*\(\s*(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s*\)/i);
                         if (!matchWkt) return null;
 
-                        const xWkt = Number(matchWkt[1]);
-                        const yWkt = Number(matchWkt[2]);
-                        const primero = Number(String(fila[indicePunto] ?? '').trim().replace(',', '.'));
-                        const segundo = Number(String(fila[indicePunto + 1] ?? '').trim().replace(',', '.'));
+                        const xWkt = Number(matchWkt[1]); // longitud
+                        const yWkt = Number(matchWkt[2]); // latitud
+                        const primeroTexto = String(fila[indicePunto] ?? '').trim();
+                        const segundoTexto = String(fila[indicePunto + 1] ?? '').trim();
+                        if (!primeroTexto || !segundoTexto) return null;
 
-                        if (![xWkt, yWkt, primero, segundo].every(Number.isFinite)) return null;
-                        const coincide =
-                            (primero === xWkt && segundo === yWkt) ||
-                            (primero === yWkt && segundo === xWkt);
+                        const primero = Number(primeroTexto.replace(',', '.'));
+                        const segundo = Number(segundoTexto.replace(',', '.'));
+                        const cerca = (a, b) => Math.abs(a - b) <= 0.000001;
+                        let coincide = false;
+                        let formato = '';
+
+                        // Coordenadas decimales: aceptar latitud/longitud o longitud/latitud.
+                        if ([xWkt, yWkt, primero, segundo].every(Number.isFinite)) {
+                            coincide =
+                                (cerca(primero, xWkt) && cerca(segundo, yWkt)) ||
+                                (cerca(primero, yWkt) && cerca(segundo, xWkt));
+                            formato = 'decimal';
+                        } else {
+                            // Coordenadas GMS separadas por la coma no entrecomillada.
+                            const convertirDms = (texto, hemisferios) => {
+                                const m = texto.match(/^\s*(\d{1,3})°\s*(\d{1,2})'\s*(\d{1,2}(?:[.,]\d+)?)"\s*([NSEW])\s*$/i);
+                                if (!m || !hemisferios.includes(m[4].toUpperCase())) return null;
+                                const grados = Number(m[1]);
+                                const minutos = Number(m[2]);
+                                const segundos = Number(m[3].replace(',', '.'));
+                                if (minutos >= 60 || segundos >= 60) return null;
+                                const magnitud = grados + minutos / 60 + segundos / 3600;
+                                return ['S', 'W'].includes(m[4].toUpperCase()) ? -magnitud : magnitud;
+                            };
+                            const a = convertirDms(primeroTexto, 'NS');
+                            const b = convertirDms(segundoTexto, 'EW');
+                            if (a !== null && b !== null) {
+                                coincide = cerca(a, yWkt) && cerca(b, xWkt);
+                                formato = 'GMS';
+                            }
+                        }
+
                         if (!coincide) return null;
 
                         const reparada = [...fila];
-                        reparada[indicePunto] = String(fila[indicePunto]).trim() + ', ' + String(fila[indicePunto + 1]).trim();
+                        reparada[indicePunto] = primeroTexto + ', ' + segundoTexto;
                         reparada.splice(indicePunto + 1, 1);
 
                         if (reparada.length !== COLUMNAS_ESPERADAS) return null;
                         return {
                             fila: reparada,
                             reparada: true,
-                            motivo: 'Campo Punto decimal dividido por coma no entrecomillada; coordenadas verificadas contra el WKT',
+                            motivo: 'Campo Punto GPS dividido por coma no entrecomillada; coordenadas ' + formato + ' verificadas contra el WKT',
                             tipoReparacion: 'gps_decimal_partido'
                         };
                     };
-
                     const repararFilaEstructuralmente = (fila, numeroFilaCsv) => {
                         let filaOriginal = Array.isArray(fila) ? [...fila] : [];
 
