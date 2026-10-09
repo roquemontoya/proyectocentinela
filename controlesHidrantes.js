@@ -229,13 +229,13 @@ function renderizarFormularioHidranteHTML(leu) {
             <legend style="font-size:13px;color:#aaa;">Evaluación de Componentes</legend>
             <label>Llave de Alimentación:</label>
             <select id="input-llavealimentacion" onchange="verificarDetalleLlave('alimentacion')" required style="width:100%;padding:6px;margin-bottom:5px;background:#2a2a2a;border:1px solid #444;color:#fff;"><option>Conforme</option><option>No conforme</option><option>No posee</option></select>
-            <div id="div-detalle-alimentacion" style="display:none;margin-bottom:8px;"><input type="text" id="input-detalle-alimentacion" placeholder="Detalle" style="width:100%;padding:6px;"></div>
+            <div id="div-detalle-alimentacion" style="display:none;margin-bottom:8px;"><label for="input-detalle-alimentacion" style="display:block;font-size:12px;margin-bottom:4px;color:#fbbf24;">Detalle llave de alimentación:</label><input type="text" id="input-detalle-alimentacion" placeholder="Describí la anomalía de la llave de alimentación" style="width:100%;padding:6px;box-sizing:border-box;"></div>
             <label>Llave Teatro Derecho:</label>
             <select id="input-llaveteatroderecho" onchange="verificarDetalleLlave('teatroderecho')" required style="width:100%;padding:6px;margin-bottom:5px;background:#2a2a2a;border:1px solid #444;color:#fff;"><option>Conforme</option><option>No conforme</option><option>No posee</option></select>
-            <div id="div-detalle-teatroderecho" style="display:none;margin-bottom:8px;"><input type="text" id="input-detalle-teatroderecho" placeholder="Detalle" style="width:100%;padding:6px;"></div>
+            <div id="div-detalle-teatroderecho" style="display:none;margin-bottom:8px;"><label for="input-detalle-teatroderecho" style="display:block;font-size:12px;margin-bottom:4px;color:#fbbf24;">Detalle llave de teatro derecho:</label><input type="text" id="input-detalle-teatroderecho" placeholder="Describí la anomalía de la llave de teatro derecho" style="width:100%;padding:6px;box-sizing:border-box;"></div>
             <label>Llave Teatro Izquierdo:</label>
             <select id="input-llaveteatroizquierdo" onchange="verificarDetalleLlave('teatroizquierdo')" required style="width:100%;padding:6px;margin-bottom:5px;background:#2a2a2a;border:1px solid #444;color:#fff;"><option>Conforme</option><option>No conforme</option><option>No posee</option></select>
-            <div id="div-detalle-teatroizquierdo" style="display:none;margin-bottom:8px;"><input type="text" id="input-detalle-teatroizquierdo" placeholder="Detalle" style="width:100%;padding:6px;"></div>
+            <div id="div-detalle-teatroizquierdo" style="display:none;margin-bottom:8px;"><label for="input-detalle-teatroizquierdo" style="display:block;font-size:12px;margin-bottom:4px;color:#fbbf24;">Detalle llave de teatro izquierdo:</label><input type="text" id="input-detalle-teatroizquierdo" placeholder="Describí la anomalía de la llave de teatro izquierdo" style="width:100%;padding:6px;box-sizing:border-box;"></div>
             <label>Gabinete:</label><select id="input-gabinete" required style="width:100%;padding:6px;margin-bottom:8px;background:#2a2a2a;border:1px solid #444;color:#fff;"><option>Conforme</option><option>No conforme</option><option>No posee</option></select>
             <label>Pintura:</label><select id="input-pintura" required style="width:100%;padding:6px;margin-bottom:8px;background:#2a2a2a;border:1px solid #444;color:#fff;"><option>Conforme</option><option>No conforme</option></select>
             <label>Limpieza:</label><select id="input-limpieza" required style="width:100%;padding:6px;margin-bottom:8px;background:#2a2a2a;border:1px solid #444;color:#fff;"><option>Conforme</option><option>No conforme</option></select>
@@ -281,6 +281,20 @@ export async function guardarControlHidrante(event) {
         if(esPruebaFuncional) {
             if(!document.getElementById('input-movimiento-agua')?.value) throw new Error('Indica si hubo movimiento de agua durante la prueba funcional.');
             if(!document.getElementById('input-realizo-prueba')?.value) throw new Error('Selecciona el bombero que realizó la prueba funcional.');
+        }
+
+        // Cada llave no conforme debe tener su detalle específico antes de guardar.
+        const llaves = [
+            { select: 'input-llavealimentacion', detalle: 'input-detalle-alimentacion', nombre: 'llave de alimentación' },
+            { select: 'input-llaveteatroderecho', detalle: 'input-detalle-teatroderecho', nombre: 'llave de teatro derecho' },
+            { select: 'input-llaveteatroizquierdo', detalle: 'input-detalle-teatroizquierdo', nombre: 'llave de teatro izquierdo' }
+        ];
+        for (const llave of llaves) {
+            const seleccion = document.getElementById(llave.select)?.value;
+            const detalle = document.getElementById(llave.detalle)?.value?.trim();
+            if (seleccion === 'No conforme' && !detalle) {
+                throw new Error('Completa el detalle de la anomalía correspondiente a la ' + llave.nombre + '.');
+            }
         }
 
         const fotoUrl=await subirFotoStorage(fotoInput);
