@@ -748,6 +748,49 @@ const convertirWktIppAGeometria = (valor) => {
                         };
                     };
 
+                    // Repara un Punto decimal dividido en dos columnas, usando los encabezados reales.
+                    // Solo actúa si la fila tiene exactamente una columna extra y ambos números
+                    // coinciden con las coordenadas del WKT de esa misma fila.
+                    const repararPuntoDecimalPorEncabezado = (fila) => {
+                        if (!Array.isArray(fila) || fila.length !== COLUMNAS_ESPERADAS + 1) return null;
+
+                        const indicePunto = encabezadosOriginales.findIndex(
+                            cabecera => normalizarCabecera(cabecera) === 'punto'
+                        );
+                        const indiceWktCabecera = encabezadosOriginales.findIndex(
+                            cabecera => ['wkt', 'geom', 'geometria', 'ubicacionwkt'].includes(normalizarCabecera(cabecera))
+                        );
+                        const indiceWkt = indiceWktCabecera >= 0 ? indiceWktCabecera : 0;
+                        if (indicePunto < 0 || indicePunto + 1 >= fila.length) return null;
+
+                        const wkt = String(fila[indiceWkt] ?? '').trim();
+                        const matchWkt = wkt.match(/(?:SRID=\d+;)?POINT\s*\(\s*(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s*\)/i);
+                        if (!matchWkt) return null;
+
+                        const xWkt = Number(matchWkt[1]);
+                        const yWkt = Number(matchWkt[2]);
+                        const primero = Number(String(fila[indicePunto] ?? '').trim().replace(',', '.'));
+                        const segundo = Number(String(fila[indicePunto + 1] ?? '').trim().replace(',', '.'));
+
+                        if (![xWkt, yWkt, primero, segundo].every(Number.isFinite)) return null;
+                        const coincide =
+                            (primero === xWkt && segundo === yWkt) ||
+                            (primero === yWkt && segundo === xWkt);
+                        if (!coincide) return null;
+
+                        const reparada = [...fila];
+                        reparada[indicePunto] = String(fila[indicePunto]).trim() + ', ' + String(fila[indicePunto + 1]).trim();
+                        reparada.splice(indicePunto + 1, 1);
+
+                        if (reparada.length !== COLUMNAS_ESPERADAS) return null;
+                        return {
+                            fila: reparada,
+                            reparada: true,
+                            motivo: 'Campo Punto decimal dividido por coma no entrecomillada; coordenadas verificadas contra el WKT',
+                            tipoReparacion: 'gps_decimal_partido'
+                        };
+                    };
+
                     const repararFilaEstructuralmente = (fila, numeroFilaCsv) => {
                         let filaOriginal = Array.isArray(fila) ? [...fila] : [];
 
@@ -793,6 +836,13 @@ const convertirWktIppAGeometria = (valor) => {
                                     tipoReparacion: null
                                 };
                             }
+                        }
+
+                        // CASO 1A: Punto decimal dividido, localizado por el encabezado real.
+                        // Es más seguro que asumir posiciones fijas: en este CSV Punto está en la columna 2.
+                        if (filaOriginal.length === COLUMNAS_ESPERADAS + 1) {
+                            const puntoPartido = repararPuntoDecimalPorEncabezado(filaOriginal);
+                            if (puntoPartido) return puntoPartido;
                         }
 
                         // CASO 1: Punto GPS decimal partido por una coma no entrecomillada.
@@ -871,7 +921,7 @@ const convertirWktIppAGeometria = (valor) => {
                         return {
                             fila: null,
                             reparada: false,
-                            motivo: `Fila ${numeroFilaCsv}: contiene ${filaOriginal.length} columnas; se esperaban ${COLUMNAS_ESPERADAS} y no existe una reparación estructural determinista.`,
+                            motivo: `Fila ${numeroFilaCsv}: contiene ${filaOriginal.length} columnas; se esperaban ${COLUMNAS_ESPERADAS}. No se pudo reparar de forma determinista. Inicio: [${filaOriginal.slice(0, 6).map(v => String(v ?? '').replace(/\\s+/g, ' ').slice(0, 45)).join(' | ')}]; final: [${filaOriginal.slice(-3).map(v => String(v ?? '').replace(/\\s+/g, ' ').slice(0, 45)).join(' | ')}].`,
                             tipoReparacion: null
                         };
                     };
@@ -1312,7 +1362,6 @@ const convertirWktIppAGeometria = (valor) => {
                     arrayControlesPfp.push({
                         id_activo: idActivo,
                         nombreetiqueta: item.etiqueta,
-                        sector: item.sector,
                         habilitada: obtenerAtributo(attrs, ['Habilitada']),
                         control_semanal: obtenerAtributo(attrs, ['CONTROL SEMANAL']),
                         control_s_realizado_por: obtenerAtributo(attrs, ['Control S. realizado por', 'Control S realizado por']),
