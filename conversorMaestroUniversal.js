@@ -242,11 +242,14 @@ export function cargarModuloAdminCsv(contenedor) {
                 for (let i = 1; i < lineasEpi.length; i++) {
                     const linea = lineasEpi[i];
                     if (!linea.trim()) continue;
-                    const inicio = linea.match(/^("POINT\s*\([^"]+\)"),(.*)$/i);
+                    // Aceptar WKT POINT tanto entrecomillado como sin comillas.
+                    // Algunas exportaciones alternan ambos formatos entre filas.
+                    const inicio = linea.match(/^("?POINT\\s*\\([^)]*\\)"?),(.*)$/i);
                     if (!inicio) continue;
+                    const wktEpi = inicio[1].replace(/^"|"$/g, '');
                     let resto = inicio[2];
                     // GPS decimal partido: latitud, longitud, siguiente columna.
-                    const decimal = resto.match(/^-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?\s*,/);
+                    const decimal = resto.match(/^-?\\d+(?:\\.\\d+)?\\s*,\\s*-?\\d+(?:\\.\\d+)?\\s*,/);
                     if (decimal) {
                         resto = resto.slice(decimal[0].length);
                     } else {
@@ -254,7 +257,7 @@ export function cargarModuloAdminCsv(contenedor) {
                         const separador = resto.indexOf(',');
                         if (separador >= 0) resto = resto.slice(separador + 1);
                     }
-                    lineasEpi[i] = inicio[1] + ',' + resto;
+                    lineasEpi[i] = wktEpi + ',' + resto;
                 }
                 fuenteCsv = lineasEpi.join('\n');
             }
