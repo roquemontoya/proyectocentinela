@@ -835,6 +835,14 @@ const convertirWktIppAGeometria = (valor) => {
                             };
                         }
 
+                        // Intentar primero la reconstrucción del Punto GPS dividido.
+                        // Si se recortan antes los campos vacíos finales, la fila puede quedar
+                        // con cinco columnas pero con la longitud ubicada erróneamente en Sector.
+                        if (filaOriginal.length === COLUMNAS_ESPERADAS + 1) {
+                            const gpsPorEncabezado = repararPuntoDecimalPorEncabezado(filaOriginal);
+                            if (gpsPorEncabezado) return gpsPorEncabezado;
+                        }
+
                         // CASO 0: algunos exportes agregan campos vacíos al final.
                         // Primero los eliminamos SOLO si son realmente vacíos. Esto permite
                         // llegar al tamaño esperado (+1) para reparar después un GPS decimal
