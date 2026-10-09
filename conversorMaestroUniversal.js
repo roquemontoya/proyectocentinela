@@ -141,12 +141,15 @@ export function cargarModuloAdminCsv(contenedor) {
     const detectarCategoria = (nombreArchivo) => {
         const name = normalizarClave(nombreArchivo);
 
-        // Categorías controladas: generan LEU + controles_*.
-        // Un archivo puede contener más de una palabra de categoría
-        // (ej.: "EXTINTORES- Permisos Permanentes.csv").
-        // Priorizamos la categoría específica "Permisos Permanentes"
-        // antes de la coincidencia genérica "extintor".
+        // Resolver primero las categorías específicas que pueden aparecer
+        // junto a la palabra "Extintores" en el prefijo del archivo.
+        // Ej.: "EXTINTORES- Centrales de Alarmas.csv" debe ser informativo,
+        // no una importación de extintores.
+        if (name.includes('centrales')) return 'Centrales de Alarmas';
+        if (name.includes('subestaci')) return 'Sub Estaciones';
         if (name.includes('permisopermanente') || name.includes('permiso')) return 'Permisos Permanentes';
+
+        // Categorías controladas: generan LEU + controles_*.
         if (name.includes('extintor')) return 'Extintores';
         if (name.includes('hidrante')) return 'Hidrantes';
         if (name.includes('valvulasecas') || name.includes('valvulaseca') || name.includes('valvulaeca')) return 'VECAS';
@@ -156,9 +159,7 @@ export function cargarModuloAdminCsv(contenedor) {
         if (name.includes('cortafuego') || name.includes('puertas')) return 'Puertas Cortafuego';
         if (name.includes('espumigeno')) return 'Espumigenos';
 
-        // Categorías informativas: generan solamente LEU.
-        if (name.includes('centrales')) return 'Centrales de Alarmas';
-        if (name.includes('subestaci')) return 'Sub Estaciones';
+        // Otras categorías informativas: generan solamente LEU.
         if (name.includes('ipp')) return 'IPP (Macro Sectores)';
         if (name.includes('purga')) return 'Purgas ECAS (PECAS)';
 
