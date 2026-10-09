@@ -825,6 +825,45 @@ const convertirWktIppAGeometria = (valor) => {
                     const repararFilaEstructuralmente = (fila, numeroFilaCsv) => {
                         let filaOriginal = Array.isArray(fila) ? [...fila] : [];
 
+                        // Centrales de Alarmas: algunas exportaciones dejan sin comillas
+                        // la lista de ECAS en el campo Control (p. ej. "Reportan ECAS 1, 3, 4, 5").
+                        // El parser divide esa lista en columnas adicionales. Reparar únicamente
+                        // si WKT, etiqueta, latitud, longitud y sector son reconocibles, el control
+                        // comienza con "Reportan ECAS" y todos los campos sobrantes son números
+                        // (o vacíos). Así se conservan todas las referencias sin desplazar el sector.
+                        if (
+                            categoriaDetectadaGlobal === 'Centrales de Alarmas' &&
+                            filaOriginal.length > COLUMNAS_ESPERADAS &&
+                            wktEsValido(filaOriginal[0]) &&
+                            !esTextoVacio(filaOriginal[1]) &&
+                            coordenadaValida(filaOriginal[2], -90, 90) &&
+                            coordenadaValida(filaOriginal[3], -180, 180) &&
+                            !esTextoVacio(filaOriginal[4]) &&
+                            /^\\s*Reportan\\s+ECAS\\b/i.test(String(filaOriginal[5] ?? '')) &&
+                            filaOriginal.slice(6).every(valor =>
+                                esTextoVacio(valor) || /^\\s*\\d+\\s*$/.test(String(valor))
+                            )
+                        ) {
+                            const valoresControl = filaOriginal.slice(5)
+                                .map(valor => String(valor ?? '').trim())
+                                .filter(Boolean);
+
+                            const filaReparada = [
+                                filaOriginal[0],
+                                filaOriginal[1],
+                                `${String(filaOriginal[2]).trim()}, ${String(filaOriginal[3]).trim()}`,
+                                filaOriginal[4],
+                                valoresControl.join(', ')
+                            ];
+
+                            return {
+                                fila: filaReparada,
+                                reparada: true,
+                                motivo: 'GPS dividido y lista ECAS reconstruida en Control',
+                                tipoReparacion: 'gps_y_lista_ecas_partidos'
+                            };
+                        }
+
                         if (filaOriginal.length === COLUMNAS_ESPERADAS) {
                             const gpsPorEncabezado = repararPuntoDecimalPorEncabezado(filaOriginal);
                             if (gpsPorEncabezado) return gpsPorEncabezado;
