@@ -1121,36 +1121,45 @@ const convertirWktIppAGeometria = (valor) => {
                             };
                         }
 
-                        // Ceniceros: el campo Punto GPS suele venir separado en latitud y longitud
-                        // por una coma no entrecomillada. Primero se reconstruye ese campo y,
-                        // si aún quedan columnas extra, se reúnen únicamente en Observaciones.
-                        // El WKT, etiqueta, sector y serial final actúan como anclas de seguridad.
+                        // Regla general para Ceniceros: la PWA utiliza el WKT como geometría.
+                        // Las coordenadas GMS de "Punto GPS" son redundantes y se dejan vacías.
+                        // Si la coma separó latitud/longitud en dos celdas, se retiran ambas
+                        // manteniendo una columna vacía para no desplazar los encabezados.
+                        // Las comas extra en Observaciones se recomponen sin tocar los controles.
                         if (
                             categoriaDetectadaGlobal === 'Ceniceros' &&
-                            filaOriginal.length > COLUMNAS_ESPERADAS &&
+                            filaOriginal.length >= COLUMNAS_ESPERADAS &&
                             wktEsValido(filaOriginal[0]) &&
-                            /^POINT\s*\(/i.test(String(filaOriginal[0] ?? '').trim()) &&
+                            /^POINT\\s*\\(/i.test(String(filaOriginal[0] ?? '').trim()) &&
                             !esTextoVacio(filaOriginal[1]) &&
-                            /^\d{1,3}°\s*\d{1,2}'\s*\d*(?:[.,]\d+)?"\s*[NS]$/i.test(String(filaOriginal[2] ?? '').trim()) &&
-                            /^\d{1,3}°\s*\d{1,2}'\s*\d*(?:[.,]\d+)?"\s*[EW]$/i.test(String(filaOriginal[3] ?? '').trim()) &&
+                            /^\\d{1,3}°\\s*\\d{1,2}'\\s*\\d*(?:[.,]\\d+)?["]\\s*[NS](?:\\s*,.*)?$/i.test(String(filaOriginal[2] ?? '').trim()) &&
                             !esTextoVacio(filaOriginal[4]) &&
-                            (esTextoVacio(filaOriginal[filaOriginal.length - 1]) ||
-                                /^\d+(?:\.0+)?$/.test(String(filaOriginal[filaOriginal.length - 1] ?? '').trim()))
+                            (filaOriginal.length === COLUMNAS_ESPERADAS ||
+                                /^\\d{1,3}°\\s*\\d{1,2}'\\s*\\d*(?:[.,]\\d+)?["]\\s*[EW]$/i.test(String(filaOriginal[3] ?? '').trim())) &&
+                            (filaOriginal.length === COLUMNAS_ESPERADAS ||
+                                esTextoVacio(filaOriginal[filaOriginal.length - 1]) ||
+                                /^\\d+(?:\\.0+)?$/.test(String(filaOriginal[filaOriginal.length - 1] ?? '').trim()))
                         ) {
                             const filaCeniceros = [...filaOriginal];
-                            filaCeniceros[2] = `${String(filaCeniceros[2]).trim()}, ${String(filaCeniceros[3]).trim()}`;
-                            filaCeniceros.splice(3, 1);
 
-                            // Si quedan extras después de recomponer Punto GPS, corresponden
-                            // a comas sin comillas en Observaciones (columna 16 del CSV, índice 15).
+                            if (
+                                filaCeniceros.length > COLUMNAS_ESPERADAS &&
+                                /^\\d{1,3}°\\s*\\d{1,2}'\\s*\\d*(?:[.,]\\d+)?["]\\s*[EW]$/i.test(String(filaCeniceros[3] ?? '').trim())
+                            ) {
+                                // El parser dividió Punto GPS en dos celdas GMS: retirar ambas.
+                                filaCeniceros.splice(2, 2, '');
+                            } else {
+                                // Punto GPS ya ocupa una sola celda: ignorar su contenido GMS.
+                                filaCeniceros[2] = '';
+                            }
+
+                            // Si quedan columnas extra, corresponden a comas no entrecomilladas
+                            // en Observaciones (índice 15); reunirlas sin desplazar el resto.
                             const extrasRestantes = filaCeniceros.length - COLUMNAS_ESPERADAS;
                             if (extrasRestantes > 0) {
                                 const indiceObservaciones = 15;
                                 const finObservaciones = indiceObservaciones + extrasRestantes;
-                                if (finObservaciones >= filaCeniceros.length - 2) {
-                                    // No se puede garantizar qué campos se están fusionando.
-                                    // Dejar que la auditoría marque la fila como sospechosa.
-                                } else {
+                                if (finObservaciones < filaCeniceros.length - 2) {
                                     filaCeniceros.splice(
                                         indiceObservaciones,
                                         extrasRestantes + 1,
@@ -1165,8 +1174,8 @@ const convertirWktIppAGeometria = (valor) => {
                                 return {
                                     fila: filaCeniceros,
                                     reparada: true,
-                                    motivo: 'Ceniceros: Punto GPS recompuesto y comas internas de Observaciones reunidas sin desplazar los controles',
-                                    tipoReparacion: 'ceniceros_gps_y_observaciones'
+                                    motivo: 'Ceniceros: coordenadas GMS redundantes ignoradas; WKT conservado y Observaciones recompuestas si contienen comas',
+                                    tipoReparacion: 'ceniceros_gms_ignoradas'
                                 };
                             }
                         }
