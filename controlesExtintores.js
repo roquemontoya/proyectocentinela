@@ -190,11 +190,16 @@ function renderizarFormularioExtintorHTML(leu, attrs, estadoSugerido) {
 export async function guardarControlExtintor(event) {
     event.preventDefault();
 
-    const idActivo = Number(document.getElementById('input-id-db').value);
-    const realizo = document.getElementById('input-realizo')?.value;
+    const inputIdActivo = document.getElementById('input-id-db');
+    if (!inputIdActivo) { alert('Error del formulario: falta el identificador del activo. Recargá la aplicación.'); return; }
+    const idActivo = Number(inputIdActivo.value);
+    const realizo = document.getElementById('input-realizo')?.value || '';
     const condicion = document.getElementById('input-condicion-extintor')?.value || 'Vigente';
     const observacion = document.getElementById('input-observacion')?.value || '';
     const fotoInput = document.getElementById('input-foto')?.files?.[0];
+    const tipoExtintor = document.getElementById('input-tipo-extintor')?.value;
+    const vencimientoControl = document.getElementById('input-vencimiento-extintor')?.value;
+    const pruebaHidraulicaControl = document.getElementById('input-prueba-hidraulica-extintor')?.value;
 
     if (!idActivo || !activoLEU || Number(activoLEU.id) !== idActivo) {
         alert('No se pudo identificar correctamente el elemento LEU.');
@@ -202,6 +207,14 @@ export async function guardarControlExtintor(event) {
     }
     if (!realizo) {
         alert('Por favor selecciona un inspector haciendo clic en su foto.');
+        return;
+    }
+    if (!tipoExtintor || !vencimientoControl || !pruebaHidraulicaControl) {
+        alert('Completá tipo de extintor, vencimiento y año de prueba hidráulica.');
+        return;
+    }
+    if (!fotoInput) {
+        alert('La foto de auditoría es obligatoria.');
         return;
     }
 
@@ -221,9 +234,9 @@ export async function guardarControlExtintor(event) {
             ronda: document.getElementById('input-ronda-control')?.value || activoLEU.ronda || null,
             controlmensual: document.getElementById('input-control-mensual')?.value || mesActual(),
             controlrealizadopor: realizo,
-            tipoextintor: valorAtributo(attrs, 'Tipo de Extintor', 'TipoExtintor') || null,
-            vencimiento: valorAtributo(attrs, 'Vencimiento') || null,
-            pruebahidraulica: valorAtributo(attrs, 'Prueba Hidraulica', 'PruebaHidraulica') || null,
+            tipoextintor: tipoExtintor || valorAtributo(attrs, 'Tipo de Extintor', 'TipoExtintor') || null,
+            vencimiento: vencimientoControl || null,
+            pruebahidraulica: pruebaHidraulicaControl || null,
             observacion: observacion || null,
             foto: fotoUrl,
             fechafoto: hoy
