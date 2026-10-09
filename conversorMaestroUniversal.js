@@ -1122,11 +1122,9 @@ const convertirWktIppAGeometria = (valor) => {
                         }
 
                         // Ceniceros: algunas exportaciones dejan comas sin entrecomillar
-                        // dentro de campos descriptivos/de control, generando 1 o más columnas
-                        // extra. Solo recomponemos si la geometría, las dos coordenadas DMS,
-                        // el sector y el identificador final siguen en posiciones inequívocas.
-                        // El campo a unir debe estar identificado por un encabezado descriptivo;
-                        // si hay más de una reconstrucción posible, se bloquea como sospechosa.
+                        // en el campo descriptivo que precede al campo vacío y al ID final.
+                        // Solo se repara si WKT, coordenadas DMS, sector y ancla final coinciden.
+                        // Se agrupan las celdas extra en esa única columna; no se desplazan controles.
                         if (
                             categoriaDetectadaGlobal === 'Ceniceros' &&
                             filaOriginal.length > COLUMNAS_ESPERADAS &&
@@ -1136,47 +1134,30 @@ const convertirWktIppAGeometria = (valor) => {
                             /^\d{1,3}°\s*\d{1,2}'\s*\d{1,2}(?:[.,]\d+)?"\s*[NS]$/i.test(String(filaOriginal[2] ?? '').trim()) &&
                             /^\d{1,3}°\s*\d{1,2}'\s*\d{1,2}(?:[.,]\d+)?"\s*[EW]$/i.test(String(filaOriginal[3] ?? '').trim()) &&
                             !esTextoVacio(filaOriginal[4]) &&
+                            esTextoVacio(filaOriginal[filaOriginal.length - 2]) &&
                             /^\d+(?:\.0+)?$/.test(String(filaOriginal[filaOriginal.length - 1] ?? '').trim())
                         ) {
                             const extras = filaOriginal.length - COLUMNAS_ESPERADAS;
-                            const columnasDescriptivas = encabezadosOriginales
-                                .map((cabecera, indice) => ({ indice, clave: normalizarCabecera(cabecera) }))
-                                .filter(({ indice, clave }) =>
-                                    indice >= 5 &&
-                                    indice < COLUMNAS_ESPERADAS - 1 &&
-                                    /observ|coment|detalle|estado|limpieza|cadena|basura|demarc|pintura|cartel|sujetar|recomend|accion|condicion|hallazgo|deficien|tapa|arena|control|ubicacion|material|faltante|reparacion/.test(clave)
-                                );
-                            const candidatas = [];
+                            const inicioDescripcion = COLUMNAS_ESPERADAS - 3;
+                            const finDescripcion = inicioDescripcion + extras;
 
-                            for (const columna of columnasDescriptivas) {
-                                const inicio = columna.indice;
-                                const fin = inicio + extras;
-                                if (fin >= filaOriginal.length - 1) continue;
-
-                                const filaCandidata = [
-                                    ...filaOriginal.slice(0, inicio),
-                                    filaOriginal.slice(inicio, fin + 1).map(v => String(v ?? '').trim()).join(', '),
-                                    ...filaOriginal.slice(fin + 1)
+                            if (finDescripcion === filaOriginal.length - 3) {
+                                const filaCeniceros = [
+                                    ...filaOriginal.slice(0, inicioDescripcion),
+                                    filaOriginal.slice(inicioDescripcion, finDescripcion + 1)
+                                        .map(valor => String(valor ?? '').trim())
+                                        .join(', '),
+                                    ...filaOriginal.slice(finDescripcion + 1)
                                 ];
 
-                                if (
-                                    filaCandidata.length === COLUMNAS_ESPERADAS &&
-                                    /^POINT\s*\(/i.test(String(filaCandidata[0] ?? '').trim()) &&
-                                    !esTextoVacio(filaCandidata[1]) &&
-                                    !esTextoVacio(filaCandidata[4]) &&
-                                    /^\d+(?:\.0+)?$/.test(String(filaCandidata[filaCandidata.length - 1] ?? '').trim())
-                                ) {
-                                    candidatas.push({ fila: filaCandidata, columna: columna.indice });
+                                if (filaCeniceros.length === COLUMNAS_ESPERADAS) {
+                                    return {
+                                        fila: filaCeniceros,
+                                        reparada: true,
+                                        motivo: 'Ceniceros: comas no entrecomilladas recompuestas en el campo descriptivo previo al campo vacío e ID final; WKT, coordenadas DMS y sector verificados',
+                                        tipoReparacion: 'ceniceros_comas_descripcion'
+                                    };
                                 }
-                            }
-
-                            if (candidatas.length === 1) {
-                                return {
-                                    fila: candidatas[0].fila,
-                                    reparada: true,
-                                    motivo: 'Ceniceros: comas no entrecomilladas recompuestas en un único campo descriptivo identificado por encabezado; WKT, coordenadas DMS, sector e ID final verificados',
-                                    tipoReparacion: 'ceniceros_comas_descripcion'
-                                };
                             }
                         }
 
