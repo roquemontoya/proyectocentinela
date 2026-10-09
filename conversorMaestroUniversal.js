@@ -841,11 +841,14 @@ const convertirWktIppAGeometria = (valor) => {
                             !esTextoVacio(filaOriginal[4]) &&
                             /^\s*Reportan\s+ECAS\b/i.test(String(filaOriginal[5] ?? '')) &&
                             filaOriginal.slice(6).every(valor =>
-                                esTextoVacio(valor) || /^\s*\d+\s*$/.test(String(valor))
+                                esTextoVacio(valor) || /^\s*\d+(?:\s+\d+)*\s*$/.test(String(valor))
                             )
                         ) {
+                            // Algunos campos residuales contienen más de un número sin coma
+                            // (p. ej. "50 51"). Dentro de esta lista ECAS, convertir cada token
+                            // numérico en una referencia independiente sin tocar el resto de la fila.
                             const valoresControl = filaOriginal.slice(5)
-                                .map(valor => String(valor ?? '').trim())
+                                .flatMap(valor => String(valor ?? '').trim().split(/\s+/))
                                 .filter(Boolean);
 
                             const filaReparada = [
