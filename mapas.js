@@ -128,6 +128,49 @@ async function consultarActivos(categoria) {
     return todos;
 }
 
+async function consultarUltimasFotosHidrantes() {
+    const { data, error } = await clienteSupabase
+        .from('controles_h')
+        .select('id_activo, foto, fecha_foto, creado_el')
+        .not('foto', 'is', null)
+        .neq('foto', '')
+        .order('creado_el', { ascending: false });
+    if (error) {
+        console.warn('[Centinela mapa] No se pudieron consultar las fotos de hidrantes:', error.message);
+        return new Map();
+    }
+    const ultimas = new Map();
+    for (const control of data || []) {
+        const id = Number(control.id_activo);
+        if (id && control.foto && !ultimas.has(id)) ultimas.set(id, control.foto);
+    }
+    return ultimas;
+}
+
+function inicializarMiniMapaPopup(popup, item) {
+    const el = popup.getElement()?.querySelector('#popup-mini-mapa-' + item.id);
+    if (!el || el.dataset.inicializado === 'true') return;
+    const geometria = extraerGeometria(item);
+    if (!geometria || geometria.tipo !== 'punto') {
+        el.innerHTML = '<div style="padding:8px;font:10px Arial;color:#aaa;text-align:center">UBICACIÓN NO DISPONIBLE</div>';
+        return;
+    }
+    el.dataset.inicializado = 'true';
+    const mini = L.map(el, {
+        zoomControl: false, attributionControl: false, dragging: false,
+        scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false, keyboard: false,
+        tap: false
+    });
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 22
+    }).addTo(mini);
+    L.circleMarker(geometria.coordenadas, {
+        radius: 6, color: '#fff', weight: 2, fillColor: '#ef4444', fillOpacity: 1
+    }).addTo(mini);
+    mini.setView(geometria.coordenadas, 18);
+    setTimeout(() => mini.invalidateSize(), 100);
+}
+
 function leerEstado(item, esExtintor) {
     const estado = buscarAtributo(item, 'EstadoReferencia', 'Estado', 'STATUS', 'Estado PRP');
     if (esExtintor) {
@@ -186,7 +229,7 @@ function crearIcono(color) {
     });
 }
 
-function popupActivo(item, moduloKey, config, estado, esExtintor) {
+function popupActivo(item, moduloKey, config, estado, esExtintor, ultimaFoto = '') {
     const etiqueta = item.etiqueta || item.nombre || 'Activo #' + item.id;
     const sector = item.sector || buscarAtributo(item, 'Sector', 'Ubicación', 'Ubicacion') || 'N/D';
     const vencimiento = esExtintor ? buscarAtributo(item, 'Vencimiento') : '';
@@ -202,6 +245,15 @@ function popupActivo(item, moduloKey, config, estado, esExtintor) {
         (tipo ? '<div style="font-size:11px;margin-bottom:4px">Tipo: ' + escaparHtml(tipo) + '</div>' : '') +
         (vencimiento ? '<div style="font-size:11px;margin-bottom:6px">Vencimiento: <b>' + escaparHtml(vencimiento) + '</b></div>' : '') +
         '<div style="font-size:11px;margin-bottom:9px">Estado: <b style="color:' + estado.color + '">' + escaparHtml(estado.estado) + '</b></div>' +
+        (moduloKey === 'hidrantes'
+            ? '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:0 0 9px;align-items:start">' +
+                '<div style="min-width:0"><div style="font-size:10px;font-weight:bold;margin-bottom:3px">Última foto</div>' +
+                (ultimaFoto
+                    ? '<img src="' + escaparHtml(ultimaFoto) + '" alt="Última foto del control" loading="lazy" style="display:block;width:100%;height:92px;object-fit:cover;border-radius:4px;background:#111;border:1px solid #bbb">' 
+                    : '<div style="height:92px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:11px;font-weight:bold;color:#888;background:#171717;border:1px solid #777;border-radius:4px">NO IMAGE</div>') +
+                '</div><div style="min-width:0"><div style="font-size:10px;font-weight:bold;margin-bottom:3px">Ubicación</div>' +
+                '<div id="popup-mini-mapa-' + Number(item.id) + '" style="width:100%;height:92px;border:1px solid #bbb;border-radius:4px;overflow:hidden;background:#171717"></div></div></div>'
+            : '') +
         boton + '</div>';
 }
 
@@ -235,6 +287,11 @@ export async function cargarModuloMapa(moduloKey, contenedor) {
     }
     if (miSolicitud !== solicitudMapa) return;
 
+    const ultimasFotosHidrantes = moduloKey === 'hidrantes'
+        ? await consultarUltimasFotosHidrantes()
+        : new Map();
+    if (miSolicitud !== solicitudMapa) return;
+
     if (mapaActivo) {
         mapaActivo.remove();
         mapaActivo = null;
@@ -259,12 +316,17 @@ export async function cargarModuloMapa(moduloKey, contenedor) {
         if (!geometria) { sinUbicacion++; continue; }
 
         const nombre = item.etiqueta || item.nombre || 'Activo #' + item.id;
-        const popup = popupActivo(item, moduloKey, config, estado, esExtintor);
+        const popup = popupActivo(item, moduloKey, config, estado, esExtintor, ultimasFotosHidrantes.get(Number(item.id)) || '');
 
         if (geometria.tipo === 'punto') {
             const coords = geometria.coordenadas;
-            L.marker(coords, { icon: crearIcono(estado.color), title: nombre })
+            const marcador = L.marker(coords, { icon: crearIcono(estado.color), title: nombre })
                 .addTo(mapaActivo).bindPopup(popup);
+            if (moduloKey === 'hidrantes') {
+                marcador.on('popupopen', evento => {
+                    inicializarMiniMapaPopup(evento.popup, item);
+                });
+            }
             limites.push(coords);
             puntosDibujados++;
         } else {
