@@ -1028,6 +1028,36 @@ const convertirWktIppAGeometria = (valor) => {
                             };
                         }
 
+                        // EPI: al quitar "Punto GPS" del encabezado, algunos CSV siguen
+                        // entregando latitud y longitud como dos celdas sin encabezado.
+                        // Quitarlas solo si ambas son coordenadas válidas y la fila empieza
+                        // con POINT; después reinsertar el campo vacío que existe en el encabezado.
+                        if (
+                            categoriaDetectadaGlobal === 'EPI' &&
+                            filaOriginal.length === COLUMNAS_ESPERADAS + 1 &&
+                            wktEsValido(filaOriginal[0]) &&
+                            /^POINT\\s*\\(/i.test(String(filaOriginal[0] ?? '').trim()) &&
+                            coordenadaValida(filaOriginal[1], -90, 90) &&
+                            coordenadaValida(filaOriginal[2], -180, 180)
+                        ) {
+                            const filaEpi = [filaOriginal[0], ...filaOriginal.slice(3)];
+                            const indiceCampoVacio = encabezadosOriginales.findIndex((h, i) =>
+                                i > 0 && /^Columna\\s+\\d+$/i.test(String(h).trim())
+                            );
+                            if (indiceCampoVacio >= 0 && filaEpi.length < COLUMNAS_ESPERADAS) {
+                                filaEpi.splice(indiceCampoVacio, 0, null);
+                            }
+                            while (filaEpi.length < COLUMNAS_ESPERADAS) filaEpi.push(null);
+                            if (filaEpi.length === COLUMNAS_ESPERADAS) {
+                                return {
+                                    fila: filaEpi,
+                                    reparada: true,
+                                    motivo: 'EPI: coordenadas redundantes de Punto GPS retiradas; campo vacío de encabezado conservado',
+                                    tipoReparacion: 'epi_gps_redundante'
+                                };
+                            }
+                        }
+
                         const valvulasReconstruida = repararCsvValvulasConComasInternas(filaOriginal);
                         if (valvulasReconstruida) return valvulasReconstruida;
 
