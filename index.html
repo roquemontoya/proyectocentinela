@@ -115,11 +115,13 @@
                 <label style="display: block; margin-bottom: 5px; font-size: 14px;">Foto de Auditoría (Obligatoria):</label>
                 <input type="file" id="input-foto" accept="image/*" capture="environment" required style="width: 100%; margin-bottom: 20px; color: #ccc;">
 
-                <!-- Inspector General -->
-                <label style="display: block; margin-bottom: 5px; font-size: 14px; font-weight: bold; color: #22c55e;">Control realizado por:</label>
+                <!-- Inspector del control mensual; se oculta en controles Anual/A Solicitud -->
                 <input type="hidden" id="input-realizo" required>
-                <div id="grid-seleccion-bombero" style="display: flex; gap: 10px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 12px; scrollbar-width: thin;">
-                    <p style="color: #aaa; font-size: 13px;">Cargando personal...</p>
+                <div id="bloque-realizado-por">
+                    <label style="display: block; margin-bottom: 5px; font-size: 14px; font-weight: bold; color: #22c55e;">Control realizado por:</label>
+                    <div id="grid-seleccion-bombero" style="display: flex; gap: 10px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 12px; scrollbar-width: thin;">
+                        <p style="color: #aaa; font-size: 13px;">Cargando personal...</p>
+                    </div>
                 </div>
 
                 <div style="display: flex; gap: 10px;">
