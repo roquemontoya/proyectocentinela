@@ -8,8 +8,8 @@ import { cargarModuloMapa } from './mapas.js';
 import { cargarModuloPulmon } from './moduloPulmon.js';
 import { cargarModuloBomberos } from './bomberos.js';
 import { abrirControlExtintor, guardarControlExtintor } from './controlesExtintores.js';
-import { abrirControlHidrante, guardarControlHidrante } from './controlesHidrantes.js';
-import { cerrarFormularioControl } from './controlesBase.js';
+import { abrirControlHidrante, guardarControlHidrante, cambiarTipoControl, verificarDetalleLlave } from './controlesHidrantes.js';
+import { cerrarFormularioControl, verificarEstadoControl } from './controlesBase.js';
 import { abrirControlOtro, guardarControlOtro } from './controlesOtros.js';
 
 // Control del menú lateral.
@@ -45,7 +45,11 @@ window.irInicio = function() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
 };
 
-// Funciones globales requeridas por los onclick del HTML y los popups de Leaflet.
+// Funciones globales requeridas por los onchange/onclick del formulario dinámico.
+// Las funciones importadas por módulos ES no quedan disponibles automáticamente en window.
+window.cambiarTipoControl = cambiarTipoControl;
+window.verificarEstadoControl = verificarEstadoControl;
+window.verificarDetalleLlave = verificarDetalleLlave;
 window.cerrarFormularioControl = cerrarFormularioControl;
 
 window.abrirFormularioControl = async function(tabla, dbId, idElemento) {
