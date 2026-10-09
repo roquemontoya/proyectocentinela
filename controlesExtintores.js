@@ -167,6 +167,14 @@ function renderizarFormularioExtintorHTML(leu, attrs, estadoSugerido) {
         </fieldset>
     `;
 
+    const selectCondicion = document.getElementById('input-condicion-extintor');
+    if (selectCondicion) {
+        selectCondicion.addEventListener('change', () => {
+            const titulo = document.getElementById('modal-titulo-elemento');
+            aplicarTituloControl(titulo, 'Extintor', leu.etiqueta, selectCondicion.value);
+        });
+    }
+
     // Mapa mini: reutiliza Leaflet, con zoom máximo y marcador del activo.
     const mapaEl = document.getElementById('mini-mapa-extintor');
     if (mapaEl && window.L) {
