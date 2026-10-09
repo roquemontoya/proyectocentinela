@@ -130,7 +130,7 @@ export async function cargarModuloMapa(moduloKey, contenedor) {
         // ==========================================
         // FILTRO PRP: Ocultar del mapa lo que no esté en planta
         // ==========================================
-        if (esMapaExtintores || config.tabla.toLowerCase() === 'extintores' || config.tabla.toLowerCase() === 'extintor') {
+        if (esMapaExtintores || esMapaExtintores || config.tabla.toLowerCase() === 'extintores' || config.tabla.toLowerCase() === 'extintor') {
             // Asumimos que si no tiene valor (null), es un extintor viejo que está En Planta
             const estadoPRP = item.PRP ? String(item.PRP).trim().toLowerCase() : 'en planta';
             
@@ -148,7 +148,7 @@ export async function cargarModuloMapa(moduloKey, contenedor) {
             let colorPin = '#22c55e';
             let estadoTexto = item.EstadoReferencia || item.Estado || 'Operativo';
             
-            if (config.tabla.toLowerCase() === 'extintores' || config.tabla.toLowerCase() === 'extintor') {
+            if (esMapaExtintores || config.tabla.toLowerCase() === 'extintores' || config.tabla.toLowerCase() === 'extintor') {
                 const parsearFechaVenc = (fStr) => {
                     if (!fStr) return null;
                     const f = fStr.toString().toLowerCase().trim();
@@ -223,7 +223,7 @@ export async function cargarModuloMapa(moduloKey, contenedor) {
             let pastillaHtml = `<span style="background: ${colorPin}; color: #000; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 11px;">${estadoTexto.toUpperCase()}</span>`;
             
             let extraInfo = '';
-            if ((config.tabla.toLowerCase() === 'extintores' || config.tabla.toLowerCase() === 'extintor') && item.Vencimiento) {
+            if ((esMapaExtintores || config.tabla.toLowerCase() === 'extintores' || config.tabla.toLowerCase() === 'extintor') && item.Vencimiento) {
                 extraInfo = `<div style="font-size: 11px; margin-bottom: 4px; color: #555;">Vencimiento: <strong style="color:#111;">${item.Vencimiento}</strong></div>`;
             }
 
