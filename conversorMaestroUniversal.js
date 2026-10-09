@@ -1131,12 +1131,12 @@ const convertirWktIppAGeometria = (valor) => {
                             categoriaDetectadaGlobal === 'Ceniceros' &&
                             filaOriginal.length > COLUMNAS_ESPERADAS &&
                             wktEsValido(filaOriginal[0]) &&
-                            /^POINT\\s*\\(/i.test(String(filaOriginal[0] ?? '').trim()) &&
+                            /^POINT\s*\(/i.test(String(filaOriginal[0] ?? '').trim()) &&
                             !esTextoVacio(filaOriginal[1]) &&
-                            /^\\d{1,3}°\\s*\\d{1,2}'\\s*\\d{1,2}(?:[.,]\\d+)?"\\s*[NS]$/i.test(String(filaOriginal[2] ?? '').trim()) &&
-                            /^\\d{1,3}°\\s*\\d{1,2}'\\s*\\d{1,2}(?:[.,]\\d+)?"\\s*[EW]$/i.test(String(filaOriginal[3] ?? '').trim()) &&
+                            /^\d{1,3}°\s*\d{1,2}'\s*\d{1,2}(?:[.,]\d+)?"\s*[NS]$/i.test(String(filaOriginal[2] ?? '').trim()) &&
+                            /^\d{1,3}°\s*\d{1,2}'\s*\d{1,2}(?:[.,]\d+)?"\s*[EW]$/i.test(String(filaOriginal[3] ?? '').trim()) &&
                             !esTextoVacio(filaOriginal[4]) &&
-                            /^\\d+(?:\\.0+)?$/.test(String(filaOriginal[filaOriginal.length - 1] ?? '').trim())
+                            /^\d+(?:\.0+)?$/.test(String(filaOriginal[filaOriginal.length - 1] ?? '').trim())
                         ) {
                             const extras = filaOriginal.length - COLUMNAS_ESPERADAS;
                             const columnasDescriptivas = encabezadosOriginales
@@ -1161,10 +1161,10 @@ const convertirWktIppAGeometria = (valor) => {
 
                                 if (
                                     filaCandidata.length === COLUMNAS_ESPERADAS &&
-                                    /^POINT\\s*\\(/i.test(String(filaCandidata[0] ?? '').trim()) &&
+                                    /^POINT\s*\(/i.test(String(filaCandidata[0] ?? '').trim()) &&
                                     !esTextoVacio(filaCandidata[1]) &&
                                     !esTextoVacio(filaCandidata[4]) &&
-                                    /^\\d+(?:\\.0+)?$/.test(String(filaCandidata[filaCandidata.length - 1] ?? '').trim())
+                                    /^\d+(?:\.0+)?$/.test(String(filaCandidata[filaCandidata.length - 1] ?? '').trim())
                                 ) {
                                     candidatas.push({ fila: filaCandidata, columna: columna.indice });
                                 }
