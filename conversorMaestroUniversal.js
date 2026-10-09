@@ -155,6 +155,8 @@ export function cargarModuloAdminCsv(contenedor) {
         if (name.includes('hidrante')) return 'Hidrantes';
         if (name.includes('valvulasecas') || name.includes('valvulaseca') || name.includes('valvulaeca')) return 'VECAS';
         if (name.includes('valvula')) return 'Valvulas';
+        // Priorizar PECAS antes de ECAS: "Purgas ECAS" contiene ambas palabras.
+        if (name.includes('purga')) return 'Purgas ECAS (PECAS)';
         if (name.includes('ecas')) return 'ECAS';
         if (name.includes('cenicero')) return 'Ceniceros';
         if (name.includes('cortafuego') || name.includes('puertas')) return 'Puertas Cortafuego';
@@ -162,7 +164,6 @@ export function cargarModuloAdminCsv(contenedor) {
 
         // Otras categorías informativas: generan solamente LEU.
         if (name.includes('ipp')) return 'IPP (Macro Sectores)';
-        if (name.includes('purga')) return 'Purgas ECAS (PECAS)';
 
         return null;
     };
