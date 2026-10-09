@@ -1131,7 +1131,7 @@ const convertirWktIppAGeometria = (valor) => {
                             /^POINT\s*\(/i.test(String(filaOriginal[0] ?? '').trim())
                         ) {
                             const filaEspumigenos = [...filaOriginal];
-                            const gpsGms = /^\s*\d{1,3}°\s*\d{1,2}'\s*\d*(?:[.,]\d+)?["]\s*[NS]\s*$/i.test(String(filaEspumigenos[1] ?? '').trim());
+                            const gpsGms = /^\s*\d{1,3}°\s*\d{1,2}'\s*\d*(?:[.,]\d+)?["]\s*[NS]\s*(?:,\s*|\s+)\d{1,3}°\s*\d{1,2}'\s*\d*(?:[.,]\d+)?["]\s*[EW]\s*$/i.test(String(filaEspumigenos[1] ?? '').trim());
                             const gpsDecimalPartido =
                                 /^\s*-?\d+(?:\.\d+)?\s*$/.test(String(filaEspumigenos[1] ?? '').trim()) &&
                                 /^\s*-?\d+(?:\.\d+)?\s*$/.test(String(filaEspumigenos[2] ?? '').trim()) &&
