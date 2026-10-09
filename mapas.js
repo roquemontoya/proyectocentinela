@@ -163,7 +163,7 @@ function inicializarMiniMapaPopup(popup, item) {
     const el = popup.getElement()?.querySelector('#popup-mini-mapa-' + item.id);
     if (!el || el.dataset.inicializado === 'true') return;
     const geometria = extraerGeometria(item);
-    if (!geometria || geometria.tipo !== 'punto') {
+    if (!geometria) {
         el.innerHTML = '<div style="padding:8px;font:10px Arial;color:#aaa;text-align:center">UBICACIÓN NO DISPONIBLE</div>';
         return;
     }
@@ -176,10 +176,23 @@ function inicializarMiniMapaPopup(popup, item) {
     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
         maxZoom: 22
     }).addTo(mini);
-    L.circleMarker(geometria.coordenadas, {
-        radius: 6, color: '#fff', weight: 2, fillColor: '#ef4444', fillOpacity: 1
-    }).addTo(mini);
-    mini.setView(geometria.coordenadas, 18);
+
+    if (geometria.tipo === 'punto') {
+        L.circleMarker(geometria.coordenadas, {
+            radius: 6, color: '#fff', weight: 2, fillColor: '#ef4444', fillOpacity: 1
+        }).addTo(mini);
+        mini.setView(geometria.coordenadas, 18);
+    } else {
+        const anillos = geometria.tipo === 'multipoligono'
+            ? geometria.coordenadas
+            : geometria.coordenadas;
+        const figuras = anillos.map(anillo => L.polygon(anillo, {
+            color: '#ef4444', weight: 2, fillColor: '#ef4444', fillOpacity: 0.18
+        }).addTo(mini));
+        const grupo = L.featureGroup(figuras);
+        if (grupo.getBounds().isValid()) mini.fitBounds(grupo.getBounds(), { padding: [4, 4], maxZoom: 17 });
+        else mini.setView([-31.4168, -64.1834], 10);
+    }
     setTimeout(() => mini.invalidateSize(), 100);
 }
 
@@ -340,14 +353,16 @@ export async function cargarModuloMapa(moduloKey, contenedor) {
             if (geometria.tipo === 'multipoligono') {
                 anillos.forEach(anillo => {
                     if (anillo.length < 3) return;
-                    L.polygon(anillo, { color: estado.color, weight: 2, fillColor: estado.color, fillOpacity: 0.22 })
+                    const capaPoligono = L.polygon(anillo, { color: estado.color, weight: 2, fillColor: estado.color, fillOpacity: 0.22 })
                         .addTo(mapaActivo).bindPopup(popup);
+                    capaPoligono.on('popupopen', evento => inicializarMiniMapaPopup(evento.popup, item));
                     limites.push(...anillo);
                     poligonosDibujados++;
                 });
             } else {
-                L.polygon(anillos, { color: estado.color, weight: 2, fillColor: estado.color, fillOpacity: 0.22 })
+                const capaPoligono = L.polygon(anillos, { color: estado.color, weight: 2, fillColor: estado.color, fillOpacity: 0.22 })
                     .addTo(mapaActivo).bindPopup(popup);
+                capaPoligono.on('popupopen', evento => inicializarMiniMapaPopup(evento.popup, item));
                 limites.push(...anillos.flat());
                 poligonosDibujados++;
             }
