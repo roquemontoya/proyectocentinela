@@ -217,7 +217,7 @@ function renderizarFormularioHidranteHTML(leu) {
             <div id="grid-seleccion-bombero-prueba" style="display:flex;gap:10px;overflow-x:auto;padding-bottom:8px;margin-bottom:10px;">
                 <p style="color:#aaa;font-size:13px;">Cargando personal...</p>
             </div>
-            <label style="display:block;margin-bottom:5px;">Planificación del mes (campo pendiente de definir):</label>
+            <label style="display:block;margin-bottom:5px;">Planificación del mes:</label>
             <input type="text" id="input-fechapruebamensual" style="width:100%;padding:6px;background:#2a2a2a;border:1px solid #444;color:#fff;">
         </div>
 
