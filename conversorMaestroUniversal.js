@@ -974,7 +974,7 @@ const convertirWktIppAGeometria = (valor) => {
                             filaOriginal.length > COLUMNAS_ESPERADAS &&
                             COLUMNAS_ESPERADAS === 3 &&
                             wktEsValido(filaOriginal[0]) &&
-                            /^POINT\\s*\\(/i.test(String(filaOriginal[0] ?? '').trim()) &&
+                            /^POINT\s*\(/i.test(String(filaOriginal[0] ?? '').trim()) &&
                             !esTextoVacio(filaOriginal[1]) &&
                             filaOriginal.slice(2).some(valor => !esTextoVacio(valor))
                         ) {
