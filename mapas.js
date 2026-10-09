@@ -6,7 +6,7 @@ import { clienteSupabase } from './supabaseClient.js';
 
 const MAPEO_MODULOS = {
     'hidrantes': { tabla: 'hidrantes', bucket: 'FotosHidrantes', nombreLegible: 'Hidrantes' },
-    'extintores': { tabla: 'Extintores', bucket: 'FotosExtintores', nombreLegible: 'Extintores' },
+    'extintores': { tabla: 'leu', bucket: 'FotosExtintores', nombreLegible: 'Extintores' },
     'ecas': { tabla: 'ecas', bucket: 'FotosEcas', nombreLegible: 'ECAS' },
     'valvulas': { tabla: 'valvulas', bucket: 'FotosValvulas', nombreLegible: 'Válvulas' },
     'vecas': { tabla: 'vecas', bucket: 'FotosVecas', nombreLegible: 'VECAS' },
@@ -70,9 +70,35 @@ export async function cargarModuloMapa(moduloKey, contenedor) {
 
     contenedor.innerHTML = `<div style="padding: 40px; text-align: center; color: #fff; font-family: Arial;">Cargando mapa satelital de ${config.nombreLegible}...</div>`;
 
-    const { data, error } = await clienteSupabase
-        .from(config.tabla)
-        .select('*');
+    const esMapaExtintores = moduloKey === 'extintores';
+    let consulta = clienteSupabase.from(config.tabla).select('*');
+    if (esMapaExtintores) consulta = consulta.eq('categoria', 'Extintores');
+    const { data: datosOriginales, error } = await consulta;
+    let data = datosOriginales;
+    if (esMapaExtintores && data) {
+        data = data.map(activo => {
+            const attrs = activo?.atributos_tecnicos?.atributos_originales
+                || activo?.atributos_tecnicos?.originales
+                || activo?.atributos_tecnicos
+                || {};
+            const valor = (...keys) => {
+                for (const key of keys) {
+                    if (attrs[key] !== undefined && attrs[key] !== null && String(attrs[key]).trim() !== '') return attrs[key];
+                }
+                return '';
+            };
+            return {
+                ...activo,
+                NombreEtiqueta: activo.etiqueta,
+                Sector: activo.sector,
+                Ronda: activo.ronda,
+                ubicacion_wkt: activo.ubicacion_wkt,
+                Vencimiento: valor('Vencimiento', 'vencimiento'),
+                TipoExtintor: valor('Tipo de Extintor', 'TipoExtintor'),
+                PRP: valor('PRP', 'Estado PRP')
+            };
+        });
+    }
 
     if (error) {
         contenedor.innerHTML = `<div style="padding: 20px; color: #ef4444; text-align: center; font-family: Arial;">Error al cargar datos (${config.tabla}): ${error.message}</div>`;
@@ -104,7 +130,7 @@ export async function cargarModuloMapa(moduloKey, contenedor) {
         // ==========================================
         // FILTRO PRP: Ocultar del mapa lo que no esté en planta
         // ==========================================
-        if (config.tabla.toLowerCase() === 'extintores' || config.tabla.toLowerCase() === 'extintor') {
+        if (esMapaExtintores || config.tabla.toLowerCase() === 'extintores' || config.tabla.toLowerCase() === 'extintor') {
             // Asumimos que si no tiene valor (null), es un extintor viejo que está En Planta
             const estadoPRP = item.PRP ? String(item.PRP).trim().toLowerCase() : 'en planta';
             
@@ -234,7 +260,7 @@ export async function cargarModuloMapa(moduloKey, contenedor) {
                         Estado: ${pastillaHtml}
                     </div>
                     ${htmlFoto}
-                    <button onclick="window.abrirFormularioControl('${config.tabla}', '${item.id}', '${idElemento.replace(/'/g, "\\'")}')" style="background: #22c55e; color: #000; border: none; padding: 6px 10px; border-radius: 4px; font-weight: bold; cursor: pointer; width: 100%; font-size: 12px; text-align: center;">Nuevo Control</button>
+                    <button onclick="window.abrirFormularioControl('${moduloKey === 'extintores' ? 'Extintores' : config.tabla}', '${item.id}', '${idElemento.replace(/'/g, "\\'")}')" style="background: #22c55e; color: #000; border: none; padding: 6px 10px; border-radius: 4px; font-weight: bold; cursor: pointer; width: 100%; font-size: 12px; text-align: center;">Nuevo Control</button>
                 </div>
             `;
 
