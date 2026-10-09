@@ -4,7 +4,7 @@
 // ==========================================
 
 import { clienteSupabase } from './supabaseClient.js';
-import { verificarEstadoControl, cargarBomberosEnModal, cerrarFormularioControl, subirFotoStorage } from './controlesBase.js';
+import { aplicarTituloControl, verificarEstadoControl, cargarBomberosEnModal, cerrarFormularioControl, subirFotoStorage } from './controlesBase.js';
 
 let activoLEU = null;
 
@@ -69,8 +69,7 @@ export async function abrirControlHidrante(dbId, idElemento) {
     document.getElementById('input-tabla').value = 'Hidrantes';
 
     if (titulo) {
-        titulo.innerText = `Control Hidrante: ${activoLEU.etiqueta}`;
-        titulo.style.color = '#22c55e';
+        aplicarTituloControl(titulo, 'Hidrante', activoLEU.etiqueta, 'Operativo');
     }
 
     renderizarFormularioHidranteHTML(activoLEU);
@@ -79,6 +78,12 @@ export async function abrirControlHidrante(dbId, idElemento) {
     document.getElementById('input-tipocontrol').value = 'Mensual';
     cambiarTipoControl();
     document.getElementById('input-estado').value = 'Operativo';
+    const tituloControl = document.getElementById('modal-titulo-elemento');
+    const estadoControl = document.getElementById('input-estado');
+    if (estadoControl) estadoControl.onchange = () => {
+        verificarEstadoControl();
+        aplicarTituloControl(tituloControl, 'Hidrante', activoLEU?.etiqueta, estadoControl.value);
+    };
     verificarEstadoControl();
 
     ['alimentacion','teatroderecho','teatroizquierdo'].forEach(tipo => {
