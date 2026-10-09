@@ -51,7 +51,7 @@ const CONFIG = {
     ]
   },
   valvulas: {
-    categoria: 'Válvulas', titulo: 'Válvula', tabla: 'controles_v', origen: 'Válvulas',
+    categoria: 'Valvulas', titulo: 'Válvula', tabla: 'controles_v', origen: 'Válvulas',
     campos: [
       {id:'estado', label:'Estado general', type:'select', options:['Operativo','Observado','No operativo'], column:'estado'},
       {id:'tipo', label:'Tipo de válvula', column:'tipo', source:['Tipo']},
