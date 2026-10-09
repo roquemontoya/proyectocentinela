@@ -269,6 +269,10 @@ export async function guardarControlHidrante(event) {
 
         if(!idActivo || !activoLEU || Number(activoLEU.id)!==idActivo) throw new Error('No se pudo identificar correctamente el hidrante en LEU.');
         if(!realizo) throw new Error('Por favor selecciona un inspector haciendo clic en su foto.');
+        if(tipoControl==='Anual'||tipoControl==='A Solicitud') {
+            if(!document.getElementById('input-movimiento-agua')?.value) throw new Error('Indica si hubo movimiento de agua durante la prueba funcional.');
+            if(!document.getElementById('input-realizo-prueba')?.value) throw new Error('Selecciona el bombero que realizó la prueba funcional.');
+        }
 
         const fotoUrl=await subirFotoStorage(fotoInput);
         const ahora=new Date();
@@ -301,9 +305,9 @@ export async function guardarControlHidrante(event) {
             limpieza:document.getElementById('input-limpieza').value,
             engrasado:document.getElementById('input-engrasado').value,
             observacion:observacion || null,
-            anomalias:estado==='Anomalo' ? (document.getElementById('input-anomalia-razon')?.value || null) : null,
-            reportado_fecha:estado==='Anomalo' ? (document.getElementById('input-reportado-fecha')?.value || null) : null,
-            reportado_por:estado==='Anomalo' ? (document.getElementById('input-reportado-por')?.value || null) : null,
+            anomalias:(estado==='Anomalo' || ((tipoControl==='Anual'||tipoControl==='A Solicitud') && document.getElementById('input-pruebaaprobada')?.value==='No')) ? (document.getElementById('input-anomalia-razon')?.value || null) : null,
+            reportado_fecha:(estado==='Anomalo' || ((tipoControl==='Anual'||tipoControl==='A Solicitud') && document.getElementById('input-pruebaaprobada')?.value==='No')) ? (document.getElementById('input-reportado-fecha')?.value || null) : null,
+            reportado_por:(estado==='Anomalo' || ((tipoControl==='Anual'||tipoControl==='A Solicitud') && document.getElementById('input-pruebaaprobada')?.value==='No')) ? (document.getElementById('input-reportado-por')?.value || null) : null,
             foto:fotoUrl,
             fecha_foto:fechaHoy
         };
