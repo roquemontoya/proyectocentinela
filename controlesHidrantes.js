@@ -25,6 +25,19 @@ async function cargarActivoHidrante(idElemento, dbId) {
     return data;
 }
 
+function parsearCoordenadaHidrante(raw) {
+    const s = String(raw || '').trim();
+    let m = s.match(/^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/);
+    if (m) {
+        const a = Number(m[1]), b = Number(m[2]);
+        if (Math.abs(a) <= 90 && Math.abs(b) <= 180) return [a, b];
+        if (Math.abs(b) <= 90 && Math.abs(a) <= 180) return [b, a];
+    }
+    m = s.match(/^\s*POINT\s*\(\s*(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s*\)\s*$/i);
+    if (m) return [Number(m[2]), Number(m[1])];
+    return null;
+}
+
 function valorAtributo(attrs, ...keys) {
     for (const key of keys) {
         if (attrs[key] !== undefined && attrs[key] !== null && String(attrs[key]).trim() !== '') return attrs[key];
@@ -100,15 +113,21 @@ function renderizarFormularioHidranteHTML(leu) {
     const c=document.getElementById('contenedor-componentes-dinamicos');
     if(!c)return;
     c.innerHTML=`
-        <fieldset style="border:1px solid #38bdf8;border-radius:5px;padding:12px;margin-bottom:12px;background:#182830;">
-            <legend style="font-size:13px;color:#38bdf8;padding:0 5px;font-weight:bold;">📌 Datos del elemento — LEU</legend>
-            <div style="font-size:12px;color:#ddd;line-height:1.7;">
-                <strong>Etiqueta:</strong> ${leu.etiqueta || 'N/D'}<br>
-                <strong>Sector:</strong> ${leu.sector || 'N/D'}<br>
-                <strong>Ronda:</strong> ${leu.ronda || 'N/D'}<br>
-                <strong>Ubicación:</strong> ${leu.ubicacion_wkt || 'N/D'}
+        <div style="display:grid;grid-template-columns:minmax(0,1.25fr) minmax(150px,0.75fr);gap:12px;align-items:stretch;margin-bottom:12px;">
+            <fieldset style="min-width:0;border:1px solid #38bdf8;border-radius:5px;padding:10px;background:#182830;margin:0;">
+                <legend style="font-size:13px;color:#38bdf8;padding:0 5px;font-weight:bold;">📌 Datos del elemento</legend>
+                <div style="font-size:12px;color:#ddd;line-height:1.7;overflow-wrap:anywhere;">
+                    <div><strong>Etiqueta:</strong> ${leu.etiqueta || 'N/D'}</div>
+                    <div><strong>Sector:</strong> ${leu.sector || 'N/D'}</div>
+                    <div><strong>Ronda:</strong> ${leu.ronda || 'N/D'}</div>
+                    <div><strong>Ubicación:</strong> ${leu.ubicacion_wkt || 'N/D'}</div>
+                </div>
+            </fieldset>
+            <div style="min-width:0;">
+                <div style="font-size:12px;color:#ddd;margin-bottom:5px;font-weight:bold;">📍 Ubicación del hidrante</div>
+                <div id="mini-mapa-hidrante" role="img" aria-label="Mapa centrado en la ubicación del hidrante" style="width:100%;height:132px;border:1px solid #38bdf8;border-radius:5px;overflow:hidden;background:#111;"></div>
             </div>
-        </fieldset>
+        </div>
 
         <label style="display:block;margin-bottom:5px;font-size:14px;font-weight:bold;color:#22c55e;">Tipo de Control:</label>
         <select id="input-tipocontrol" onchange="cambiarTipoControl()" required style="width:100%;padding:8px;margin-bottom:12px;background:#2a2a2a;border:1px solid #444;color:#fff;border-radius:5px;">
@@ -124,7 +143,7 @@ function renderizarFormularioHidranteHTML(leu) {
             <h4 style="margin:0 0 10px 0;color:#ef4444;font-size:14px;">🚨 Registro de Anomalía</h4>
             <label style="display:block;margin-bottom:5px;font-size:13px;color:#ff8888;">Razón:</label>
             <textarea id="input-anomalia-razon" rows="2" style="width:100%;padding:6px;margin-bottom:10px;background:#1e1e1e;border:1px solid #ef4444;color:#fff;border-radius:4px;font-size:12px;"></textarea>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+            <div style="display:grid;grid-template-columns:minmax(0,1fr);gap:0;margin-bottom:10px;">
                 <div><label>Núm. de Evento:</label><input type="number" id="input-evento-numero" style="width:100%;padding:6px;background:#1e1e1e;border:1px solid #444;color:#fff;"></div>
                 <div><label>Fecha:</label><input type="date" id="input-reportado-fecha" style="width:100%;padding:6px;background:#1e1e1e;border:1px solid #444;color:#fff;"></div>
             </div>
@@ -159,6 +178,18 @@ function renderizarFormularioHidranteHTML(leu) {
             <label>Engrasado:</label><select id="input-engrasado" required style="width:100%;padding:6px;background:#2a2a2a;border:1px solid #444;color:#fff;"><option>Conforme</option><option>No conforme</option></select>
         </fieldset>
     `;
+
+    const mapaEl = document.getElementById('mini-mapa-hidrante');
+    const coords = parsearCoordenadaHidrante(leu.ubicacion_wkt);
+    if (mapaEl && coords && window.L) {
+        const mini = L.map(mapaEl, {zoomControl:false, attributionControl:false, dragging:false, scrollWheelZoom:false, doubleClickZoom:false, boxZoom:false, keyboard:false});
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {maxZoom:22}).addTo(mini);
+        L.circleMarker(coords, {radius:7, color:'#fff', weight:2, fillColor:'#ef4444', fillOpacity:1}).addTo(mini);
+        mini.setView(coords, 18);
+        setTimeout(() => mini.invalidateSize(), 100);
+    } else if (mapaEl) {
+        mapaEl.innerHTML = '<div style="padding:12px;color:#aaa;font-size:11px;text-align:center;">Ubicación no disponible</div>';
+    }
 }
 
 export async function guardarControlHidrante(event) {
