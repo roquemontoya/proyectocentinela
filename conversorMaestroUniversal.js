@@ -1121,6 +1121,65 @@ const convertirWktIppAGeometria = (valor) => {
                             };
                         }
 
+                        // Ceniceros: algunas exportaciones dejan comas sin entrecomillar
+                        // dentro de campos descriptivos/de control, generando 1 o más columnas
+                        // extra. Solo recomponemos si la geometría, las dos coordenadas DMS,
+                        // el sector y el identificador final siguen en posiciones inequívocas.
+                        // El campo a unir debe estar identificado por un encabezado descriptivo;
+                        // si hay más de una reconstrucción posible, se bloquea como sospechosa.
+                        if (
+                            categoriaDetectadaGlobal === 'Ceniceros' &&
+                            filaOriginal.length > COLUMNAS_ESPERADAS &&
+                            wktEsValido(filaOriginal[0]) &&
+                            /^POINT\\s*\\(/i.test(String(filaOriginal[0] ?? '').trim()) &&
+                            !esTextoVacio(filaOriginal[1]) &&
+                            /^\\d{1,3}°\\s*\\d{1,2}'\\s*\\d{1,2}(?:[.,]\\d+)?"\\s*[NS]$/i.test(String(filaOriginal[2] ?? '').trim()) &&
+                            /^\\d{1,3}°\\s*\\d{1,2}'\\s*\\d{1,2}(?:[.,]\\d+)?"\\s*[EW]$/i.test(String(filaOriginal[3] ?? '').trim()) &&
+                            !esTextoVacio(filaOriginal[4]) &&
+                            /^\\d+(?:\\.0+)?$/.test(String(filaOriginal[filaOriginal.length - 1] ?? '').trim())
+                        ) {
+                            const extras = filaOriginal.length - COLUMNAS_ESPERADAS;
+                            const columnasDescriptivas = encabezadosOriginales
+                                .map((cabecera, indice) => ({ indice, clave: normalizarCabecera(cabecera) }))
+                                .filter(({ indice, clave }) =>
+                                    indice >= 5 &&
+                                    indice < COLUMNAS_ESPERADAS - 1 &&
+                                    /observ|coment|detalle|estado|limpieza|cadena|basura|demarc|pintura|cartel|sujetar|recomend|accion|condicion|hallazgo|deficien|tapa|arena|control|ubicacion|material|faltante|reparacion/.test(clave)
+                                );
+                            const candidatas = [];
+
+                            for (const columna of columnasDescriptivas) {
+                                const inicio = columna.indice;
+                                const fin = inicio + extras;
+                                if (fin >= filaOriginal.length - 1) continue;
+
+                                const filaCandidata = [
+                                    ...filaOriginal.slice(0, inicio),
+                                    filaOriginal.slice(inicio, fin + 1).map(v => String(v ?? '').trim()).join(', '),
+                                    ...filaOriginal.slice(fin + 1)
+                                ];
+
+                                if (
+                                    filaCandidata.length === COLUMNAS_ESPERADAS &&
+                                    /^POINT\\s*\\(/i.test(String(filaCandidata[0] ?? '').trim()) &&
+                                    !esTextoVacio(filaCandidata[1]) &&
+                                    !esTextoVacio(filaCandidata[4]) &&
+                                    /^\\d+(?:\\.0+)?$/.test(String(filaCandidata[filaCandidata.length - 1] ?? '').trim())
+                                ) {
+                                    candidatas.push({ fila: filaCandidata, columna: columna.indice });
+                                }
+                            }
+
+                            if (candidatas.length === 1) {
+                                return {
+                                    fila: candidatas[0].fila,
+                                    reparada: true,
+                                    motivo: 'Ceniceros: comas no entrecomilladas recompuestas en un único campo descriptivo identificado por encabezado; WKT, coordenadas DMS, sector e ID final verificados',
+                                    tipoReparacion: 'ceniceros_comas_descripcion'
+                                };
+                            }
+                        }
+
                         if (filaOriginal.length === COLUMNAS_ESPERADAS) {
                             const gpsPorEncabezado = repararPuntoDecimalPorEncabezado(filaOriginal);
                             if (gpsPorEncabezado) return gpsPorEncabezado;
