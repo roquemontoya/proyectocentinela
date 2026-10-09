@@ -160,7 +160,7 @@ function renderizar(config, activo) {
       '<div style="min-width:0;"><div style="font-size:12px;color:#ddd;margin-bottom:5px;font-weight:bold;">📍 Ubicación del elemento</div>' +
         '<div id="mini-mapa-otro" role="img" aria-label="Mapa centrado en el activo" style="width:100%;height:132px;border:1px solid #38bdf8;border-radius:5px;overflow:hidden;background:#111;"></div></div></div>' +
       '<fieldset style="border:1px solid #444;border-radius:5px;padding:10px;margin-bottom:12px;"><legend style="font-size:13px;color:#aaa;padding:0 5px;">Control de ' + escapar(config.titulo) + ' — ' + escapar(mesActual()) + '</legend>' +
-        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0 12px;">' + fields + '</div>' +
+        '<div style="display:grid;grid-template-columns:minmax(0,1fr);gap:0;">' + fields + '</div>' +
         '<label for="otro-fecha-control" style="display:block;font-size:13px;margin-bottom:5px;">Fecha del control:</label>' +
         '<input id="otro-fecha-control" type="date" value="' + fechaHoy() + '" style="width:100%;box-sizing:border-box;padding:8px;margin-bottom:10px;background:#2a2a2a;border:1px solid #444;color:#fff;border-radius:5px;">' +
         '<label for="otro-mes-control" style="display:block;font-size:13px;margin-bottom:5px;">Mes del control:</label>' +
