@@ -8,12 +8,16 @@ export function verificarEstadoControl() {
     const inputEstado = document.getElementById('input-estado');
     if (!inputEstado) return; // Los formularios, como Extintores, pueden no tener estado general compartido.
     const estado = inputEstado.value;
+    const tipoControl = document.getElementById('input-tipocontrol')?.value;
+    const pruebaAprobada = document.getElementById('input-pruebaaprobada')?.value;
+    const pruebaFallida = (tipoControl === 'Anual' || tipoControl === 'A Solicitud') && pruebaAprobada === 'No';
+    const requiereAnomalia = estado === 'Anomalo' || pruebaFallida;
     const bloqueAnomalia = document.getElementById('bloque-anomalia');
     const razonInput = document.getElementById('input-anomalia-razon');
     const inputReportadoPor = document.getElementById('input-reportado-por');
 
     if (bloqueAnomalia) {
-        if (estado === 'Anomalo') {
+        if (requiereAnomalia) {
             bloqueAnomalia.style.display = 'block';
             if (razonInput) razonInput.setAttribute('required', 'true');
             if (inputReportadoPor) inputReportadoPor.setAttribute('required', 'true');
