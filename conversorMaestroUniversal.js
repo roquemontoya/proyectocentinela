@@ -822,8 +822,118 @@ const convertirWktIppAGeometria = (valor) => {
                             tipoReparacion: 'gps_decimal_partido'
                         };
                     };
+                    // Reparación específica de CSV de Válvulas: algunas exportaciones dejan sin
+                    // comillas las comas de Punto GPS y de campos descriptivos. Primero verificamos
+                    // el GPS contra el WKT; luego redistribuimos únicamente las columnas sobrantes
+                    // dentro de campos de texto libre, usando los encabezados y anclas de fecha/mes.
+                    const repararCsvValvulasConComasInternas = (fila) => {
+                        if (categoriaDetectadaGlobal !== 'Valvulas' || !Array.isArray(fila) ||
+                            fila.length <= COLUMNAS_ESPERADAS || fila.length < 6) return null;
+
+                        const wkt = String(fila[0] ?? '').trim();
+                        const matchWkt = wkt.match(/(?:SRID=\\d+;)?POINT\\s*\\(\\s*(-?\\d+(?:\\.\\d+)?)\\s+(-?\\d+(?:\\.\\d+)?)\\s*\\)/i);
+                        if (!matchWkt || esTextoVacio(fila[1])) return null;
+
+                        const lat = Number(String(fila[2] ?? '').trim());
+                        const lon = Number(String(fila[3] ?? '').trim());
+                        const lonWkt = Number(matchWkt[1]);
+                        const latWkt = Number(matchWkt[2]);
+                        const cerca = (a, b) => Number.isFinite(a) && Number.isFinite(b) && Math.abs(a - b) <= 0.000001;
+                        if (!((cerca(lat, latWkt) && cerca(lon, lonWkt)) ||
+                              (cerca(lat, lonWkt) && cerca(lon, latWkt)))) return null;
+
+                        // El encabezado confirma el diseño esperado: WKT, etiqueta, Punto GPS,
+                        // Sector y Ubicación. No aplicar esta regla a otro esquema accidentalmente.
+                        const claves = encabezadosOriginales.map(normalizarCabecera);
+                        if (claves[0] !== 'wkt' ||
+                            !['nombredeetiqueta', 'etiqueta', 'nombre'].includes(claves[1]) ||
+                            !['puntogps', 'punto'].includes(claves[2]) ||
+                            claves[3] !== 'sector') return null;
+
+                        const canonica = [...fila];
+                        canonica[2] = String(fila[2]).trim() + ', ' + String(fila[3]).trim();
+                        canonica.splice(3, 1);
+                        if (canonica.length <= COLUMNAS_ESPERADAS) return null;
+
+                        const exceso = canonica.length - COLUMNAS_ESPERADAS;
+                        const columnasTextoLibre = new Set([
+                            'observacion', 'observaciones', 'detalleinforme', 'motivo', 'informe'
+                        ]);
+                        const meses = new Set([
+                            'enero','febrero','marzo','abril','mayo','junio',
+                            'julio','agosto','septiembre','setiembre','octubre','noviembre','diciembre'
+                        ]);
+                        const esFecha = (v) => {
+                            const s = String(v ?? '').trim();
+                            return !s || /^(?:\\d{1,2}[\\/.-]\\d{1,2}[\\/.-]\\d{2,4}|\\d{4}-\\d{2}-\\d{2})$/.test(s);
+                        };
+                        const puntuar = (cabecera, valor) => {
+                            const h = normalizarCabecera(cabecera);
+                            const v = String(valor ?? '').trim();
+                            if (!v) return 0;
+                            if (h.includes('fecha')) return esFecha(v) ? 3 : -8;
+                            if (h === 'mes' || h.includes('mes')) return meses.has(normalizarCabecera(v)) ? 3 : -3;
+                            if (h.includes('anomaliasi') || h === 'estado') {
+                                return /^(si|no|sí|conforme|pendiente|operativa|operativo|inoperativa|inoperativo|null)$/i.test(v) ? 2 : 0;
+                            }
+                            return 0;
+                        };
+
+                        const memo = new Map();
+                        const resolver = (col, tok, extras) => {
+                            const key = col + ':' + tok + ':' + extras;
+                            if (memo.has(key)) return memo.get(key);
+                            if (col === COLUMNAS_ESPERADAS) {
+                                return tok === canonica.length && extras === 0
+                                    ? { score: 0, valores: [] }
+                                    : null;
+                            }
+                            const restantesColumnas = COLUMNAS_ESPERADAS - col;
+                            const restantesTokens = canonica.length - tok;
+                            if (restantesTokens < restantesColumnas || extras < 0) return null;
+
+                            const cabecera = encabezadosOriginales[col];
+                            const esTextoLibre = columnasTextoLibre.has(normalizarCabecera(cabecera));
+                            const maxConsumir = esTextoLibre ? Math.min(extras + 1, restantesTokens - (restantesColumnas - 1)) : 1;
+                            let mejor = null;
+
+                            for (let consumir = 1; consumir <= maxConsumir; consumir++) {
+                                const usados = consumir - 1;
+                                if (usados > extras) continue;
+                                const valor = canonica.slice(tok, tok + consumir)
+                                    .map(x => x === null || x === undefined ? '' : String(x).trim())
+                                    .join(consumir > 1 ? ', ' : '');
+                                const sub = resolver(col + 1, tok + consumir, extras - usados);
+                                if (!sub) continue;
+                                // Penalizar moderadamente los campos fusionados para preferir la
+                                // alineación más conservadora, salvo que las anclas favorezcan otra.
+                                const score = puntuar(cabecera, valor) + sub.score - usados * 0.15;
+                                if (!mejor || score > mejor.score) {
+                                    mejor = { score, valores: [valor || null, ...sub.valores] };
+                                }
+                            }
+                            memo.set(key, mejor);
+                            return mejor;
+                        };
+
+                        const resultado = resolver(5, 5, exceso);
+                        if (!resultado || resultado.valores.length !== COLUMNAS_ESPERADAS - 5) return null;
+                        const filaReparada = [...canonica.slice(0, 5), ...resultado.valores];
+                        if (filaReparada.length !== COLUMNAS_ESPERADAS) return null;
+
+                        return {
+                            fila: filaReparada,
+                            reparada: true,
+                            motivo: 'CSV de Válvulas: GPS verificado contra WKT y comas internas de campos descriptivos recompuestas según encabezados',
+                            tipoReparacion: 'valvulas_gps_y_textos_con_comas'
+                        };
+                    };
+
                     const repararFilaEstructuralmente = (fila, numeroFilaCsv) => {
                         let filaOriginal = Array.isArray(fila) ? [...fila] : [];
+
+                        const valvulasReconstruida = repararCsvValvulasConComasInternas(filaOriginal);
+                        if (valvulasReconstruida) return valvulasReconstruida;
 
                         // Centrales de Alarmas: algunas exportaciones dejan sin comillas
                         // la lista de ECAS en el campo Control (p. ej. "Reportan ECAS 1, 3, 4, 5").
