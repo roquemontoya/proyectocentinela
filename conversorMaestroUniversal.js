@@ -164,9 +164,21 @@ export function cargarModuloAdminCsv(contenedor) {
         if (name.includes('cortafuego') || name.includes('puertas')) return 'Puertas Cortafuego';
         if (name.includes('espumigeno')) return 'Espumigenos';
 
-        // Otras categorías informativas: generan solamente LEU.
+        // Otras categorías informativas conocidas: generan solamente LEU.
         if (name.includes('ipp')) return 'IPP (Macro Sectores)';
 
+        // Categoría informativa genérica: cualquier CSV nuevo cuyo nombre no coincida
+        // con una categoría operativa conocida se conserva como capa informativa en LEU.
+        // No crea controles específicos. Se usa el nombre del archivo como subcategoría
+        // para distinguir, por ejemplo, zonas de luminarias, caminos, áreas y futuras capas.
+        const nombreBase = String(nombreArchivo || '')
+            .replace(/\\.[^.]+$/, '')
+            .replace(/^(?:EXTINTORES|SEGURIDAD|CENTINELA)\\s*[-_–—:]\\s*/i, '')
+            .replace(/[_-]+/g, ' ')
+            .replace(/\\s+/g, ' ')
+            .trim();
+
+        if (nombreBase) return 'Informativo - ' + nombreBase;
         return null;
     };
 
@@ -1756,6 +1768,7 @@ const convertirWktIppAGeometria = (valor) => {
                 }
 
                 if (
+                    !String(categoriaDetectadaGlobal || '').startsWith('Informativo - ') &&
                     textoAnomalia &&
                     String(textoAnomalia).trim() !== '' &&
                     String(textoAnomalia).trim().toUpperCase() !== 'NULL' &&
