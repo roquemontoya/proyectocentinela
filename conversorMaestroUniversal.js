@@ -873,8 +873,22 @@ const convertirWktIppAGeometria = (valor) => {
                             if (!v) return 0;
                             if (h.includes('fecha')) return esFecha(v) ? 3 : -8;
                             if (h === 'mes' || h.includes('mes')) return meses.has(normalizarCabecera(v)) ? 3 : -3;
-                            if (h.includes('anomaliasi') || h === 'estado') {
-                                return /^(si|no|sí|conforme|pendiente|operativa|operativo|inoperativa|inoperativo|null)$/i.test(v) ? 2 : 0;
+                            if (h.includes('anomaliasi')) {
+                                return /^(si|no|sí|null)$/i.test(v) ? 2 : -4;
+                            }
+                            if (h === 'estado') {
+                                return /^(conforme|pendiente|operativa|operativo|inoperativa|inoperativo|null|si|no|sí)$/i.test(v) ? 2 : -2;
+                            }
+                            return 0;
+                        };
+                        const puntuarFusion = (cabecera, valor) => {
+                            const h = normalizarCabecera(cabecera);
+                            const v = String(valor ?? '').toLowerCase();
+                            if (h === 'observacion' || h === 'observaciones') {
+                                return /se prueba|falta qr|falta|no funciona|se observa/.test(v) ? 6 : 0;
+                            }
+                            if (h === 'detalleinforme' || h === 'motivo' || h === 'informe') {
+                                return /finaliz|trabajo|se realiza|sistema|valvula|válvula|apertura|presuriz|operativ|colocad|cambio de/.test(v) ? 6 : 0;
                             }
                             return 0;
                         };
@@ -907,7 +921,7 @@ const convertirWktIppAGeometria = (valor) => {
                                 if (!sub) continue;
                                 // Penalizar moderadamente los campos fusionados para preferir la
                                 // alineación más conservadora, salvo que las anclas favorezcan otra.
-                                const score = puntuar(cabecera, valor) + sub.score - usados * 0.15;
+                                const score = puntuar(cabecera, valor) + (consumir > 1 ? puntuarFusion(cabecera, valor) : 0) + sub.score - usados * 0.15;
                                 if (!mejor || score > mejor.score) {
                                     mejor = { score, valores: [valor || null, ...sub.valores] };
                                 }
