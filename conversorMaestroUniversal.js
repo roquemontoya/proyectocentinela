@@ -921,7 +921,7 @@ const convertirWktIppAGeometria = (valor) => {
                         return {
                             fila: null,
                             reparada: false,
-                            motivo: `Fila ${numeroFilaCsv}: contiene ${filaOriginal.length} columnas; se esperaban ${COLUMNAS_ESPERADAS}. No se pudo reparar de forma determinista. Inicio: [${filaOriginal.slice(0, 6).map(v => String(v ?? '').replace(/\\s+/g, ' ').slice(0, 45)).join(' | ')}]; final: [${filaOriginal.slice(-3).map(v => String(v ?? '').replace(/\\s+/g, ' ').slice(0, 45)).join(' | ')}].`,
+                            motivo: `Fila ${numeroFilaCsv}: contiene ${filaOriginal.length} columnas; se esperaban ${COLUMNAS_ESPERADAS}. No se pudo reparar de forma determinista. Inicio: [${filaOriginal.slice(0, 6).map(v => String(v ?? '').replace(/\s+/g, ' ').slice(0, 45)).join(' | ')}]; final: [${filaOriginal.slice(-3).map(v => String(v ?? '').replace(/\s+/g, ' ').slice(0, 45)).join(' | ')}].`,
                             tipoReparacion: null
                         };
                     };
