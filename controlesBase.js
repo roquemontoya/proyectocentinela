@@ -47,14 +47,18 @@ export function verificarEstadoControl() {
 
 export async function cargarBomberosEnModal() {
     const contenedorBomberos = document.getElementById('grid-seleccion-bombero');
+    const contenedorBomberoPrueba = document.getElementById('grid-seleccion-bombero-prueba');
     const contenedorReportado = document.getElementById('grid-seleccion-reportado');
     const inputRealizo = document.getElementById('input-realizo');
+    const inputRealizoPrueba = document.getElementById('input-realizo-prueba');
     const inputReportadoPor = document.getElementById('input-reportado-por');
     
     if (contenedorBomberos) contenedorBomberos.innerHTML = '<p style="color: #aaa; font-size: 13px;">Cargando personal...</p>';
+    if (contenedorBomberoPrueba) contenedorBomberoPrueba.innerHTML = '<p style="color: #aaa; font-size: 13px;">Cargando personal...</p>';
     if (contenedorReportado) contenedorReportado.innerHTML = '<p style="color: #aaa; font-size: 13px;">Cargando personal...</p>';
     
     if (inputRealizo) inputRealizo.value = '';
+    if (inputRealizoPrueba) inputRealizoPrueba.value = '';
     if (inputReportadoPor) inputReportadoPor.value = '';
 
     const fallbackAvatar = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='150' height='150'><rect width='100%' height='100%' fill='%23333'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='%23aaa' font-family='sans-serif' font-size='12'>Sin Foto</text></svg>";
@@ -66,11 +70,13 @@ export async function cargarBomberosEnModal() {
 
     if (error || !data) {
         if (contenedorBomberos) contenedorBomberos.innerHTML = '<p style="color: #ef4444; font-size: 13px;">Error al cargar personal</p>';
+        if (contenedorBomberoPrueba) contenedorBomberoPrueba.innerHTML = '<p style="color: #ef4444; font-size: 13px;">Error al cargar personal</p>';
         if (contenedorReportado) contenedorReportado.innerHTML = '<p style="color: #ef4444; font-size: 13px;">Error al cargar personal</p>';
         return;
     }
 
     if (contenedorBomberos) contenedorBomberos.innerHTML = '';
+    if (contenedorBomberoPrueba) contenedorBomberoPrueba.innerHTML = '';
     if (contenedorReportado) contenedorReportado.innerHTML = '';
 
     const bomberosActivos = data.filter(b => (b.Estado || '').toLowerCase() === 'activo');
@@ -106,6 +112,27 @@ export async function cargarBomberosEnModal() {
             if (b.Bombero.toLowerCase() === inspectorPreseleccionado.toLowerCase()) {
                 tarjeta.click();
             }
+        }
+
+        // Tarjeta Bombero que realiza la prueba funcional (selector independiente del inspector general).
+        if (contenedorBomberoPrueba) {
+            const tarjetaPrueba = document.createElement('div');
+            tarjetaPrueba.className = 'tarjeta-bombero-prueba-select';
+            tarjetaPrueba.style.cssText = 'min-width:80px;max-width:80px;background:#2a2a2a;border:2px solid #444;border-radius:8px;padding:8px 4px;text-align:center;cursor:pointer;flex-shrink:0;transition:all .2s ease;';
+            tarjetaPrueba.innerHTML = `
+                <img src="${fotoUrl}" alt="${b.Bombero}" style="width:45px;height:45px;border-radius:50%;object-fit:cover;margin-bottom:4px;border:1px solid #555;" onerror="this.src='${fallbackAvatar}'">
+                <div style="font-size:11px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${b.Bombero}">${b.Bombero.split(' ')[0]}</div>
+            `;
+            tarjetaPrueba.onclick = function() {
+                contenedorBomberoPrueba.querySelectorAll('.tarjeta-bombero-prueba-select').forEach(t => {
+                    t.style.background = '#2a2a2a';
+                    t.style.borderColor = '#444';
+                });
+                tarjetaPrueba.style.background = '#38bdf822';
+                tarjetaPrueba.style.borderColor = '#38bdf8';
+                if (inputRealizoPrueba) inputRealizoPrueba.value = b.Bombero;
+            };
+            contenedorBomberoPrueba.appendChild(tarjetaPrueba);
         }
 
         // Tarjeta Reportado Por (Anomalías)
