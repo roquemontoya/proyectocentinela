@@ -205,4 +205,4 @@ body {
     border-radius: 8px;
     margin-top: 15px;
     border: 1px solid #333;
-}
+}\n/* Etiquetas permanentes de extintores en el mapa */\n.etiqueta-marcador-extintor { background: rgba(20,20,20,.88); color: #fff; border: 1px solid rgba(255,255,255,.75); border-radius: 3px; padding: 1px 4px; font-size: 10px; font-weight: 700; box-shadow: 0 1px 4px rgba(0,0,0,.8); white-space: nowrap; }\n.etiqueta-marcador-extintor::before { display: none; }\n
