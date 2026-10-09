@@ -29,7 +29,7 @@ function extraerCoordenadas(item) {
         
         if (k === 'latitud' || k === 'lat') lat = parseFloat(item[key]);
         if (k === 'longitud' || k === 'lng' || k === 'lon' || k === 'long') lng = parseFloat(item[key]);
-        if (k === 'ubicacion' || k === 'ubicación' || k === 'geom' || k === 'coordenadas' || k === 'coordenada' || k === 'wkt') {
+        if (k === 'ubicacion' || k === 'ubicación' || k === 'geom' || k === 'coordenadas' || k === 'coordenada' || k === 'wkt' || k === 'ubicacion_wkt') {
             puntoString = item[key];
         }
     }
@@ -130,7 +130,7 @@ export async function cargarModuloMapa(moduloKey, contenedor) {
         // ==========================================
         // FILTRO PRP: Ocultar del mapa lo que no esté en planta
         // ==========================================
-        if (esMapaExtintores || esMapaExtintores || config.tabla.toLowerCase() === 'extintores' || config.tabla.toLowerCase() === 'extintor') {
+        if (esMapaExtintores || config.tabla.toLowerCase() === 'extintores' || config.tabla.toLowerCase() === 'extintor') {
             // Asumimos que si no tiene valor (null), es un extintor viejo que está En Planta
             const estadoPRP = item.PRP ? String(item.PRP).trim().toLowerCase() : 'en planta';
             
