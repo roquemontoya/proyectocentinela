@@ -265,6 +265,15 @@ export async function cargarModuloMapa(moduloKey, contenedor) {
             `;
 
             marker.bindPopup(popupContent);
+            if (esMapaExtintores) {
+                marker.bindTooltip(String(idElemento), {
+                    permanent: true,
+                    direction: 'top',
+                    offset: [0, -9],
+                    opacity: 0.95,
+                    className: 'etiqueta-marcador-extintor'
+                });
+            }
         }
     });
 
