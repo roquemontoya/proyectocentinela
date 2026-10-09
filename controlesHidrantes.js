@@ -48,6 +48,7 @@ function valorAtributo(attrs, ...keys) {
 export function cambiarTipoControl() {
     const tipo = document.getElementById('input-tipocontrol')?.value;
     const bloque = document.getElementById('bloque-anual');
+    const bloqueRealizadoPor = document.getElementById('bloque-realizado-por');
     const fecha = document.getElementById('input-fechapruebaanual');
     const pruebaAprobada = document.getElementById('input-pruebaaprobada');
     const movimientoAgua = document.getElementById('input-movimiento-agua');
@@ -55,6 +56,9 @@ export function cambiarTipoControl() {
     if (!bloque) return;
     const visible = tipo === 'Anual' || tipo === 'A Solicitud';
     bloque.style.display = visible ? 'block' : 'none';
+    // El selector de inspector corresponde al control mensual. En Anual/A Solicitud,
+    // el bombero elegido para la prueba funcional identifica quién realizó el control.
+    if (bloqueRealizadoPor) bloqueRealizadoPor.style.display = visible ? 'none' : 'block';
     if (pruebaAprobada) pruebaAprobada.required = visible;
     if (movimientoAgua) movimientoAgua.required = visible;
     if (realizoPrueba) realizoPrueba.required = visible;
@@ -200,7 +204,7 @@ function renderizarFormularioHidranteHTML(leu) {
 
         <fieldset style="border:1px solid #444;border-radius:5px;padding:10px;margin-bottom:12px;">
             <legend style="font-size:13px;color:#aaa;">Planificación de prueba funcional</legend>
-            <label style="display:block;margin-bottom:5px;">¿En qué mes y año se realizará la prueba funcional?</label>
+            <label style="display:block;margin-bottom:5px;">Prueba funcional:</label>
             <input type="month" id="input-fechapruebaanual" style="width:100%;padding:6px;margin-bottom:10px;background:#2a2a2a;border:1px solid #444;color:#fff;">
         </fieldset>
 
@@ -263,13 +267,18 @@ export async function guardarControlHidrante(event) {
         const idActivo=Number(document.getElementById('input-id-db').value);
         const tipoControl=document.getElementById('input-tipocontrol')?.value || 'Mensual';
         const estado=document.getElementById('input-estado')?.value || 'Operativo';
-        const realizo=document.getElementById('input-realizo')?.value;
+        const realizoMensual=document.getElementById('input-realizo')?.value;
+        const realizoPruebaSeleccionado=document.getElementById('input-realizo-prueba')?.value;
+        const esPruebaFuncional=tipoControl==='Anual'||tipoControl==='A Solicitud';
+        const realizo=esPruebaFuncional ? realizoPruebaSeleccionado : realizoMensual;
         const observacion=document.getElementById('input-observacion')?.value || '';
         const fotoInput=document.getElementById('input-foto')?.files?.[0];
 
         if(!idActivo || !activoLEU || Number(activoLEU.id)!==idActivo) throw new Error('No se pudo identificar correctamente el hidrante en LEU.');
-        if(!realizo) throw new Error('Por favor selecciona un inspector haciendo clic en su foto.');
-        if(tipoControl==='Anual'||tipoControl==='A Solicitud') {
+        if(!realizo) throw new Error(esPruebaFuncional
+            ? 'Selecciona el bombero que realizó la prueba funcional.'
+            : 'Por favor selecciona un inspector haciendo clic en su foto.');
+        if(esPruebaFuncional) {
             if(!document.getElementById('input-movimiento-agua')?.value) throw new Error('Indica si hubo movimiento de agua durante la prueba funcional.');
             if(!document.getElementById('input-realizo-prueba')?.value) throw new Error('Selecciona el bombero que realizó la prueba funcional.');
         }
