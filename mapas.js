@@ -194,7 +194,7 @@ function popupActivo(item, moduloKey, config, estado, esExtintor) {
     const controlPermitido = ['extintores', 'hidrantes'].includes(moduloKey);
     const boton = controlPermitido
         ? '<button onclick="window.abrirFormularioControl(\'' + moduloKey + '\',\'' + item.id + '\',\'' +
-            escaparHtml(etiqueta).replace(/'/g, '&#39;') +
+            escaparHtml(String(etiqueta).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\r/g, '\\r').replace(/\n/g, '\\n')) +
             '\')" style="background:#22c55e;color:#000;border:0;padding:7px 10px;border-radius:4px;font-weight:bold;cursor:pointer;width:100%">Nuevo control</button>'
         : '';
     return '<div style="font-family:Arial,sans-serif;color:#333;min-width:180px;max-width:230px">' +
