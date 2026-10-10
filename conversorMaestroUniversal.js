@@ -1500,12 +1500,56 @@ const convertirWktIppAGeometria = (valor) => {
                             }
 
                             let resultado = repararFilaEstructuralmente(fila, numeroFilaCsv);
+                            // Evita que la heurística genérica de filas partidas vuelva a
+                            // aceptar una fila ECAS que la auditoría semántica acaba de bloquear.
+                            let filaEcasBloqueada = false;
+
+                            // ECAS: auditoría semántica conservadora de alineación.
+                            // Una fila puede tener el número correcto de columnas y aun así
+                            // estar corrida por comas decimales sin comillas (p. ej. 166,8 PSI).
+                            // No desplazamos valores por intuición: bloqueamos esa fila para
+                            // revisión si campos ancla contradicen claramente sus encabezados.
+                            if (categoriaDetectadaGlobal === 'ECAS' && resultado?.fila) {
+                                const valorCabeceraEcas = (aliases) => {
+                                    const idx = encabezadosOriginales.findIndex(h =>
+                                        aliases.includes(normalizarCabecera(h))
+                                    );
+                                    return idx >= 0 ? String(resultado.fila[idx] ?? '').trim() : '';
+                                };
+                                const mesEcas = normalizarCabecera(valorCabeceraEcas(['mes']));
+                                const mesesEcas = new Set(['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','setiembre','octubre','noviembre','diciembre']);
+                                const semanaEcas = valorCabeceraEcas(['controlsemanan']);
+                                const statusEcas = normalizarCabecera(valorCabeceraEcas(['status']));
+                                const problemasEcas = [];
+                                if (mesEcas && !mesesEcas.has(mesEcas)) {
+                                    problemasEcas.push('el campo Mes no contiene un mes reconocible');
+                                }
+                                if (semanaEcas && !/^\d{1,2}$/.test(semanaEcas)) {
+                                    problemasEcas.push('el campo CONTROL SEMANA N° no contiene un número de semana');
+                                }
+                                // No imponemos una lista cerrada de estados: el CSV puede
+                                // contener estados operativos legítimos aún no catalogados.
+                                // Solo marcamos valores con apariencia clara de dato numérico
+                                // desplazado (presión, tiempo o fecha) para revisar con el CSV.
+                                if (statusEcas && /^\\d+(?:psi|bar|segundos?|minutos?|s|m)?$/.test(statusEcas)) {
+                                    problemasEcas.push('el campo STATUS parece contener un valor numérico de otra columna');
+                                }
+                                if (problemasEcas.length) {
+                                    filaEcasBloqueada = true;
+                                    resultado = {
+                                        fila: null,
+                                        reparada: false,
+                                        motivo: 'ECAS · fila ' + numeroFilaCsv + ': posible desplazamiento de columnas (' + problemasEcas.join('; ') + '). No se corrigió automáticamente para evitar asignar datos al campo equivocado.',
+                                        tipoReparacion: null
+                                    };
+                                }
+                            }
 
                             // CASO 4: un registro lógico fue partido en dos filas físicas.
                             // A) La primera fila contiene parte del registro y la siguiente lo completa.
                             // B) La primera fila contiene WKT + etiqueta y la siguiente aporta
                             //    sector + latitud + longitud + resto de campos.
-                            if (!resultado.fila && wktEsValido(fila?.[0]) && fila.length < COLUMNAS_ESPERADAS) {
+                            if (!filaEcasBloqueada && !resultado.fila && wktEsValido(fila?.[0]) && fila.length < COLUMNAS_ESPERADAS) {
                                 const siguiente = filasDatos[index + 1];
 
                                 if (Array.isArray(siguiente) && !wktEsValido(siguiente[0])) {
