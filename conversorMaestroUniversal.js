@@ -1520,7 +1520,6 @@ const convertirWktIppAGeometria = (valor) => {
                                 const mesesEcas = new Set(['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','setiembre','octubre','noviembre','diciembre']);
                                 const semanaEcas = valorCabeceraEcas(['controlsemanan']);
                                 const statusEcas = normalizarCabecera(valorCabeceraEcas(['status']));
-                                const estadosStatusEcas = new Set(['', 'ok', 'observado', 'observada', 'conforme', 'noconforme', 'pendiente', 'abierta', 'cerrada', 'si', 'no', 'sd', 'null']);
                                 const problemasEcas = [];
                                 if (mesEcas && !mesesEcas.has(mesEcas)) {
                                     problemasEcas.push('el campo Mes no contiene un mes reconocible');
@@ -1528,8 +1527,12 @@ const convertirWktIppAGeometria = (valor) => {
                                 if (semanaEcas && !/^\d{1,2}$/.test(semanaEcas)) {
                                     problemasEcas.push('el campo CONTROL SEMANA N° no contiene un número de semana');
                                 }
-                                if (statusEcas && !estadosStatusEcas.has(statusEcas)) {
-                                    problemasEcas.push('el campo STATUS contiene un valor incompatible con un estado');
+                                // No imponemos una lista cerrada de estados: el CSV puede
+                                // contener estados operativos legítimos aún no catalogados.
+                                // Solo marcamos valores con apariencia clara de dato numérico
+                                // desplazado (presión, tiempo o fecha) para revisar con el CSV.
+                                if (statusEcas && /^\\d+(?:psi|bar|segundos?|minutos?|s|m)?$/.test(statusEcas)) {
+                                    problemasEcas.push('el campo STATUS parece contener un valor numérico de otra columna');
                                 }
                                 if (problemasEcas.length) {
                                     filaEcasBloqueada = true;
