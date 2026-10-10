@@ -1948,10 +1948,39 @@ const convertirWktIppAGeometria = (valor) => {
                         sector: item.sector
                     });
                 } else if (categoriaDetectadaGlobal === 'ECAS') {
+                    // Los CSV de ECAS mezclan datos de identificación con resultados
+                    // de inspección. Se conserva el contenido textual original (incluidos
+                    // "S/D", unidades, tiempos y observaciones) y solo se normaliza la fecha
+                    // cuando el destino PostgreSQL es de tipo DATE.
                     arrayControlesEcas.push({
                         id_activo: idActivo,
                         nombreetiqueta: item.etiqueta,
-                        sector: item.sector
+                        ubicacion: obtenerAtributo(attrs, ['Ubicación', 'Ubicacion']),
+                        sector: item.sector,
+                        central_que_reporta: obtenerAtributo(attrs, ['Central que reporta', 'Central']),
+                        estado: obtenerAtributo(attrs, ['Estado']),
+                        fecha_inspeccion_2025: normalizarFechaParaPostgres(obtenerAtributo(attrs, ['Inspección 2025', 'Inspeccion 2025', 'Fecha inspección 2025', 'Fecha Inspeccion 2025'])),
+                        mes: obtenerAtributo(attrs, ['Mes']),
+                        p_entrada: obtenerAtributo(attrs, ['P/ENTRADA', 'P/ ENTRADA', 'P Entrada', 'P. Entrada']),
+                        p_salida: obtenerAtributo(attrs, ['P/SALIDA', 'P/ SALIDA', 'P Salida', 'P. Salida']),
+                        t_gong: obtenerAtributo(attrs, ['T/GONG', 'T/Gong', 'T Gong']),
+                        t_central: obtenerAtributo(attrs, ['T central', 'T Central']),
+                        t_monitoreo: obtenerAtributo(attrs, ['T.monitoreo', 'T monitoreo', 'T. monitoreo']),
+                        rotulo_central: obtenerAtributo(attrs, ['RÓTULO CENTRAL', 'ROTULO CENTRAL', 'Rótulo central']),
+                        rotulo_base: obtenerAtributo(attrs, ['RÓTULO BASE', 'ROTULO BASE', 'Rótulo base']),
+                        observaciones: obtenerAtributo(attrs, ['Observaciones']),
+                        parametros_reporte: obtenerAtributo(attrs, ['Parámetros reporte', 'Parametros reporte']),
+                        control_semana_n: obtenerAtributo(attrs, ['CONTROL SEMANA N°', 'CONTROL SEMANA Nº', 'Control semana N', 'Control semana']),
+                        control_s_realizado_por: obtenerAtributo(attrs, ['Control S. realizado por', 'Control S realizado por']),
+                        p_entrada_semanal: obtenerAtributo(attrs, ['P/ Entrada Semanal', 'P Entrada Semanal']),
+                        p_salida_semanal: obtenerAtributo(attrs, ['P/ Salida Semanal', 'P Salida Semanal']),
+                        status: obtenerAtributo(attrs, ['STATUS', 'Status']),
+                        anomalias: obtenerAtributo(attrs, ['ANOMALIAS', 'Anomalías', 'Anomalias']),
+                        evento_numero: obtenerAtributo(attrs, ['Evento Numero', 'Evento Número']),
+                        observacion: obtenerAtributo(attrs, ['Observacion', 'Observación']),
+                        reportado_fecha: normalizarFechaParaPostgres(obtenerAtributo(attrs, ['Reportado Fecha', 'ReportadoFecha'])),
+                        reportado_mes: obtenerAtributo(attrs, ['Reportado Mes', 'ReportadoMes']),
+                        reportado_por: obtenerAtributo(attrs, ['Reportado Por', 'ReportadoPor'])
                     });
                 } else if (categoriaDetectadaGlobal === 'VECAS') {
                     arrayControlesVecas.push({
