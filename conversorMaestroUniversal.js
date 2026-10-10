@@ -1501,6 +1501,43 @@ const convertirWktIppAGeometria = (valor) => {
 
                             let resultado = repararFilaEstructuralmente(fila, numeroFilaCsv);
 
+                            // ECAS: auditoría semántica conservadora de alineación.
+                            // Una fila puede tener el número correcto de columnas y aun así
+                            // estar corrida por comas decimales sin comillas (p. ej. 166,8 PSI).
+                            // No desplazamos valores por intuición: bloqueamos esa fila para
+                            // revisión si campos ancla contradicen claramente sus encabezados.
+                            if (categoriaDetectadaGlobal === 'ECAS' && resultado?.fila) {
+                                const valorCabeceraEcas = (aliases) => {
+                                    const idx = encabezadosOriginales.findIndex(h =>
+                                        aliases.includes(normalizarCabecera(h))
+                                    );
+                                    return idx >= 0 ? String(resultado.fila[idx] ?? '').trim() : '';
+                                };
+                                const mesEcas = normalizarCabecera(valorCabeceraEcas(['mes']));
+                                const mesesEcas = new Set(['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','setiembre','octubre','noviembre','diciembre']);
+                                const semanaEcas = valorCabeceraEcas(['controlsemanan','controlsemanan']);
+                                const statusEcas = normalizarCabecera(valorCabeceraEcas(['status']));
+                                const estadosStatusEcas = new Set(['', 'ok', 'observado', 'observada', 'conforme', 'noconforme', 'pendiente', 'abierta', 'cerrada', 'si', 'no', 'sd', 'null']);
+                                const problemasEcas = [];
+                                if (mesEcas && !mesesEcas.has(mesEcas)) {
+                                    problemasEcas.push('el campo Mes no contiene un mes reconocible');
+                                }
+                                if (semanaEcas && !/^\\d{1,2}$/.test(semanaEcas)) {
+                                    problemasEcas.push('el campo CONTROL SEMANA N° no contiene un número de semana');
+                                }
+                                if (statusEcas && !estadosStatusEcas.has(statusEcas)) {
+                                    problemasEcas.push('el campo STATUS contiene un valor incompatible con un estado');
+                                }
+                                if (problemasEcas.length) {
+                                    resultado = {
+                                        fila: null,
+                                        reparada: false,
+                                        motivo: 'ECAS · fila ' + numeroFilaCsv + ': posible desplazamiento de columnas (' + problemasEcas.join('; ') + '). No se corrigió automáticamente para evitar asignar datos al campo equivocado.',
+                                        tipoReparacion: null
+                                    };
+                                }
+                            }
+
                             // CASO 4: un registro lógico fue partido en dos filas físicas.
                             // A) La primera fila contiene parte del registro y la siguiente lo completa.
                             // B) La primera fila contiene WKT + etiqueta y la siguiente aporta
