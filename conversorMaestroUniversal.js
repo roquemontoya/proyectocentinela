@@ -1520,12 +1520,19 @@ const convertirWktIppAGeometria = (valor) => {
                                 const mesesEcas = new Set(['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','setiembre','octubre','noviembre','diciembre']);
                                 const semanaEcas = valorCabeceraEcas(['controlsemanan']);
                                 const statusEcas = normalizarCabecera(valorCabeceraEcas(['status']));
+                                const estadoOperativoEcas = normalizarCabecera(valorCabeceraEcas(['estado']));
+                                const etiquetaEcas = valorCabeceraEcas(['nombredeetiqueta']);
                                 const problemasEcas = [];
                                 if (mesEcas && !mesesEcas.has(mesEcas)) {
                                     problemasEcas.push('el campo Mes no contiene un mes reconocible');
                                 }
+                                if (!mesEcas && etiquetaEcas && estadoOperativoEcas !== 'fueradeservicio') {
+                                    problemasEcas.push('falta el Mes en un registro ECAS operativo; revisar posible desplazamiento o dato incompleto');
+                                }
                                 if (semanaEcas && !/^\d{1,2}$/.test(semanaEcas)) {
                                     problemasEcas.push('el campo CONTROL SEMANA N° no contiene un número de semana');
+                                } else if (!semanaEcas && etiquetaEcas && estadoOperativoEcas !== 'fueradeservicio') {
+                                    problemasEcas.push('falta CONTROL SEMANA N° en un registro ECAS operativo; revisar posible desplazamiento o dato incompleto');
                                 }
                                 // No imponemos una lista cerrada de estados: el CSV puede
                                 // contener estados operativos legítimos aún no catalogados.
