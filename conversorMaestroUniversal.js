@@ -1500,6 +1500,9 @@ const convertirWktIppAGeometria = (valor) => {
                             }
 
                             let resultado = repararFilaEstructuralmente(fila, numeroFilaCsv);
+                            // Evita que la heurística genérica de filas partidas vuelva a
+                            // aceptar una fila ECAS que la auditoría semántica acaba de bloquear.
+                            let filaEcasBloqueada = false;
 
                             // ECAS: auditoría semántica conservadora de alineación.
                             // Una fila puede tener el número correcto de columnas y aun así
@@ -1529,6 +1532,7 @@ const convertirWktIppAGeometria = (valor) => {
                                     problemasEcas.push('el campo STATUS contiene un valor incompatible con un estado');
                                 }
                                 if (problemasEcas.length) {
+                                    filaEcasBloqueada = true;
                                     resultado = {
                                         fila: null,
                                         reparada: false,
@@ -1542,7 +1546,7 @@ const convertirWktIppAGeometria = (valor) => {
                             // A) La primera fila contiene parte del registro y la siguiente lo completa.
                             // B) La primera fila contiene WKT + etiqueta y la siguiente aporta
                             //    sector + latitud + longitud + resto de campos.
-                            if (!resultado.fila && wktEsValido(fila?.[0]) && fila.length < COLUMNAS_ESPERADAS) {
+                            if (!filaEcasBloqueada && !resultado.fila && wktEsValido(fila?.[0]) && fila.length < COLUMNAS_ESPERADAS) {
                                 const siguiente = filasDatos[index + 1];
 
                                 if (Array.isArray(siguiente) && !wktEsValido(siguiente[0])) {
