@@ -1538,7 +1538,7 @@ const convertirWktIppAGeometria = (valor) => {
                                 // contener estados operativos legítimos aún no catalogados.
                                 // Solo marcamos valores con apariencia clara de dato numérico
                                 // desplazado (presión, tiempo o fecha) para revisar con el CSV.
-                                if (statusEcas && /^\\d+(?:psi|bar|segundos?|minutos?|s|m)?$/.test(statusEcas)) {
+                                if (statusEcas && /^\d+(?:psi|bar|segundos?|minutos?|s|m)?$/.test(statusEcas)) {
                                     problemasEcas.push('el campo STATUS parece contener un valor numérico de otra columna');
                                 }
                                 if (problemasEcas.length) {
