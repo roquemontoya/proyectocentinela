@@ -1515,14 +1515,14 @@ const convertirWktIppAGeometria = (valor) => {
                                 };
                                 const mesEcas = normalizarCabecera(valorCabeceraEcas(['mes']));
                                 const mesesEcas = new Set(['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','setiembre','octubre','noviembre','diciembre']);
-                                const semanaEcas = valorCabeceraEcas(['controlsemanan','controlsemanan']);
+                                const semanaEcas = valorCabeceraEcas(['controlsemanan']);
                                 const statusEcas = normalizarCabecera(valorCabeceraEcas(['status']));
                                 const estadosStatusEcas = new Set(['', 'ok', 'observado', 'observada', 'conforme', 'noconforme', 'pendiente', 'abierta', 'cerrada', 'si', 'no', 'sd', 'null']);
                                 const problemasEcas = [];
                                 if (mesEcas && !mesesEcas.has(mesEcas)) {
                                     problemasEcas.push('el campo Mes no contiene un mes reconocible');
                                 }
-                                if (semanaEcas && !/^\\d{1,2}$/.test(semanaEcas)) {
+                                if (semanaEcas && !/^\d{1,2}$/.test(semanaEcas)) {
                                     problemasEcas.push('el campo CONTROL SEMANA N° no contiene un número de semana');
                                 }
                                 if (statusEcas && !estadosStatusEcas.has(statusEcas)) {
