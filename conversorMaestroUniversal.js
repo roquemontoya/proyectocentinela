@@ -1999,10 +1999,50 @@ const convertirWktIppAGeometria = (valor) => {
                         sector: item.sector
                     });
                 } else if (categoriaDetectadaGlobal === 'ECAS') {
+                    // Mapear el registro histórico ECAS completo a controles_ecas.
+                    // Los valores se conservan como texto salvo la semana, que es INTEGER
+                    // en la tabla; si no es un entero válido, se deja NULL y la auditoría
+                    // estructural debe impedir que una fila ambigua llegue a esta etapa.
+                    const valorEcas = (aliases) => {
+                        const v = obtenerAtributo(attrs, aliases);
+                        if (v === undefined || v === null) return null;
+                        const t = String(v).trim();
+                        return t === '' || /^null$/i.test(t) ? null : t;
+                    };
+                    const semanaEcasRaw = valorEcas(['CONTROL SEMANA N°', 'CONTROL SEMANA Nº', 'CONTROL SEMANA', 'Control semana N']);
+                    const semanaEcasNum = semanaEcasRaw !== null && /^\d{1,2}$/.test(semanaEcasRaw)
+                        ? Number(semanaEcasRaw)
+                        : null;
                     arrayControlesEcas.push({
                         id_activo: idActivo,
+                        ideca_original: valorEcas(['Nombre de etiqueta', 'Etiqueta', 'ECA']),
                         nombreetiqueta: item.etiqueta,
-                        sector: item.sector
+                        ubicacion: valorEcas(['Ubicación', 'Ubicacion']),
+                        sector: item.sector ?? valorEcas(['Sector']),
+                        central_que_reporta: valorEcas(['Central que reporta', 'Central']),
+                        estado: valorEcas(['Estado']),
+                        fecha_inspeccion_2025: valorEcas(['Fecha Inspeccion 2025', 'Fecha Inspección 2025', 'Inspeccion 2025']),
+                        mes: valorEcas(['Mes']),
+                        p_entrada: valorEcas(['P/ENTRADA', 'P ENTRADA']),
+                        p_salida: valorEcas(['P/SALIDA', 'P SALIDA']),
+                        t_gong: valorEcas(['T/GONG', 'T GONG']),
+                        t_central: valorEcas(['T central', 'T. central']),
+                        t_monitoreo: valorEcas(['T.monitoreo', 'T monitoreo']),
+                        rotulo_central: valorEcas(['ROTULO CENTRAL', 'Rótulo central']),
+                        rotulo_base: valorEcas(['ROTULO BASE', 'Rótulo base']),
+                        observaciones: valorEcas(['Observaciones']),
+                        parametros_reporte: valorEcas(['Parametros / Reporte 2025', 'Parámetros / Reporte 2025']),
+                        control_semana_n: semanaEcasNum,
+                        control_s_realizado_por: valorEcas(['Control S. realizado por', 'Control S realizado por']),
+                        p_entrada_semanal: valorEcas(['P/ Entrada Semanal', 'P Entrada Semanal']),
+                        p_salida_semanal: valorEcas(['P/ Salida Semanal', 'P Salida Semanal']),
+                        status: valorEcas(['STATUS']),
+                        anomalias: valorEcas(['ANOMALIAS SI / NO', 'ANOMALIAS']),
+                        evento_numero: valorEcas(['Evento Numero', 'Evento Número']),
+                        observacion: valorEcas(['Observacion', 'Observación']),
+                        reportado_fecha: valorEcas(['Reportado Fecha']),
+                        reportado_mes: valorEcas(['Reportado Mes']),
+                        reportado_por: valorEcas(['Reportado Por'])
                     });
                 } else if (categoriaDetectadaGlobal === 'VECAS') {
                     arrayControlesVecas.push({
