@@ -4,6 +4,7 @@
 
 import { cargarModuloAdminCsv } from './conversorMaestroUniversal.js';
 import { cargarModuloGestorTablas } from './gestorTablas.js';
+import { cargarFormularioCorreccionEcas } from './formularioCorreccionEcas.js';
 import { cargarModuloMapa } from './mapas.js';
 import { cargarModuloPulmon } from './moduloPulmon.js';
 import { cargarModuloBomberos } from './bomberos.js';
@@ -118,6 +119,10 @@ window.cargarModulo = async function(modulo) {
 
             case 'gestorTablas':
                 cargarModuloGestorTablas(vistaDinamica);
+                break;
+
+            case 'correccionEcas':
+                await cargarFormularioCorreccionEcas(vistaDinamica);
                 break;
 
             case 'pulmon':
