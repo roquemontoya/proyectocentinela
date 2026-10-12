@@ -195,10 +195,22 @@ async function consultarUltimasFotos(moduloKey) {
     const configFotos = TABLAS_FOTOS_CONTROLES[moduloKey];
     if (!configFotos) return new Map();
 
-    // Solo administradores autenticados pueden consultar fotografías de controles.
-    const { data: usuarioData, error: usuarioError } = await clienteSupabase.auth.getUser();
-    if (usuarioError || !usuarioData?.user) return new Map();
+    // Bomberos usa acceso operativo anónimo: una Edge Function solo devuelve
+    // URLs temporales de la última foto por activo, nunca el historial.
+    const { data: usuarioData } = await clienteSupabase.auth.getUser();
+    if (!usuarioData?.user) {
+        const { data: respuesta, error: funcionError } = await clienteSupabase.functions.invoke(
+            'latest-control-photos',
+            { body: { moduleKey: moduloKey } }
+        );
+        if (funcionError || !respuesta?.photos) {
+            console.warn('[Centinela mapa] No se pudieron cargar las últimas fotos:', funcionError?.message || 'respuesta vacía');
+            return new Map();
+        }
+        return new Map(Object.entries(respuesta.photos).map(([id, url]) => [Number(id), url]));
+    }
 
+    // El historial completo queda reservado a administración autenticada.
     const { data: esAdmin } = await clienteSupabase.rpc('current_user_has_role', { p_role: 'administrador' });
     const { data: esSuperadmin } = await clienteSupabase.rpc('current_user_has_role', { p_role: 'superadministrador' });
     if (!esAdmin && !esSuperadmin) return new Map();
@@ -207,8 +219,8 @@ async function consultarUltimasFotos(moduloKey) {
         .from(configFotos.tabla)
         .select('id_activo, foto, ' + configFotos.orden)
         .not('foto', 'is', null)
-        .neq('foto', '')
         .order(configFotos.orden, { ascending: false });
+
     if (error) {
         console.warn('[Centinela mapa] No se pudieron consultar las fotos de ' + moduloKey + ':', error.message);
         return new Map();
