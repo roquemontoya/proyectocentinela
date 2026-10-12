@@ -107,10 +107,38 @@ async function cargarCategoria(categoria) {
   document.getElementById('editor-ubicacion-guardar').disabled=true;
   document.getElementById('editor-ubicacion-lista').textContent='Cargando elementos…';
   mensaje('');
-  const {data,error}=await clienteSupabase.from('leu').select('id,etiqueta,categoria,sector,ubicacion_wkt').eq('categoria',categoria).order('id',{ascending:true});
-  if(miSolicitud!==solicitud)return;
-  if(error){document.getElementById('editor-ubicacion-lista').textContent='Error al consultar LEU: '+error.message;return;}
-  activos=data||[];
+  // Supabase puede limitar cada respuesta a 1.000 filas. Leer por bloques
+  // garantiza que el editor cargue todos los activos de la categoría.
+  const TAMANO_LOTE = 500;
+  let desde = 0;
+  let errorConsulta = null;
+  const todosLosActivos = [];
+  while (true) {
+    const { data, error } = await clienteSupabase
+      .from('leu')
+      .select('id,etiqueta,categoria,sector,ubicacion_wkt')
+      .eq('categoria', categoria)
+      .order('id', { ascending: true })
+      .range(desde, desde + TAMANO_LOTE - 1);
+
+    if (miSolicitud !== solicitud) return;
+    if (error) {
+      errorConsulta = error;
+      break;
+    }
+
+    const lote = data || [];
+    todosLosActivos.push(...lote);
+    if (lote.length < TAMANO_LOTE) break;
+    desde += TAMANO_LOTE;
+  }
+
+  if (miSolicitud !== solicitud) return;
+  if (errorConsulta) {
+    document.getElementById('editor-ubicacion-lista').textContent = 'Error al consultar LEU: ' + errorConsulta.message;
+    return;
+  }
+  activos = todosLosActivos;
   if(capaMarcadores){mapa.removeLayer(capaMarcadores);capaMarcadores=null;}
   capaMarcadores=L.layerGroup().addTo(mapa);
   const limites=[];
