@@ -317,7 +317,7 @@ export async function cargarModuloRecorridosGPS(contenedor) {
   contenedor.innerHTML = `
     <section style="padding:12px;color:#e5e7eb;font-family:Arial,sans-serif;max-width:1500px;margin:auto">
       <h2 style="margin:0 0 5px">🧭 Recorridos GPS y caminos internos</h2>
-      <p style="color:#9ca3af;margin:0 0 12px">Se registra el dispositivo/equipo de guardia, no una identidad personal garantizada. La captura GPS funciona mientras la PWA permanece activa en primer plano.</p>
+      <p style="color:#9ca3af;margin:0 0 12px">Se registra el dispositivo/equipo de guardia, no una identidad personal garantizada. La captura GPS requiere mantener este módulo abierto en primer plano; cambiar de módulo o volver al inicio pausa la captura.</p>
       <div id="rgps-estado" role="status" style="padding:9px 10px;background:#111827;border-radius:6px;margin-bottom:8px">Preparando módulo…</div>
       <form id="rgps-form" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:9px;background:#0f172a;border:1px solid #374151;border-radius:8px;padding:12px;margin-bottom:10px">
         <label style="font-size:13px">ID de dispositivo/equipo<input id="rgps-equipo-id" required maxlength="120" placeholder="Ej. MOVIL-01" style="display:block;width:100%;box-sizing:border-box;padding:10px;margin-top:5px;background:#111827;color:white;border:1px solid #4b5563;border-radius:6px"></label>
