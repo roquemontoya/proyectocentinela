@@ -7,7 +7,6 @@ const CATEGORIAS = [
   { valor: 'Valvulas', etiqueta: 'Válvulas' },
   { valor: 'VECAS', etiqueta: 'VECAS' },
   { valor: 'Purgas ECAS (PECAS)', etiqueta: 'PECAS' },
-  { valor: 'IPP (Macro Sectores)', etiqueta: 'IPP (Macro Sectores)' }
 ];
 const VISTA_INICIAL = [-38.88, -62.08];
 let mapa = null;
@@ -180,9 +179,11 @@ export async function cargarModuloEditorUbicaciones(contenedor) {
   });
   document.getElementById('editor-ubicacion-guardar').addEventListener('click',async()=>{
     if(!seleccionado||!marcadorSeleccionado){mensaje('Selecciona un elemento y define su posición.',true);return;}
+    const idGuardado=Number(seleccionado.id);
+    const nombreGuardado=nombre(seleccionado);
     const pos=marcadorSeleccionado.getLatLng();
     if(!validar(pos.lat,pos.lng)){mensaje('Las coordenadas no son válidas.',true);return;}
-    if(!confirm('¿Guardar la nueva ubicación de «'+nombre(seleccionado)+'» (ID '+seleccionado.id+') en LEU?'))return;
+    if(!confirm('¿Guardar la nueva ubicación de «'+nombreGuardado+'» (ID '+idGuardado+') en LEU?'))return;
     const boton=document.getElementById('editor-ubicacion-guardar');
     boton.disabled=true;
     const wkt='POINT('+pos.lng.toFixed(8)+' '+pos.lat.toFixed(8)+')';
@@ -190,11 +191,10 @@ export async function cargarModuloEditorUbicaciones(contenedor) {
     boton.disabled=false;
     if(error){mensaje('No se pudo guardar: '+error.message,true);return;}
     if(!data||data.length!==1){mensaje('No se confirmó la actualización. Comprueba permisos y políticas de acceso.',true);return;}
-    seleccionado.ubicacion_wkt=wkt;
     ubicacionPendiente=null;
     mensaje('Ubicación guardada en LEU correctamente.');
     await cargarCategoria(document.getElementById('editor-ubicacion-categoria').value);
-    seleccionarActivo(Number(seleccionado?.id||data[0].id));
+    seleccionarActivo(idGuardado);
   });
   setTimeout(()=>mapa?.invalidateSize(),200);
   await cargarCategoria(CATEGORIAS[0].valor);
