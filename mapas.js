@@ -63,6 +63,7 @@ export function detenerModuloMapa() {
 
 function actualizarListaCercanosMapa() {
     const lista = document.getElementById('gps-mapa-cercanos');
+    const contador = document.getElementById('gps-mapa-contador');
     const radioEl = document.getElementById('gps-mapa-radio');
     if (!lista || !posicionUsuarioMapa) return;
     const radio = Number(radioEl?.value || 1000);
@@ -70,22 +71,28 @@ function actualizarListaCercanosMapa() {
         .map(a => ({ ...a, distancia: distanciaGPS(posicionUsuarioMapa, a.coords) }))
         .filter(a => a.distancia <= radio)
         .sort((a, b) => a.distancia - b.distancia);
+    if (contador) contador.textContent = cercanos.length > 99 ? '99+' : String(cercanos.length);
     lista.innerHTML = cercanos.length
-        ? cercanos.slice(0, 8).map((a, i) =>
-            '<button type="button" data-gps-mapa-index="' + i + '" style="display:flex;justify-content:space-between;gap:8px;width:100%;padding:7px 8px;margin-top:4px;text-align:left;background:#111827;color:#fff;border:1px solid #475569;border-radius:5px;font-size:12px;cursor:pointer"><span>' +
+        ? cercanos.slice(0, 30).map((a, i) =>
+            '<button type="button" data-gps-mapa-index="' + i + '" style="display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;padding:10px 9px;margin-top:5px;text-align:left;background:#172033;color:#fff;border:1px solid #374151;border-radius:7px;font-size:13px;cursor:pointer"><span style="min-width:0;overflow-wrap:anywhere">' +
             escaparHtml(a.nombre) + '</span><b style="white-space:nowrap;color:#93c5fd">' + formatoDistanciaGPS(a.distancia) + '</b></button>'
         ).join('')
-        : '<div style="font-size:12px;color:#cbd5e1;padding:5px 0">No hay puntos de esta categoría dentro del radio elegido.</div>';
+        : '<div style="font-size:13px;color:#cbd5e1;padding:12px 4px">' +
+            (posicionUsuarioMapa ? 'No hay puntos de esta categoría dentro del radio elegido.' : 'Activá tu ubicación para calcular distancias.') + '</div>';
     lista.querySelectorAll('[data-gps-mapa-index]').forEach(boton => {
         boton.addEventListener('click', () => {
             const a = cercanos[Number(boton.dataset.gpsMapaIndex)];
             if (!a || !mapaActivo) return;
             mapaActivo.setView(a.coords, Math.max(mapaActivo.getZoom(), 18));
             a.marcador.openPopup();
+            const panel = document.getElementById('gps-mapa-lista-panel');
+            const toggle = document.getElementById('gps-mapa-cercanos-toggle');
+            if (panel) panel.hidden = true;
+            if (toggle) toggle.setAttribute('aria-expanded', 'false');
         });
     });
     const estado = document.getElementById('gps-mapa-estado');
-    if (estado) estado.textContent = 'Ubicación activa · ' + cercanos.length + ' elemento(s) en ' +
+    if (estado) estado.textContent = cercanos.length + ' elemento(s) dentro de ' +
         (radio >= 1000 ? (radio / 1000) + ' km' : radio + ' m');
 }
 
@@ -120,7 +127,11 @@ function iniciarGPSMapa() {
             radius: precision, color: '#60a5fa', weight: 1, fillColor: '#3b82f6', fillOpacity: 0.08
         }).addTo(mapaActivo);
         if (estado) estado.textContent = 'GPS activo · precisión aproximada ' + Math.round(precision) + ' m';
-        if (boton) boton.disabled = false;
+        if (boton) {
+            boton.disabled = false;
+            boton.setAttribute('aria-label', 'Centrar mapa en mi ubicación');
+            boton.title = 'Centrar mapa en mi ubicación';
+        }
         actualizarListaCercanosMapa();
     }, err => {
         const mensajes = {
@@ -129,7 +140,11 @@ function iniciarGPSMapa() {
             3: 'La solicitud agotó el tiempo. Intenta nuevamente.'
         };
         if (estado) estado.textContent = mensajes[err.code] || 'No se pudo obtener la ubicación.';
-        if (boton) boton.disabled = false;
+        if (boton) {
+            boton.disabled = false;
+            boton.setAttribute('aria-label', 'Reintentar ubicación');
+            boton.title = 'Reintentar ubicación';
+        }
     }, { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 });
 }
 
@@ -513,16 +528,19 @@ export async function cargarModuloMapa(moduloKey, contenedor) {
         mapaActivo.remove();
         mapaActivo = null;
     }
-    contenedor.innerHTML = '<div style="position:relative;width:100%;height:100%;min-height:450px">' +
-        '<div id="mapa-modulo" style="width:100%;height:100%;min-height:450px"></div>' +
-        '<div id="gps-mapa-panel" style="position:absolute;z-index:600;top:10px;right:10px;width:min(285px,calc(100% - 72px));max-height:48%;overflow:auto;background:rgba(15,23,42,.94);color:#fff;padding:10px;border:1px solid #475569;border-radius:8px;box-shadow:0 2px 8px #0006;font:12px Arial">' +
-        '<div style="font-weight:bold;font-size:13px;margin-bottom:7px">📍 Mi ubicación en ' + escaparHtml(config.nombreLegible) + '</div>' +
-        '<button id="gps-mapa-iniciar" type="button" style="padding:8px 10px;background:#2563eb;color:white;border:0;border-radius:5px;font-weight:bold;cursor:pointer;width:100%">◎ Mostrar mi ubicación</button>' +
-        '<label style="display:block;margin-top:8px;color:#cbd5e1">Activos cercanos dentro de ' +
-        '<select id="gps-mapa-radio" style="background:#111827;color:white;border:1px solid #64748b;border-radius:4px;padding:5px;margin-left:4px"><option value="250">250 m</option><option value="500">500 m</option><option value="1000" selected>1 km</option><option value="2000">2 km</option><option value="5000">5 km</option></select></label>' +
-        '<div id="gps-mapa-estado" role="status" style="color:#cbd5e1;margin-top:7px">La ubicación solo se obtiene en este dispositivo y mientras estés en este módulo.</div>' +
-        '<div id="gps-mapa-cercanos" style="margin-top:5px"></div></div>' +
-        '<div id="mapa-diagnostico" role="status" style="position:absolute;z-index:500;left:10px;bottom:18px;max-width:calc(100% - 40px);background:rgba(15,23,42,.92);color:#fff;padding:8px 11px;border-radius:6px;font:12px Arial;box-shadow:0 2px 8px #0006"></div></div>';
+    contenedor.innerHTML = '<div style="position:relative;width:100%;height:100%;min-height:450px;overflow:hidden">' +
+        '<div id="mapa-modulo" style="position:absolute;inset:0;width:100%;height:100%;min-height:450px"></div>' +
+        '<div style="position:absolute;z-index:650;right:12px;bottom:76px;display:flex;flex-direction:column;gap:10px;align-items:flex-end;pointer-events:none">' +
+        '<button id="gps-mapa-iniciar" type="button" aria-label="Mostrar mi ubicación" title="Mostrar mi ubicación" style="pointer-events:auto;width:48px;height:48px;border-radius:50%;border:1px solid #d1d5db;background:#fff;color:#2563eb;box-shadow:0 2px 8px #0005;font-size:24px;display:flex;align-items:center;justify-content:center;cursor:pointer">➤</button>' +
+        '<button id="gps-mapa-cercanos-toggle" type="button" aria-label="Mostrar activos cercanos" aria-expanded="false" title="Activos cercanos" style="pointer-events:auto;position:relative;width:48px;height:48px;border-radius:50%;border:1px solid #d1d5db;background:#fff;color:#111827;box-shadow:0 2px 8px #0005;font-size:22px;display:flex;align-items:center;justify-content:center;cursor:pointer">☷<span id="gps-mapa-contador" style="position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;padding:0 3px;border-radius:10px;background:#2563eb;color:#fff;font-size:10px;line-height:18px;font-weight:bold">0</span></button></div>' +
+        '<section id="gps-mapa-lista-panel" aria-label="Activos cercanos" hidden style="position:absolute;z-index:640;right:12px;bottom:188px;width:min(330px,calc(100% - 24px));max-height:min(48vh,390px);overflow:auto;box-sizing:border-box;background:rgba(15,23,42,.97);color:#fff;padding:12px;border:1px solid #475569;border-radius:12px;box-shadow:0 4px 18px #0007;font:12px Arial">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><strong style="font-size:14px">Activos cercanos · ' + escaparHtml(config.nombreLegible) + '</strong>' +
+        '<button id="gps-mapa-cerrar-lista" type="button" aria-label="Cerrar lista" style="border:0;border-radius:50%;background:#374151;color:#fff;width:30px;height:30px;font-size:18px;cursor:pointer">×</button></div>' +
+        '<label style="display:block;margin-top:10px;color:#cbd5e1">Radio de búsqueda ' +
+        '<select id="gps-mapa-radio" style="background:#111827;color:white;border:1px solid #64748b;border-radius:6px;padding:7px;margin-left:5px"><option value="250">250 m</option><option value="500">500 m</option><option value="1000" selected>1 km</option><option value="2000">2 km</option><option value="5000">5 km</option></select></label>' +
+        '<div id="gps-mapa-estado" role="status" style="color:#cbd5e1;margin-top:8px">Tocá el botón de ubicación para comenzar.</div>' +
+        '<div id="gps-mapa-cercanos" style="margin-top:5px"></div></section>' +
+        '<div id="mapa-diagnostico" role="status" style="position:absolute;z-index:500;left:10px;bottom:10px;max-width:calc(100% - 80px);background:rgba(15,23,42,.82);color:#fff;padding:6px 9px;border-radius:6px;font:11px Arial;box-shadow:0 2px 8px #0004;pointer-events:none"></div></div>';
 
     mapaActivo = L.map('mapa-modulo', { zoomControl: true }).setView([-31.4168, -64.1834], 17);
     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
@@ -596,7 +614,29 @@ export async function cargarModuloMapa(moduloKey, contenedor) {
         contenedor.appendChild(aviso);
     }
 
-    document.getElementById('gps-mapa-iniciar')?.addEventListener('click', iniciarGPSMapa);
+    document.getElementById('gps-mapa-iniciar')?.addEventListener('click', () => {
+        if (posicionUsuarioMapa && mapaActivo) {
+            mapaActivo.setView(posicionUsuarioMapa, Math.max(mapaActivo.getZoom(), 18));
+            marcadorUsuarioMapa?.openPopup();
+            return;
+        }
+        iniciarGPSMapa();
+    });
+    document.getElementById('gps-mapa-cercanos-toggle')?.addEventListener('click', () => {
+        const panel = document.getElementById('gps-mapa-lista-panel');
+        const boton = document.getElementById('gps-mapa-cercanos-toggle');
+        if (!panel || !boton) return;
+        panel.hidden = !panel.hidden;
+        boton.setAttribute('aria-expanded', String(!panel.hidden));
+        if (!panel.hidden && !posicionUsuarioMapa) iniciarGPSMapa();
+        if (!panel.hidden) actualizarListaCercanosMapa();
+    });
+    document.getElementById('gps-mapa-cerrar-lista')?.addEventListener('click', () => {
+        const panel = document.getElementById('gps-mapa-lista-panel');
+        const boton = document.getElementById('gps-mapa-cercanos-toggle');
+        if (panel) panel.hidden = true;
+        if (boton) boton.setAttribute('aria-expanded', 'false');
+    });
     document.getElementById('gps-mapa-radio')?.addEventListener('change', actualizarListaCercanosMapa);
     setTimeout(() => {
         if (miSolicitud === solicitudMapa && mapaActivo) mapaActivo.invalidateSize();
