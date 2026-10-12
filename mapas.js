@@ -466,11 +466,14 @@ function actualizarDistanciaPopup(popup, item, geometria) {
     const el = popup.getElement()?.querySelector('#popup-distancia-' + Number(item.id));
     if (!el) return;
 
+    const vertices = geometria?.tipo === 'punto'
+        ? []
+        : (Array.isArray(geometria?.coordenadas) ? geometria.coordenadas.flat(1) : []);
     const destino = geometria?.tipo === 'punto'
         ? geometria.coordenadas
-        : (geometria?.coordenadas?.length
-            ? geometria.coordenadas.reduce((acc, punto) => [acc[0] + punto[0], acc[1] + punto[1]], [0, 0])
-                .map(valor => valor / geometria.coordenadas.length)
+        : (vertices.length
+            ? vertices.reduce((acc, punto) => [acc[0] + punto[0], acc[1] + punto[1]], [0, 0])
+                .map(valor => valor / vertices.length)
             : null);
     if (!destino) {
         el.textContent = 'Distancia no disponible para esta geometría.';
