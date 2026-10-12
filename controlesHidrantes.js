@@ -4,7 +4,7 @@
 // ==========================================
 
 import { clienteSupabase } from './supabaseClient.js';
-import { aplicarTituloControl, verificarEstadoControl, cargarBomberosEnModal, cerrarFormularioControl, subirFotoStorage } from './controlesBase.js';
+import { actualizarDistanciaActivoControl, aplicarTituloControl, verificarEstadoControl, cargarBomberosEnModal, cerrarFormularioControl, subirFotoStorage } from './controlesBase.js';
 
 let activoLEU = null;
 
