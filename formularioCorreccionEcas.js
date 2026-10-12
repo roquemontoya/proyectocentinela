@@ -2,7 +2,7 @@ import { clienteSupabase } from './supabaseClient.js';
 
 const CAMPOS = [
   ['ideca_original','Identificador original'],['nombreetiqueta','Nombre de etiqueta'],
-  ['ubicacion','Ubicación'],['sector','Sector'],['central_que_reporta','Central que reporta'],
+  ['sector','Sector'],['central_que_reporta','Central que reporta'],
   ['estado','Estado'],['fecha_inspeccion_2025','Fecha inspección 2025'],['mes','Mes'],
   ['p_entrada','P/ENTRADA'],['p_salida','P/SALIDA'],['t_gong','T/GONG'],
   ['t_central','T central'],['t_monitoreo','T.monitoreo'],['rotulo_central','Rótulo central'],
@@ -43,14 +43,13 @@ export async function cargarFormularioCorreccionEcas(contenedor) {
     controlActual = data?.[0] || null;
     const attrs = activo.atributos_tecnicos?.atributos_originales || activo.atributos_tecnicos?.originales || activo.atributos_tecnicos || {};
     const getAttr = names => { const key=Object.keys(attrs||{}).find(k=>names.some(n=>k.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()===n.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase())); return key ? attrs[key] : null; };
-    const csvToCol = {'ideca_original':['Nombre de etiqueta','Etiqueta','ECA'],'nombreetiqueta':['Nombre de etiqueta','Etiqueta'],'ubicacion':['Ubicación','Ubicacion'],'sector':['Sector'],'central_que_reporta':['Central que reporta','Central'],'estado':['Estado'],'fecha_inspeccion_2025':['Fecha Inspeccion 2025','Fecha Inspección 2025'],'mes':['Mes'],'p_entrada':['P/ENTRADA'],'p_salida':['P/SALIDA'],'t_gong':['T/GONG'],'t_central':['T central'],'t_monitoreo':['T.monitoreo','T monitoreo'],'rotulo_central':['ROTULO CENTRAL'],'rotulo_base':['ROTULO BASE'],'observaciones':['Observaciones'],'parametros_reporte':['Parametros / Reporte 2025','Parámetros / Reporte 2025'],'control_semana_n':['CONTROL SEMANA N°','CONTROL SEMANA Nº','CONTROL SEMANA'],'control_s_realizado_por':['Control S. realizado por'],'p_entrada_semanal':['P/ Entrada Semanal'],'p_salida_semanal':['P/ Salida Semanal'],'status':['STATUS'],'anomalias':['ANOMALIAS SI / NO','ANOMALIAS'],'evento_numero':['Evento Numero','Evento Número'],'observacion':['Observacion','Observación'],'reportado_fecha':['Reportado Fecha'],'reportado_mes':['Reportado Mes'],'reportado_por':['Reportado Por']};
+    const csvToCol = {'ideca_original':['Nombre de etiqueta','Etiqueta','ECA'],'nombreetiqueta':['Nombre de etiqueta','Etiqueta'],'sector':['Sector'],'central_que_reporta':['Central que reporta','Central'],'estado':['Estado'],'fecha_inspeccion_2025':['Fecha Inspeccion 2025','Fecha Inspección 2025'],'mes':['Mes'],'p_entrada':['P/ENTRADA'],'p_salida':['P/SALIDA'],'t_gong':['T/GONG'],'t_central':['T central'],'t_monitoreo':['T.monitoreo','T monitoreo'],'rotulo_central':['ROTULO CENTRAL'],'rotulo_base':['ROTULO BASE'],'observaciones':['Observaciones'],'parametros_reporte':['Parametros / Reporte 2025','Parámetros / Reporte 2025'],'control_semana_n':['CONTROL SEMANA N°','CONTROL SEMANA Nº','CONTROL SEMANA'],'control_s_realizado_por':['Control S. realizado por'],'p_entrada_semanal':['P/ Entrada Semanal'],'p_salida_semanal':['P/ Salida Semanal'],'status':['STATUS'],'anomalias':['ANOMALIAS SI / NO','ANOMALIAS'],'evento_numero':['Evento Numero','Evento Número'],'observacion':['Observacion','Observación'],'reportado_fecha':['Reportado Fecha'],'reportado_mes':['Reportado Mes'],'reportado_por':['Reportado Por']};
     contenedor.querySelector('#ce-meta').textContent = 'Activo LEU #'+activo.id+' · '+(activo.sector||'Sector sin dato')+' · '+(controlActual ? 'Se editará el control existente #'+controlActual.id : 'No hay control previo: se creará uno nuevo.');
     for (const [col,label] of CAMPOS) {
       let value = controlActual?.[col];
       if (value === undefined || value === null || value === '') {
         if (col==='nombreetiqueta') value=activo.etiqueta;
         else if (col==='sector') value=activo.sector;
-        else if (col==='ubicacion') value=getAttr(csvToCol[col]||[]) ?? activo.ubicacion_wkt;
         else value=getAttr(csvToCol[col]||[]);
       }
       const type = col==='control_semana_n' ? 'number' : (col==='fecha_inspeccion_2025'||col==='reportado_fecha' ? 'date' : 'text');

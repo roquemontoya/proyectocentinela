@@ -2063,7 +2063,6 @@ const convertirWktIppAGeometria = (valor) => {
                         auditoria_realizada_por: obtenerAtributo(attrs, ['Auditoria realizada por']),
                         estado: obtenerAtributo(attrs, ['Estado']),
                         empresa: obtenerAtributo(attrs, ['Empresa']),
-                        ubicacion: obtenerAtributo(attrs, ['Ubicación', 'Ubicacion']),
                         fecha_inicio: normalizarFechaParaPostgres(obtenerAtributo(attrs, ['Fecha Inicio'])),
                         fecha_cierre: normalizarFechaParaPostgres(obtenerAtributo(attrs, ['Fecha Cierre'])),
                         activa: obtenerAtributo(attrs, ['Activa'])
@@ -2093,7 +2092,6 @@ const convertirWktIppAGeometria = (valor) => {
                         id_activo: idActivo,
                         ideca_original: valorEcas(['Nombre de etiqueta', 'Etiqueta', 'ECA']),
                         nombreetiqueta: item.etiqueta,
-                        ubicacion: valorEcas(['Ubicación', 'Ubicacion']),
                         sector: item.sector ?? valorEcas(['Sector']),
                         central_que_reporta: valorEcas(['Central que reporta', 'Central']),
                         estado: valorEcas(['Estado']),
