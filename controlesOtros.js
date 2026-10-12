@@ -288,6 +288,7 @@ export async function guardarControlOtro(event) {
     });
     if (error) throw new Error(error.message);
 
+    alert('Control guardado correctamente.');
     localStorage.setItem('centinela_inspector',realizo);
     cerrarFormularioControl();
     window.cargarModulo(moduloActual);
