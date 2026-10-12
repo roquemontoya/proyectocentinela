@@ -291,7 +291,10 @@ export function cargarModuloAdminCsv(contenedor) {
                         return;
                     }
 
-                    if (results.errors && results.errors.length > 0) {
+                    // ECAS suele contener comillas de pulgadas/segundos sin escapar.
+                    // En esa categoría usamos el reparador estructural por fila; no abortar
+                    // toda la importación por errores de sintaxis CSV recuperables.
+                    if (results.errors && results.errors.length > 0 && categoriaDetectadaGlobal !== 'ECAS') {
                         const erroresRelevantes = results.errors.slice(0, 5)
                             .map(e => e.message || 'Error de parseo')
                             .join(' | ');
@@ -1013,6 +1016,107 @@ const convertirWktIppAGeometria = (valor) => {
                     const repararFilaEstructuralmente = (fila, numeroFilaCsv) => {
                         let filaOriginal = Array.isArray(fila) ? [...fila] : [];
 
+                        // ECAS: reparador específico para exportaciones My Maps con comas
+                        // decimales no entrecomilladas y Punto GPS redundante. Conserva WKT
+                        // + etiqueta como anclas, elimina GPS solo cuando se reconoce y alinea
+                        // las columnas restantes mediante encabezados y campos ancla.
+                        if (categoriaDetectadaGlobal === 'ECAS' && filaOriginal.length >= 3) {
+                            const etiqueta = String(filaOriginal[1] ?? '').trim();
+                            const pareceEtiquetaEca = /^eca\s*[\w-]+/i.test(etiqueta);
+                            if (pareceEtiquetaEca) {
+                                const filaEcas = [...filaOriginal];
+                                const wktTexto = String(filaEcas[0] ?? '').trim();
+                                const wm = wktTexto.match(/POINT\s*\(\s*(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s*\)/i);
+                                // Punto GPS se descarta porque WKT es la fuente geométrica.
+                                // Si latitud/longitud decimales quedaron en dos tokens, verificar
+                                // ambos contra el WKT antes de retirar los dos.
+                                let inicioCampos = 3;
+                                if (wm && /^-?\d+(?:\.\d+)?$/.test(String(filaEcas[2] ?? '').trim()) &&
+                                    /^-?\d+(?:\.\d+)?$/.test(String(filaEcas[3] ?? '').trim())) {
+                                    const a = Number(filaEcas[2]), b = Number(filaEcas[3]);
+                                    const x = Number(wm[1]), y = Number(wm[2]);
+                                    if ((Math.abs(a-y)<0.000001 && Math.abs(b-x)<0.000001) ||
+                                        (Math.abs(a-x)<0.000001 && Math.abs(b-y)<0.000001)) {
+                                        filaEcas[2] = String(filaEcas[2]).trim() + ', ' + String(filaEcas[3]).trim();
+                                        inicioCampos = 4;
+                                    }
+                                }
+                                // En GMS la coordenada GPS ocupa normalmente un token. Si fue
+                                // dividida por una coma, solo la unimos cuando el segundo token
+                                // tiene forma de longitud oeste/este.
+                                if (inicioCampos === 3 && /^\s*\d{1,3}°/.test(String(filaEcas[2] ?? '')) &&
+                                    /^\s*\d{1,3}°.*[EW]\s*$/i.test(String(filaEcas[3] ?? ''))) {
+                                    filaEcas[2] = String(filaEcas[2]).trim() + ', ' + String(filaEcas[3]).trim();
+                                    inicioCampos = 4;
+                                }
+                                const tokens = filaEcas.slice(inicioCampos);
+                                const encabezadosEcas = encabezadosOriginales.slice(3);
+                                const cantidad = encabezadosEcas.length;
+                                const extras = tokens.length - cantidad;
+                                if (extras >= 0 && extras <= 12) {
+                                    const norm = v => normalizarCabecera(v);
+                                    const mesesEcas = new Set(['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','setiembre','octubre','noviembre','diciembre']);
+                                    const ancla = (cab, val) => {
+                                        const h = norm(cab), v = String(val ?? '').trim(), n = norm(v);
+                                        if (!v) return 0;
+                                        if (h === 'mes') return mesesEcas.has(n) ? 12 : -20;
+                                        if (h.includes('fecha')) return /^(?:\d{1,2}[\/.-]\d{1,2}[\/.-]\d{4}|\d{4}-\d{2}-\d{2})$/.test(v) ? 10 : -12;
+                                        if (h.includes('controlsemanan')) return /^\d{1,2}$/.test(v) ? 10 : -15;
+                                        if (h === 'estado') return /^(ok|observado|operativa|operativo|fuera de servicio|pendiente|inoperativa)$/i.test(v) ? 5 : 0;
+                                        if (h === 'status') return /^(conforme|observado|observadora|observado -.*|observado.*|operativa|fuera de servicio)$/i.test(v) ? 5 : 0;
+                                        if (h.includes('anomalias')) return /^(si|no|sí|)$/i.test(v) ? 4 : 0;
+                                        return 0;
+                                    };
+                                    const fusionable = h => /^(pentrada|psalida|tgong|tcentral|tmonitoreo|rotulocentral|rotulobase|observaciones|parametrosreporte|observacion)$/.test(norm(h));
+                                    const memo = new Map();
+                                    const resolver = (col, tok, sobrantes) => {
+                                        const key = col + ':' + tok + ':' + sobrantes;
+                                        if (memo.has(key)) return memo.get(key);
+                                        if (col === cantidad) return tok === tokens.length && sobrantes === 0 ? {score:0, valores:[]} : null;
+                                        const quedanCols = cantidad - col;
+                                        const quedanTokens = tokens.length - tok;
+                                        if (quedanTokens < quedanCols || quedanTokens - quedanCols !== sobrantes) return null;
+                                        const max = fusionable(encabezadosEcas[col]) ? Math.min(sobrantes + 1, quedanTokens - quedanCols + 1) : 1;
+                                        let mejor = null;
+                                        for (let tomar = 1; tomar <= max; tomar++) {
+                                            const usados = tomar - 1;
+                                            if (usados > sobrantes) continue;
+                                            const valor = tokens.slice(tok, tok + tomar).map(v => String(v ?? '').trim()).join(tomar > 1 ? ', ' : '');
+                                            const sub = resolver(col + 1, tok + tomar, sobrantes - usados);
+                                            if (!sub) continue;
+                                            const score = ancla(encabezadosEcas[col], valor) + sub.score - usados * 0.1;
+                                            if (!mejor || score > mejor.score) mejor = {score, valores:[valor || null, ...sub.valores]};
+                                        }
+                                        memo.set(key, mejor);
+                                        return mejor;
+                                    };
+                                    const alineado = resolver(0, 0, extras);
+                                    if (alineado && alineado.valores.length === cantidad) {
+                                        const canonica = [
+                                            filaEcas[0] || null,
+                                            filaEcas[1] || null,
+                                            filaEcas[2] || null,
+                                            ...alineado.valores
+                                        ];
+                                        if (canonica.length === COLUMNAS_ESPERADAS) {
+                                            const mesIdx = encabezadosOriginales.findIndex(h => norm(h) === 'mes');
+                                            const semIdx = encabezadosOriginales.findIndex(h => norm(h).includes('controlsemanan'));
+                                            const mes = norm(canonica[mesIdx]);
+                                            const semana = String(canonica[semIdx] ?? '').trim();
+                                            if ((!mes || mesesEcas.has(mes)) && (!semana || /^\d{1,2}$/.test(semana))) {
+                                                return {
+                                                    fila: canonica,
+                                                    reparada: extras > 0 || inicioCampos !== 3,
+                                                    motivo: extras > 0 ? 'ECAS: comas internas reconstruidas y columnas alineadas por encabezados' : (inicioCampos !== 3 ? 'ECAS: coordenadas GPS redundantes retiradas' : null),
+                                                    tipoReparacion: 'ecas_columnas_alineadas'
+                                                };
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
                         // Purgas ECAS (PECAS): el CSV tiene tres columnas (WKT, etiqueta,
                         // descripción), pero algunas descripciones incluyen comas sin comillas.
                         // Si el WKT POINT y la etiqueta están intactos, todos los campos desde
@@ -1500,12 +1604,18 @@ const convertirWktIppAGeometria = (valor) => {
                             }
 
                             let resultado = repararFilaEstructuralmente(fila, numeroFilaCsv);
+                            // Evita que la heurística genérica de filas partidas vuelva a
+                            // aceptar una fila ECAS que la auditoría semántica acaba de bloquear.
+                            let filaEcasBloqueada = false;
 
+                            // Las filas ECAS ya fueron alineadas por el reparador específico
+                            // usando encabezados y anclas; no volver a bloquearlas por heurísticas
+                            // genéricas que confundían datos válidos con desplazamientos.
                             // CASO 4: un registro lógico fue partido en dos filas físicas.
                             // A) La primera fila contiene parte del registro y la siguiente lo completa.
                             // B) La primera fila contiene WKT + etiqueta y la siguiente aporta
                             //    sector + latitud + longitud + resto de campos.
-                            if (!resultado.fila && wktEsValido(fila?.[0]) && fila.length < COLUMNAS_ESPERADAS) {
+                            if (!filaEcasBloqueada && !resultado.fila && wktEsValido(fila?.[0]) && fila.length < COLUMNAS_ESPERADAS) {
                                 const siguiente = filasDatos[index + 1];
 
                                 if (Array.isArray(siguiente) && !wktEsValido(siguiente[0])) {
@@ -1712,19 +1822,36 @@ const convertirWktIppAGeometria = (valor) => {
 
                     previewDiv.innerHTML = resumenAuditoria;
 
+                    // Vista previa completa: mostrar TODOS los registros procesados.
+                    // Los atributos íntegros quedan disponibles en un desplegable por fila,
+                    // sin recortar el JSON y sin permitir que su contenido rompa el HTML.
+                    const escaparHtmlPreview = (valor) => String(valor ?? '')
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;')
+                        .replace(/"/g, '&quot;')
+                        .replace(/'/g, '&#39;');
+
                     let tablaHtml = `<style>
                         #admin-preview-tabla table { width: 100%; border-collapse: collapse; color: #ccc; }
-                        #admin-preview-tabla th, #admin-preview-tabla td { border: 1px solid #444; padding: 6px; text-align: left; }
-                        #admin-preview-tabla th { background: #2a2a2a; color: #38bdf8; position: sticky; top: 0; }
-                    </style><table><thead><tr><th>Etiqueta</th><th>Sector</th><th>Ronda</th><th>WKT</th><th>JSON Atributos</th></tr></thead><tbody>`;
+                        #admin-preview-tabla th, #admin-preview-tabla td { border: 1px solid #444; padding: 6px; text-align: left; vertical-align: top; }
+                        #admin-preview-tabla th { background: #2a2a2a; color: #38bdf8; position: sticky; top: 0; z-index: 1; }
+                        #admin-preview-tabla td { overflow-wrap: anywhere; }
+                        #admin-preview-tabla details summary { color: #38bdf8; cursor: pointer; white-space: nowrap; }
+                        #admin-preview-tabla details pre { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 520px; max-height: 360px; overflow: auto; color: #ddd; background: #181818; padding: 10px; border-radius: 4px; }
+                    </style>
+                    <p style="color:#aaa; margin:0 0 8px;">Vista previa: ${datosConvertidosGlobal.length} registros. Abrí «Ver atributos completos» en cualquier fila para revisar todos sus campos antes de importar.</p>
+                    <table><thead><tr><th>#</th><th>Etiqueta</th><th>Sector</th><th>Ronda</th><th>WKT</th><th>Atributos completos</th></tr></thead><tbody>`;
 
-                    datosConvertidosGlobal.slice(0, 15).forEach(row => {
+                    datosConvertidosGlobal.forEach((row, indice) => {
+                        const atributosCompletos = JSON.stringify(row.atributos_tecnicos || {}, null, 2);
                         tablaHtml += `<tr>
-                            <td>${row.etiqueta || ''}</td>
-                            <td>${row.sector || ''}</td>
-                            <td>${row.ronda || ''}</td>
-                            <td style="color: #eab308;">${row.ubicacion_wkt || ''}</td>
-                            <td style="color: #38bdf8; font-family: monospace;">${JSON.stringify(row.atributos_tecnicos).substring(0, 80)}...</td>
+                            <td>${indice + 1}</td>
+                            <td>${escaparHtmlPreview(row.etiqueta || '')}</td>
+                            <td>${escaparHtmlPreview(row.sector || '')}</td>
+                            <td>${escaparHtmlPreview(row.ronda || '')}</td>
+                            <td style="color: #eab308;">${escaparHtmlPreview(row.ubicacion_wkt || '')}</td>
+                            <td><details><summary>Ver atributos completos</summary><pre>${escaparHtmlPreview(atributosCompletos)}</pre></details></td>
                         </tr>`;
                     });
 
@@ -1948,10 +2075,50 @@ const convertirWktIppAGeometria = (valor) => {
                         sector: item.sector
                     });
                 } else if (categoriaDetectadaGlobal === 'ECAS') {
+                    // Mapear el registro histórico ECAS completo a controles_ecas.
+                    // Los valores se conservan como texto salvo la semana, que es INTEGER
+                    // en la tabla; si no es un entero válido, se deja NULL y la auditoría
+                    // estructural debe impedir que una fila ambigua llegue a esta etapa.
+                    const valorEcas = (aliases) => {
+                        const v = obtenerAtributo(attrs, aliases);
+                        if (v === undefined || v === null) return null;
+                        const t = String(v).trim();
+                        return t === '' || /^null$/i.test(t) ? null : t;
+                    };
+                    const semanaEcasRaw = valorEcas(['CONTROL SEMANA N°', 'CONTROL SEMANA Nº', 'CONTROL SEMANA', 'Control semana N']);
+                    const semanaEcasNum = semanaEcasRaw !== null && /^\d{1,2}$/.test(semanaEcasRaw)
+                        ? Number(semanaEcasRaw)
+                        : null;
                     arrayControlesEcas.push({
                         id_activo: idActivo,
+                        ideca_original: valorEcas(['Nombre de etiqueta', 'Etiqueta', 'ECA']),
                         nombreetiqueta: item.etiqueta,
-                        sector: item.sector
+                        ubicacion: valorEcas(['Ubicación', 'Ubicacion']),
+                        sector: item.sector ?? valorEcas(['Sector']),
+                        central_que_reporta: valorEcas(['Central que reporta', 'Central']),
+                        estado: valorEcas(['Estado']),
+                        fecha_inspeccion_2025: valorEcas(['Fecha Inspeccion 2025', 'Fecha Inspección 2025', 'Inspeccion 2025']),
+                        mes: valorEcas(['Mes']),
+                        p_entrada: valorEcas(['P/ENTRADA', 'P ENTRADA']),
+                        p_salida: valorEcas(['P/SALIDA', 'P SALIDA']),
+                        t_gong: valorEcas(['T/GONG', 'T GONG']),
+                        t_central: valorEcas(['T central', 'T. central']),
+                        t_monitoreo: valorEcas(['T.monitoreo', 'T monitoreo']),
+                        rotulo_central: valorEcas(['ROTULO CENTRAL', 'Rótulo central']),
+                        rotulo_base: valorEcas(['ROTULO BASE', 'Rótulo base']),
+                        observaciones: valorEcas(['Observaciones']),
+                        parametros_reporte: valorEcas(['Parametros / Reporte 2025', 'Parámetros / Reporte 2025']),
+                        control_semana_n: semanaEcasNum,
+                        control_s_realizado_por: valorEcas(['Control S. realizado por', 'Control S realizado por']),
+                        p_entrada_semanal: valorEcas(['P/ Entrada Semanal', 'P Entrada Semanal']),
+                        p_salida_semanal: valorEcas(['P/ Salida Semanal', 'P Salida Semanal']),
+                        status: valorEcas(['STATUS']),
+                        anomalias: valorEcas(['ANOMALIAS SI / NO', 'ANOMALIAS']),
+                        evento_numero: valorEcas(['Evento Numero', 'Evento Número']),
+                        observacion: valorEcas(['Observacion', 'Observación']),
+                        reportado_fecha: valorEcas(['Reportado Fecha']),
+                        reportado_mes: valorEcas(['Reportado Mes']),
+                        reportado_por: valorEcas(['Reportado Por'])
                     });
                 } else if (categoriaDetectadaGlobal === 'VECAS') {
                     arrayControlesVecas.push({
