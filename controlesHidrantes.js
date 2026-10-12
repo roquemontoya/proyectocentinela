@@ -339,23 +339,23 @@ export async function guardarControlHidrante(event) {
         if((estado==='Anomalo' || pruebaFallida) && !registro.anomalias) throw new Error('Por favor describe la anomalía detectada.');
         if((estado==='Anomalo' || pruebaFallida) && !registro.reportado_por) throw new Error('Por favor selecciona quién reportó la anomalía.');
 
-        const {error}=await clienteSupabase.from('controles_h').insert([registro]);
+        const datosAnomalia = (estado==='Anomalo' || pruebaFallida) ? {
+            id_activo:idActivo,
+            modulo_origen:'Hidrantes',
+            evento_numero:document.getElementById('input-evento-numero')?.value || null,
+            anomalia_detectada:registro.anomalias,
+            detalle_informe:observacion || registro.anomalias,
+            observacion:observacion || null,
+            reportado_fecha:registro.reportado_fecha,
+            reportado_por:registro.reportado_por,
+            estado_resolucion:'Abierta'
+        } : null;
+        const {data:resultado,error}=await clienteSupabase.rpc('guardar_control_con_anomalia',{
+            p_tabla_control:'controles_h',
+            p_control:registro,
+            p_anomalia:datosAnomalia
+        });
         if(error) throw new Error(error.message);
-
-        if(estado==='Anomalo' || pruebaFallida){
-            const {error:errAnomalia}=await clienteSupabase.from('anomalias').insert([{
-                id_activo:idActivo,
-                modulo_origen:'Hidrantes',
-                evento_numero:document.getElementById('input-evento-numero')?.value || null,
-                anomalia_detectada:registro.anomalias,
-                detalle_informe:observacion || registro.anomalias,
-                observacion:observacion || null,
-                reportado_fecha:registro.reportado_fecha,
-                reportado_por:registro.reportado_por,
-                estado_resolucion:'Abierta'
-            }]);
-            if(errAnomalia) throw new Error('Control guardado, pero falló la anomalía: '+errAnomalia.message);
-        }
 
         localStorage.setItem('centinela_inspector',realizo);
         cerrarFormularioControl();

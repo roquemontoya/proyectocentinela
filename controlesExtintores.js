@@ -250,22 +250,22 @@ export async function guardarControlExtintor(event) {
             fechafoto: hoy
         };
 
-        const { error } = await clienteSupabase.from('controles_e').insert([registro]);
+        const datosAnomalia = condicion === 'Vencido' ? {
+            id_activo: idActivo,
+            modulo_origen: 'Extintores',
+            anomalia_detectada: 'Extintor vencido',
+            detalle_informe: observacion || 'Extintor detectado como vencido durante control.',
+            observacion: observacion || null,
+            reportado_fecha: hoy,
+            reportado_por: realizo,
+            estado_resolucion: 'Abierta'
+        } : null;
+        const { data: resultado, error } = await clienteSupabase.rpc('guardar_control_con_anomalia', {
+            p_tabla_control: 'controles_e',
+            p_control: registro,
+            p_anomalia: datosAnomalia
+        });
         if (error) throw new Error(error.message);
-
-        if (condicion === 'Vencido') {
-            const { error: errAnomalia } = await clienteSupabase.from('anomalias').insert([{
-                id_activo: idActivo,
-                modulo_origen: 'Extintores',
-                anomalia_detectada: 'Extintor vencido',
-                detalle_informe: observacion || 'Extintor detectado como vencido durante control.',
-                observacion: observacion || null,
-                reportado_fecha: hoy,
-                reportado_por: realizo,
-                estado_resolucion: 'Abierta'
-            }]);
-            if (errAnomalia) throw new Error('Control guardado, pero falló la anomalía: ' + errAnomalia.message);
-        }
 
         localStorage.setItem('centinela_inspector', realizo);
         cerrarFormularioControl();

@@ -270,23 +270,23 @@ export async function guardarControlOtro(event) {
     registro.foto = foto;
     registro.fechafoto = hoy;
 
-    const {error} = await clienteSupabase.from(tabla).insert([registro]);
-    if (error) throw new Error(error.message);
-
     const estado = String(registro.estado || '').toLowerCase();
-    if (estado.includes('observado') || estado.includes('no operativo')) {
-      const {error:errAnomalia} = await clienteSupabase.from('anomalias').insert([{
-        id_activo:idActivo,
-        modulo_origen:config.origen,
-        anomalia_detectada:config.titulo + ' ' + (registro.estado || 'Observado'),
-        detalle_informe:registro.observacion || registro.observaciones || registro.comentario || registro.informe || 'Detectado durante control.',
-        observacion:registro.observacion || registro.observaciones || registro.comentario || null,
-        reportado_fecha:hoy,
-        reportado_por:realizo,
-        estado_resolucion:'Abierta'
-      }]);
-      if (errAnomalia) throw new Error('El control se guardó, pero no se pudo registrar la anomalía: ' + errAnomalia.message);
-    }
+    const datosAnomalia = (estado.includes('observado') || estado.includes('no operativo')) ? {
+      id_activo:idActivo,
+      modulo_origen:config.origen,
+      anomalia_detectada:config.titulo + ' ' + (registro.estado || 'Observado'),
+      detalle_informe:registro.observacion || registro.observaciones || registro.comentario || registro.informe || 'Detectado durante control.',
+      observacion:registro.observacion || registro.observaciones || registro.comentario || null,
+      reportado_fecha:hoy,
+      reportado_por:realizo,
+      estado_resolucion:'Abierta'
+    } : null;
+    const {data:resultado,error} = await clienteSupabase.rpc('guardar_control_con_anomalia',{
+      p_tabla_control:tabla,
+      p_control:registro,
+      p_anomalia:datosAnomalia
+    });
+    if (error) throw new Error(error.message);
 
     localStorage.setItem('centinela_inspector',realizo);
     cerrarFormularioControl();
