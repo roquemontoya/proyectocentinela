@@ -1822,19 +1822,36 @@ const convertirWktIppAGeometria = (valor) => {
 
                     previewDiv.innerHTML = resumenAuditoria;
 
+                    // Vista previa completa: mostrar TODOS los registros procesados.
+                    // Los atributos íntegros quedan disponibles en un desplegable por fila,
+                    // sin recortar el JSON y sin permitir que su contenido rompa el HTML.
+                    const escaparHtmlPreview = (valor) => String(valor ?? '')
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;')
+                        .replace(/"/g, '&quot;')
+                        .replace(/'/g, '&#39;');
+
                     let tablaHtml = `<style>
                         #admin-preview-tabla table { width: 100%; border-collapse: collapse; color: #ccc; }
-                        #admin-preview-tabla th, #admin-preview-tabla td { border: 1px solid #444; padding: 6px; text-align: left; }
-                        #admin-preview-tabla th { background: #2a2a2a; color: #38bdf8; position: sticky; top: 0; }
-                    </style><table><thead><tr><th>Etiqueta</th><th>Sector</th><th>Ronda</th><th>WKT</th><th>JSON Atributos</th></tr></thead><tbody>`;
+                        #admin-preview-tabla th, #admin-preview-tabla td { border: 1px solid #444; padding: 6px; text-align: left; vertical-align: top; }
+                        #admin-preview-tabla th { background: #2a2a2a; color: #38bdf8; position: sticky; top: 0; z-index: 1; }
+                        #admin-preview-tabla td { overflow-wrap: anywhere; }
+                        #admin-preview-tabla details summary { color: #38bdf8; cursor: pointer; white-space: nowrap; }
+                        #admin-preview-tabla details pre { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 520px; max-height: 360px; overflow: auto; color: #ddd; background: #181818; padding: 10px; border-radius: 4px; }
+                    </style>
+                    <p style="color:#aaa; margin:0 0 8px;">Vista previa: ${datosConvertidosGlobal.length} registros. Abrí «Ver atributos completos» en cualquier fila para revisar todos sus campos antes de importar.</p>
+                    <table><thead><tr><th>#</th><th>Etiqueta</th><th>Sector</th><th>Ronda</th><th>WKT</th><th>Atributos completos</th></tr></thead><tbody>`;
 
-                    datosConvertidosGlobal.slice(0, 15).forEach(row => {
+                    datosConvertidosGlobal.forEach((row, indice) => {
+                        const atributosCompletos = JSON.stringify(row.atributos_tecnicos || {}, null, 2);
                         tablaHtml += `<tr>
-                            <td>${row.etiqueta || ''}</td>
-                            <td>${row.sector || ''}</td>
-                            <td>${row.ronda || ''}</td>
-                            <td style="color: #eab308;">${row.ubicacion_wkt || ''}</td>
-                            <td style="color: #38bdf8; font-family: monospace;">${JSON.stringify(row.atributos_tecnicos).substring(0, 80)}...</td>
+                            <td>${indice + 1}</td>
+                            <td>${escaparHtmlPreview(row.etiqueta || '')}</td>
+                            <td>${escaparHtmlPreview(row.sector || '')}</td>
+                            <td>${escaparHtmlPreview(row.ronda || '')}</td>
+                            <td style="color: #eab308;">${escaparHtmlPreview(row.ubicacion_wkt || '')}</td>
+                            <td><details><summary>Ver atributos completos</summary><pre>${escaparHtmlPreview(atributosCompletos)}</pre></details></td>
                         </tr>`;
                     });
 
