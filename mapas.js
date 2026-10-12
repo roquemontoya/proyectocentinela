@@ -462,6 +462,53 @@ function crearIcono(color) {
     });
 }
 
+function actualizarDistanciaPopup(popup, item, geometria) {
+    const el = popup.getElement()?.querySelector('#popup-distancia-' + Number(item.id));
+    if (!el) return;
+
+    const destino = geometria?.tipo === 'punto'
+        ? geometria.coordenadas
+        : (geometria?.coordenadas?.length
+            ? geometria.coordenadas.reduce((acc, punto) => [acc[0] + punto[0], acc[1] + punto[1]], [0, 0])
+                .map(valor => valor / geometria.coordenadas.length)
+            : null);
+    if (!destino) {
+        el.textContent = 'Distancia no disponible para esta geometría.';
+        return;
+    }
+
+    const mostrar = (origen, precision = 0) => {
+        if (!el.isConnected) return;
+        const distancia = distanciaGPS(origen, destino);
+        el.textContent = '📍 A ' + formatoDistanciaGPS(distancia) + ' de tu ubicación' +
+            (precision ? ' · precisión GPS ±' + Math.round(precision) + ' m' : '');
+    };
+
+    // Reutiliza la ubicación activa si el usuario ya encendió el GPS del mapa.
+    if (posicionUsuarioMapa) {
+        mostrar(posicionUsuarioMapa, 0);
+        return;
+    }
+    if (!navigator.geolocation) {
+        el.textContent = 'Activá la geolocalización para calcular la distancia.';
+        return;
+    }
+    el.textContent = 'Calculando distancia desde tu ubicación…';
+    const solicitud = String(Date.now()) + '-' + Number(item.id);
+    el.dataset.solicitud = solicitud;
+    navigator.geolocation.getCurrentPosition(pos => {
+        if (!el.isConnected || el.dataset.solicitud !== solicitud) return;
+        mostrar([pos.coords.latitude, pos.coords.longitude], pos.coords.accuracy);
+    }, error => {
+        if (!el.isConnected || el.dataset.solicitud !== solicitud) return;
+        el.textContent = error.code === 1
+            ? 'Permiso GPS denegado. Habilitá la ubicación en el navegador.'
+            : error.code === 2
+                ? 'No se pudo obtener la ubicación GPS.'
+                : 'GPS demoró demasiado. Volvé a abrir el popup para reintentar.';
+    }, { enableHighAccuracy: true, maximumAge: 10000, timeout: 15000 });
+}
+
 function popupActivo(item, moduloKey, config, estado, esExtintor, ultimaFoto = '') {
     const etiqueta = item.etiqueta || item.nombre || 'Activo #' + item.id;
     const sector = item.sector || buscarAtributo(item, 'Sector', 'Ubicación', 'Ubicacion') || 'N/D';
@@ -474,7 +521,8 @@ function popupActivo(item, moduloKey, config, estado, esExtintor, ultimaFoto = '
     return '<div style="font-family:Arial,sans-serif;color:#333;min-width:180px;max-width:230px">' +
         '<div style="font-weight:bold;font-size:13px;margin-bottom:5px">' + escaparHtml(etiqueta) + '</div>' +
         '<div style="font-size:11px;margin-bottom:5px">Categoría: ' + escaparHtml(config.categoria) + '</div>' +
-        '<div style="font-size:11px;margin-bottom:7px">Sector: ' + escaparHtml(sector) + '</div>' +
+        '<div style="font-size:11px;margin-bottom:5px">Sector: ' + escaparHtml(sector) + '</div>' +
+        '<div id="popup-distancia-' + Number(item.id) + '" role="status" style="font-size:11px;font-weight:bold;color:#1d4ed8;background:#eff6ff;border-radius:4px;padding:5px 6px;margin:0 0 7px">Calculando distancia GPS…</div>' +
         (tipo ? '<div style="font-size:11px;margin-bottom:4px">Tipo: ' + escaparHtml(tipo) + '</div>' : '') +
         (vencimiento ? '<div style="font-size:11px;margin-bottom:6px">Vencimiento: <b>' + escaparHtml(vencimiento) + '</b></div>' : '') +
         '<div style="font-size:11px;margin-bottom:9px">Estado: <b style="color:' + estado.color + '">' + escaparHtml(estado.estado) + '</b></div>' +
@@ -571,6 +619,7 @@ export async function cargarModuloMapa(moduloKey, contenedor) {
                 .addTo(mapaActivo).bindPopup(popup);
             marcador.on('popupopen', evento => {
                 inicializarMiniMapaPopup(evento.popup, item);
+                actualizarDistanciaPopup(evento.popup, item, geometria);
             });
             limites.push(coords);
             activosPuntualesMapa.push({ coords, nombre, marcador });
@@ -582,14 +631,20 @@ export async function cargarModuloMapa(moduloKey, contenedor) {
                     if (anillo.length < 3) return;
                     const capaPoligono = L.polygon(anillo, { color: estado.color, weight: 2, fillColor: estado.color, fillOpacity: 0.22 })
                         .addTo(mapaActivo).bindPopup(popup);
-                    capaPoligono.on('popupopen', evento => inicializarMiniMapaPopup(evento.popup, item));
+                    capaPoligono.on('popupopen', evento => {
+                        inicializarMiniMapaPopup(evento.popup, item);
+                        actualizarDistanciaPopup(evento.popup, item, geometria);
+                    });
                     limites.push(...anillo);
                     poligonosDibujados++;
                 });
             } else {
                 const capaPoligono = L.polygon(anillos, { color: estado.color, weight: 2, fillColor: estado.color, fillOpacity: 0.22 })
                     .addTo(mapaActivo).bindPopup(popup);
-                capaPoligono.on('popupopen', evento => inicializarMiniMapaPopup(evento.popup, item));
+                capaPoligono.on('popupopen', evento => {
+                    inicializarMiniMapaPopup(evento.popup, item);
+                    actualizarDistanciaPopup(evento.popup, item, geometria);
+                });
                 limites.push(...anillos.flat());
                 poligonosDibujados++;
             }
