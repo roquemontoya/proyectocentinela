@@ -8,6 +8,7 @@ import { cargarFormularioCorreccionEcas } from './formularioCorreccionEcas.js';
 import { cargarModuloMapa } from './mapas.js';
 import { cargarModuloPulmon } from './moduloPulmon.js';
 import { cargarModuloBomberos } from './bomberos.js';
+import { cargarModuloAnomalias } from './anomalias.js';
 import { abrirControlExtintor, guardarControlExtintor } from './controlesExtintores.js';
 import { abrirControlHidrante, guardarControlHidrante, cambiarTipoControl, verificarDetalleLlave } from './controlesHidrantes.js';
 import { cerrarFormularioControl, verificarEstadoControl } from './controlesBase.js';
@@ -119,6 +120,10 @@ window.cargarModulo = async function(modulo) {
 
             case 'gestorTablas':
                 cargarModuloGestorTablas(vistaDinamica);
+                break;
+
+            case 'anomalias':
+                await cargarModuloAnomalias(vistaDinamica);
                 break;
 
             case 'correccionEcas':
