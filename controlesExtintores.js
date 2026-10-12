@@ -7,6 +7,7 @@ import { clienteSupabase } from './supabaseClient.js';
 import { aplicarTituloControl, cargarBomberosEnModal, cerrarFormularioControl, subirFotoStorage } from './controlesBase.js';
 
 let activoLEU = null;
+let inventarioPulmon = [];
 
 function atributosLEU(activo) {
     return activo?.atributos_tecnicos?.atributos_originales
@@ -89,6 +90,15 @@ export async function abrirControlExtintor(dbId, idElemento) {
         aplicarTituloControl(titulo, 'Extintor', activoLEU.etiqueta, estado);
     }
 
+    const { data: stockPulmon, error: errorPulmon } = await clienteSupabase
+        .from('Extintores')
+        .select('*')
+        .in('PRP', ['En Pulmon', 'En Pulmón']);
+    inventarioPulmon = errorPulmon ? [] : (stockPulmon || []).filter(item =>
+        /pulm[oó]n/i.test(String(item.PRP || ''))
+    );
+    if (errorPulmon) console.warn('No se pudo cargar el stock del pulmón:', errorPulmon.message);
+
     renderizarFormularioExtintorHTML(activoLEU, attrs, estado);
     await cargarBomberosEnModal();
     if (modal) modal.style.display = 'flex';
@@ -105,6 +115,33 @@ function fechaISOParaInput(valor) {
     }
     const d = new Date(s);
     return Number.isNaN(d.getTime()) ? '' : `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function crearOpcionesReemplazo(tipoOriginal) {
+    const escapar = valor => String(valor ?? '').replace(/[&<>"']/g, c => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+    const tipo = String(tipoOriginal || '').toLowerCase();
+    const compatibles = inventarioPulmon.filter(item => {
+        const tipoReserva = String(item.TIPO || item.TipoExtintor || item['Tipo de Extintor'] || '').toLowerCase();
+        if (tipo.includes('pqs') || tipo.includes('polvo')) {
+            return tipoReserva.includes('pqs') || tipoReserva.includes('polvo') || tipoReserva.includes('co2') || tipoReserva.includes('carbono');
+        }
+        if (tipo.includes('co2') || tipo.includes('carbono')) return tipoReserva.includes('co2') || tipoReserva.includes('carbono');
+        if (tipo.includes('halon') || tipo.includes('halón')) return tipoReserva.includes('halon') || tipoReserva.includes('halón');
+        if (tipo === 'k' || tipo.includes('tipo k') || tipo.includes('acetato')) {
+            return tipoReserva === 'k' || tipoReserva.includes('tipo k') || tipoReserva.includes('acetato');
+        }
+        return true;
+    });
+    if (!compatibles.length) {
+        return '<option value="">No hay extintores compatibles disponibles en el pulmón</option>';
+    }
+    return '<option value="">Seleccione un extintor de reserva...</option>' + compatibles.map(item => {
+        const etiqueta = item.ETIQUETA || item.Etiquetas || item.etiquetas || item.NombreEtiqueta || item.NombreDeEtiqueta || `ID ${item.id}`;
+        const tipoReserva = item.TIPO || item.TipoExtintor || item['Tipo de Extintor'] || 'Tipo sin especificar';
+        return `<option value="${escapar(item.id)}">${escapar(etiqueta)} — ${escapar(tipoReserva)} (Venc.: ${escapar(item.Vencimiento || 'N/D')})</option>`;
+    }).join('');
 }
 
 function renderizarFormularioExtintorHTML(leu, attrs, estadoSugerido) {
@@ -147,6 +184,14 @@ function renderizarFormularioExtintorHTML(leu, attrs, estadoSugerido) {
                 <option value="Vencido" ${estadoSugerido === 'Vencido' ? 'selected' : ''}>Vencido</option>
             </select>
 
+            <div id="seccion-reemplazo-extintor" style="display:${estadoSugerido === 'Vencido' ? 'block' : 'none'};background:#2a1515;border:1px dashed #ef4444;border-radius:5px;padding:10px;margin-bottom:12px;">
+                <label for="input-nuevo-id-reemplazo" style="display:block;font-size:13px;color:#f87171;font-weight:bold;margin-bottom:6px;">🚨 Extintor de reemplazo del pulmón:</label>
+                <select id="input-nuevo-id-reemplazo" style="width:100%;padding:8px;background:#1e1e1e;border:1px solid #ef4444;color:#fff;border-radius:5px;">
+                    ${crearOpcionesReemplazo(tipo)}
+                </select>
+                <small style="display:block;color:#fca5a5;margin-top:5px;">Al marcar el extintor como vencido, seleccioná el equipo de reserva que lo reemplazará.</small>
+            </div>
+
             <label style="display:block;font-size:13px;margin-bottom:5px;">Tipo de extintor:</label>
             <select id="input-tipo-extintor" required style="width:100%;padding:8px;margin-bottom:10px;background:#2a2a2a;border:1px solid #444;color:#fff;border-radius:5px;">
                 ${opcionesTipo.map(t => `<option value="${t}" ${t === tipoNormalizado ? 'selected' : ''}>${t}</option>`).join('')}
@@ -169,10 +214,25 @@ function renderizarFormularioExtintorHTML(leu, attrs, estadoSugerido) {
 
     const selectCondicion = document.getElementById('input-condicion-extintor');
     if (selectCondicion) {
+        const seccionReemplazo = document.getElementById('seccion-reemplazo-extintor');
+        const selectReemplazo = document.getElementById('input-nuevo-id-reemplazo');
+        const actualizarReemplazo = () => {
+            const vencido = selectCondicion.value === 'Vencido';
+            if (seccionReemplazo) seccionReemplazo.style.display = vencido ? 'block' : 'none';
+            if (selectReemplazo) {
+                if (vencido) selectReemplazo.setAttribute('required', 'required');
+                else {
+                    selectReemplazo.removeAttribute('required');
+                    selectReemplazo.value = '';
+                }
+            }
+        };
         selectCondicion.addEventListener('change', () => {
             const titulo = document.getElementById('modal-titulo-elemento');
             aplicarTituloControl(titulo, 'Extintor', leu.etiqueta, selectCondicion.value);
+            actualizarReemplazo();
         });
+        actualizarReemplazo();
     }
 
     // Mapa mini: reutiliza Leaflet, con zoom máximo y marcador del activo.
@@ -204,6 +264,12 @@ export async function guardarControlExtintor(event) {
     const realizo = document.getElementById('input-realizo')?.value || '';
     const condicion = document.getElementById('input-condicion-extintor')?.value || 'Vigente';
     const observacion = document.getElementById('input-observacion')?.value || '';
+    const selectReemplazo = document.getElementById('input-nuevo-id-reemplazo');
+    const idReemplazo = condicion === 'Vencido' ? selectReemplazo?.value : '';
+    const itemReemplazo = idReemplazo ? inventarioPulmon.find(item => String(item.id) === String(idReemplazo)) : null;
+    const etiquetaReemplazo = itemReemplazo
+        ? (itemReemplazo.ETIQUETA || itemReemplazo.Etiquetas || itemReemplazo.etiquetas || itemReemplazo.NombreEtiqueta || itemReemplazo.NombreDeEtiqueta || `ID ${itemReemplazo.id}`)
+        : '';
     const fotoInput = document.getElementById('input-foto')?.files?.[0];
     const tipoExtintor = document.getElementById('input-tipo-extintor')?.value;
     const vencimientoControl = document.getElementById('input-vencimiento-extintor')?.value;
@@ -223,6 +289,11 @@ export async function guardarControlExtintor(event) {
     }
     if (!fotoInput) {
         alert('La foto de auditoría es obligatoria.');
+        return;
+    }
+    if (condicion === 'Vencido' && !idReemplazo) {
+        alert('Seleccioná un extintor compatible del pulmón para continuar.');
+        selectReemplazo?.focus();
         return;
     }
 
@@ -245,7 +316,9 @@ export async function guardarControlExtintor(event) {
             tipoextintor: tipoExtintor || valorAtributo(attrs, 'Tipo de Extintor', 'TipoExtintor') || null,
             vencimiento: vencimientoControl || null,
             pruebahidraulica: pruebaHidraulicaControl || null,
-            observacion: observacion || null,
+            observacion: (condicion === 'Vencido'
+                ? `[REEMPLAZO DE PULMÓN SELECCIONADO: ${etiquetaReemplazo}]${observacion ? ' ' + observacion : ''}`
+                : observacion) || null,
             foto: fotoUrl,
             fechafoto: hoy
         };
@@ -254,7 +327,7 @@ export async function guardarControlExtintor(event) {
             id_activo: idActivo,
             modulo_origen: 'Extintores',
             anomalia_detectada: 'Extintor vencido',
-            detalle_informe: observacion || 'Extintor detectado como vencido durante control.',
+            detalle_informe: `Extintor detectado como vencido durante control. Reemplazo de pulmón seleccionado: ${etiquetaReemplazo}.${observacion ? ' ' + observacion : ''}`,
             observacion: observacion || null,
             reportado_fecha: hoy,
             reportado_por: realizo,
