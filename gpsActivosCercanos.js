@@ -167,7 +167,9 @@ function renderizarActivosCercanos() {
 
 function actualizarPosicion(posicion) {
   if (!mapa) return;
+  const primeraPosicion = !posicionActual;
   posicionActual = [posicion.coords.latitude, posicion.coords.longitude];
+  if (primeraPosicion) mapa.setView(posicionActual, 18);
   const precision = Math.max(5, Number(posicion.coords.accuracy) || 25);
   if (!marcadorUsuario) {
     marcadorUsuario = L.circleMarker(posicionActual, {
