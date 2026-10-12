@@ -4,6 +4,77 @@
 
 import { clienteSupabase } from './supabaseClient.js';
 
+function coordenadasActivoControl(activo) {
+    const latRaw = activo?.latitud ?? activo?.lat;
+    const lngRaw = activo?.longitud ?? activo?.lng ?? activo?.lon ?? activo?.long;
+    if (latRaw !== null && latRaw !== undefined && lngRaw !== null && lngRaw !== undefined &&
+        String(latRaw).trim() !== '' && String(lngRaw).trim() !== '') {
+        const lat = Number(latRaw), lng = Number(lngRaw);
+        if (Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) return [lat, lng];
+    }
+    const raw = activo?.ubicacion_wkt ?? activo?.ubicacion ?? activo?.['ubicación'] ??
+        activo?.geom ?? activo?.coordenadas ?? activo?.coordenada ?? activo?.wkt;
+    if (typeof raw !== 'string') return null;
+    let match = raw.trim().match(/^POINT\s*(?:Z\s*)?\(\s*(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s*\)$/i);
+    if (match) {
+        const lng = Number(match[1]), lat = Number(match[2]);
+        if (Math.abs(lat) <= 90 && Math.abs(lng) <= 180) return [lat, lng];
+    }
+    match = raw.trim().match(/^(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)$/);
+    if (match) {
+        const a = Number(match[1]), b = Number(match[2]);
+        if (Math.abs(a) <= 90 && Math.abs(b) <= 180) return [a, b];
+        if (Math.abs(b) <= 90 && Math.abs(a) <= 180) return [b, a];
+    }
+    return null;
+}
+
+function distanciaEntreCoordenadas(a, b) {
+    const rad = n => n * Math.PI / 180;
+    const dLat = rad(b[0] - a[0]), dLng = rad(b[1] - a[1]);
+    const x = Math.sin(dLat / 2) ** 2 +
+        Math.cos(rad(a[0])) * Math.cos(rad(b[0])) * Math.sin(dLng / 2) ** 2;
+    return 6371000 * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+}
+
+function formatoDistanciaControl(metros) {
+    return metros < 1000 ? Math.round(metros) + ' m' :
+        (metros / 1000).toLocaleString('es-AR', { maximumFractionDigits: 2 }) + ' km';
+}
+
+// Muestra la distancia al activo en el modal común; la posición solo se procesa en el dispositivo.
+export function actualizarDistanciaActivoControl(activo) {
+    const panel = document.getElementById('distancia-activo-control');
+    if (!panel) return;
+    panel.style.display = 'block';
+    panel.textContent = 'Calculando distancia desde tu ubicación…';
+    const destino = coordenadasActivoControl(activo);
+    if (!destino) {
+        panel.textContent = 'Distancia no disponible: este activo no tiene coordenadas puntuales reconocibles.';
+        return;
+    }
+    if (!navigator.geolocation) {
+        panel.textContent = 'Este dispositivo o navegador no ofrece geolocalización.';
+        return;
+    }
+    const solicitud = (panel.dataset.solicitud = String(Number(panel.dataset.solicitud || 0) + 1));
+    navigator.geolocation.getCurrentPosition(pos => {
+        if (!panel.isConnected || panel.dataset.solicitud !== solicitud) return;
+        const origen = [pos.coords.latitude, pos.coords.longitude];
+        const distancia = distanciaEntreCoordenadas(origen, destino);
+        const precision = Math.round(Number(pos.coords.accuracy) || 0);
+        panel.textContent = 'Distancia en línea recta: ' + formatoDistanciaControl(distancia) +
+            (precision ? ' · precisión GPS aproximada ±' + precision + ' m' : '') +
+            '. No representa distancia recorrida por caminos.';
+    }, error => {
+        if (!panel.isConnected || panel.dataset.solicitud !== solicitud) return;
+        const motivo = error.code === 1 ? 'Permiso de ubicación denegado.' :
+            error.code === 2 ? 'Ubicación no disponible.' : 'Se agotó el tiempo para obtener la ubicación.';
+        panel.textContent = motivo + ' Activá el GPS y los permisos de ubicación para calcular la distancia.';
+    }, { enableHighAccuracy: true, maximumAge: 10000, timeout: 15000 });
+}
+
+
 export function verificarEstadoControl() {
     const inputEstado = document.getElementById('input-estado');
     if (!inputEstado) return; // Los formularios, como Extintores, pueden no tener estado general compartido.
@@ -168,6 +239,8 @@ export async function cargarBomberosEnModal() {
 }
 
 export function cerrarFormularioControl() {
+    const panelDistancia = document.getElementById('distancia-activo-control');
+    if (panelDistancia) { panelDistancia.dataset.solicitud = String(Number(panelDistancia.dataset.solicitud || 0) + 1); panelDistancia.style.display = 'none'; panelDistancia.textContent = ''; }
     const modal = document.getElementById('modal-control');
     if (modal) modal.style.display = 'none';
     const form = document.getElementById('form-nuevo-control');
