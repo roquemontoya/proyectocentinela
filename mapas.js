@@ -195,26 +195,15 @@ async function consultarUltimasFotos(moduloKey) {
     const configFotos = TABLAS_FOTOS_CONTROLES[moduloKey];
     if (!configFotos) return new Map();
 
-    // Bomberos usa acceso operativo anónimo: una Edge Function solo devuelve
-    // URLs temporales de la última foto por activo, nunca el historial.
     const { data: usuarioData } = await clienteSupabase.auth.getUser();
-    if (!usuarioData?.user) {
-        const { data: respuesta, error: funcionError } = await clienteSupabase.functions.invoke(
-            'latest-control-photos',
-            { body: { moduleKey: moduloKey } }
-        );
-        if (funcionError || !respuesta?.photos) {
-            console.warn('[Centinela mapa] No se pudieron cargar las últimas fotos:', funcionError?.message || 'respuesta vacía');
-            return new Map();
-        }
-        return new Map(Object.entries(respuesta.photos).map(([id, url]) => [Number(id), url]));
+    if (usuarioData?.user) {
+        // Las cuentas autenticadas solo ven el historial completo si tienen rol administrativo.
+        const { data: esAdmin } = await clienteSupabase.rpc('current_user_has_role', { p_role: 'administrador' });
+        const { data: esSuperadmin } = await clienteSupabase.rpc('current_user_has_role', { p_role: 'superadministrador' });
+        if (!esAdmin && !esSuperadmin) return new Map();
     }
-
-    // El historial completo queda reservado a administración autenticada.
-    const { data: esAdmin } = await clienteSupabase.rpc('current_user_has_role', { p_role: 'administrador' });
-    const { data: esSuperadmin } = await clienteSupabase.rpc('current_user_has_role', { p_role: 'superadministrador' });
-    if (!esAdmin && !esSuperadmin) return new Map();
-
+    // Para Bomberos, la policy de Storage permite firmar únicamente la última foto
+    // de cada activo. Los objetos históricos permanecen inaccesibles desde el cliente anónimo.
     const { data, error } = await clienteSupabase
         .from(configFotos.tabla)
         .select('id_activo, foto, ' + configFotos.orden)
@@ -239,7 +228,8 @@ async function consultarUltimasFotos(moduloKey) {
             .from('fotos-controles')
             .createSignedUrl(ruta, 300);
         if (urlError || !urlData?.signedUrl) {
-            console.warn('[Centinela mapa] No se pudo generar acceso temporal a una foto:', urlError?.message || 'sin URL firmada');
+            // En sesión de Bomberos, Storage rechaza deliberadamente fotos históricas.
+            if (usuarioData?.user) console.warn('[Centinela mapa] No se pudo firmar una foto:', urlError?.message || 'sin URL firmada');
             return;
         }
         ultimasFirmadas.set(id, urlData.signedUrl);
