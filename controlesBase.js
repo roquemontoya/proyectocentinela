@@ -70,6 +70,7 @@ export async function cargarBomberosEnModal() {
     const { data, error } = await clienteSupabase
         .from('Bomberos')
         .select('*')
+        .eq('Estado', 'Activo')
         .order('Bombero', { ascending: true });
 
     if (error || !data) {
@@ -83,7 +84,7 @@ export async function cargarBomberosEnModal() {
     if (contenedorBomberoPrueba) contenedorBomberoPrueba.innerHTML = '';
     if (contenedorReportado) contenedorReportado.innerHTML = '';
 
-    const bomberosActivos = data.filter(b => (b.Estado || '').toLowerCase() === 'activo');
+    const bomberosActivos = data.filter(b => (b.Estado || '').trim().toLowerCase() === 'activo');
     let inspectorPreseleccionado = localStorage.getItem('centinela_inspector') || '';
 
     bomberosActivos.forEach(b => {
