@@ -171,9 +171,37 @@ async function consultarUltimosEstadosControl(moduloKey) {
     return ultimos;
 }
 
+function extraerRutaFotoControl(valor) {
+    const foto = String(valor || '').trim();
+    if (!foto) return null;
+
+    // Compatibilidad con fotos históricas guardadas como URL pública.
+    if (/^https?:\/\//i.test(foto)) {
+        try {
+            const url = new URL(foto);
+            const marcador = '/storage/v1/object/public/fotos-controles/';
+            const indice = url.pathname.indexOf(marcador);
+            if (indice < 0) return null;
+            return decodeURIComponent(url.pathname.slice(indice + marcador.length));
+        } catch {
+            return null;
+        }
+    }
+
+    return foto.replace(/^\/+/, '').replace(/^fotos-controles\//i, '');
+}
+
 async function consultarUltimasFotos(moduloKey) {
     const configFotos = TABLAS_FOTOS_CONTROLES[moduloKey];
     if (!configFotos) return new Map();
+
+    // Solo administradores autenticados pueden consultar fotografías de controles.
+    const { data: usuarioData, error: usuarioError } = await clienteSupabase.auth.getUser();
+    if (usuarioError || !usuarioData?.user) return new Map();
+
+    const { data: esAdmin } = await clienteSupabase.rpc('current_user_has_role', { p_role: 'administrador' });
+    const { data: esSuperadmin } = await clienteSupabase.rpc('current_user_has_role', { p_role: 'superadministrador' });
+    if (!esAdmin && !esSuperadmin) return new Map();
 
     const { data, error } = await clienteSupabase
         .from(configFotos.tabla)
@@ -185,12 +213,26 @@ async function consultarUltimasFotos(moduloKey) {
         console.warn('[Centinela mapa] No se pudieron consultar las fotos de ' + moduloKey + ':', error.message);
         return new Map();
     }
-    const ultimas = new Map();
+
+    const ultimasRutas = new Map();
     for (const control of data || []) {
         const id = Number(control.id_activo);
-        if (id && control.foto && !ultimas.has(id)) ultimas.set(id, control.foto);
+        const ruta = extraerRutaFotoControl(control.foto);
+        if (id && ruta && !ultimasRutas.has(id)) ultimasRutas.set(id, ruta);
     }
-    return ultimas;
+
+    const ultimasFirmadas = new Map();
+    await Promise.all([...ultimasRutas.entries()].map(async ([id, ruta]) => {
+        const { data: urlData, error: urlError } = await clienteSupabase.storage
+            .from('fotos-controles')
+            .createSignedUrl(ruta, 300);
+        if (urlError || !urlData?.signedUrl) {
+            console.warn('[Centinela mapa] No se pudo generar acceso temporal a una foto:', urlError?.message || 'sin URL firmada');
+            return;
+        }
+        ultimasFirmadas.set(id, urlData.signedUrl);
+    }));
+    return ultimasFirmadas;
 }
 
 function inicializarMiniMapaPopup(popup, item) {
