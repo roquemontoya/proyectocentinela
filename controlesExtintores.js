@@ -340,6 +340,7 @@ export async function guardarControlExtintor(event) {
         });
         if (error) throw new Error(error.message);
 
+        alert('Control de extintor guardado correctamente.');
         localStorage.setItem('centinela_inspector', realizo);
         cerrarFormularioControl();
         window.cargarModulo('extintores');

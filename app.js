@@ -2,6 +2,8 @@
 // SCRIPT PRINCIPAL: app.js (Controlador PWA)
 // ==========================================
 
+import { inicializarAutenticacion, verificarPermisoModulo } from './auth.js';
+
 import { cargarModuloAdminCsv } from './conversorMaestroUniversal.js';
 import { cargarModuloGestorTablas } from './gestorTablas.js';
 import { cargarFormularioCorreccionEcas } from './formularioCorreccionEcas.js';
@@ -96,6 +98,10 @@ window.guardarControl = async function(event) {
 // Enrutador único de la PWA.
 // index.html utiliza onclick="cargarModulo('...')", por eso debe existir en window.
 window.cargarModulo = async function(modulo) {
+    if (!verificarPermisoModulo(modulo)) {
+        alert('Tu rol actual no tiene permiso para acceder a este módulo.');
+        return;
+    }
     const pantallaInicio = document.getElementById('main-content');
     const vistaDinamica = document.getElementById('vista-dinamica');
     const menu = document.getElementById('side-menu');
@@ -205,4 +211,5 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     console.log('🚀 Centinela 2.0: enrutador y navegación inicializados.');
+    inicializarAutenticacion();
 });
