@@ -158,7 +158,7 @@ export function aplicarPermisosInterfaz(rol = rolActual) {
   });
 
   // Estos módulos se agregan dinámicamente al menú principal.
-  for (const id of ['nav-gestor-tablas', 'nav-cmu']) {
+  for (const id of ['nav-gestor-tablas', 'nav-cmu', 'nav-historial-fotos']) {
     const elemento = document.getElementById(id);
     if (elemento) elemento.style.display = esBombero ? 'none' : '';
   }

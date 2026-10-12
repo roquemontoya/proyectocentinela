@@ -177,20 +177,30 @@ export function cerrarFormularioControl() {
 
 export async function subirFotoStorage(fotoInput) {
     if (!fotoInput) return null;
-    const nombreArchivo = `${Date.now()}_${fotoInput.name.replace(/\s+/g, '_')}`;
+
+    const tiposPermitidos = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!tiposPermitidos.includes(fotoInput.type)) {
+        throw new Error('Formato de foto no permitido. Usa JPG, PNG o WebP.');
+    }
+    if (fotoInput.size > 10 * 1024 * 1024) {
+        throw new Error('La foto supera el límite de 10 MB.');
+    }
+
+    const extension = (fotoInput.name.split('.').pop() || 'jpg')
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '');
+    const nombreArchivo = `${Date.now()}_${Math.random().toString(36).slice(2, 10)}.${extension}`;
+
     const { error: uploadError } = await clienteSupabase.storage
         .from('fotos-controles')
-        .upload(nombreArchivo, fotoInput);
+        .upload(nombreArchivo, fotoInput, { upsert: false, contentType: fotoInput.type });
 
     if (uploadError) {
         throw new Error('Error al subir la foto: ' + uploadError.message);
     }
 
-    const { data: urlData } = clienteSupabase.storage
-        .from('fotos-controles')
-        .getPublicUrl(nombreArchivo);
-
-    return urlData.publicUrl;
+    // Guardar la ruta del objeto, nunca una URL pública del bucket privado.
+    return nombreArchivo;
 }
 
 // Estilo transversal de títulos de controles según el estado del elemento.

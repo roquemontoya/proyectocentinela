@@ -11,6 +11,7 @@ import { cargarModuloMapa } from './mapas.js';
 import { cargarModuloPulmon } from './moduloPulmon.js';
 import { cargarModuloBomberos } from './bomberos.js';
 import { cargarModuloAnomalias } from './anomalias.js';
+import { cargarModuloHistorialFotos } from './historialFotos.js';
 import { cargarModuloEditorUbicaciones } from './editorUbicaciones.js';
 import { abrirControlExtintor, guardarControlExtintor } from './controlesExtintores.js';
 import { abrirControlHidrante, guardarControlHidrante, cambiarTipoControl, verificarDetalleLlave } from './controlesHidrantes.js';
@@ -133,6 +134,10 @@ window.cargarModulo = async function(modulo) {
                 await cargarModuloAnomalias(vistaDinamica);
                 break;
 
+            case 'historialFotos':
+                await cargarModuloHistorialFotos(vistaDinamica);
+                break;
+
             case 'editorUbicaciones':
                 await cargarModuloEditorUbicaciones(vistaDinamica);
                 break;
@@ -199,6 +204,19 @@ document.addEventListener('DOMContentLoaded', () => {
     btnGestor.onclick = (e) => {
         e.preventDefault();
         window.cargarModulo('gestorTablas');
+    };
+
+    let btnHistorialFotos = document.getElementById('nav-historial-fotos');
+    if (!btnHistorialFotos) {
+        btnHistorialFotos = document.createElement('li');
+        btnHistorialFotos.id = 'nav-historial-fotos';
+        btnHistorialFotos.textContent = '📷 Historial de fotos de controles';
+        btnHistorialFotos.style.cssText = 'color: #38bdf8; font-weight: bold; cursor: pointer;';
+        listaMenu.appendChild(btnHistorialFotos);
+    }
+    btnHistorialFotos.onclick = (e) => {
+        e.preventDefault();
+        window.cargarModulo('historialFotos');
     };
 
     // El CMU ya es un <li> con onclick en index.html.
