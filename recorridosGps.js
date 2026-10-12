@@ -19,6 +19,7 @@ let ultimaCapturaMs = 0;
 let contenedorActual = null;
 let sincronizando = false;
 let manejadorOnline = null;
+let capaMapaHistorico = null;
 
 const esAdmin = () => ['administrador', 'superadministrador'].includes(obtenerRolActual());
 
@@ -99,6 +100,7 @@ async function contarPendientes() {
 async function sincronizarPuntos() {
   if (!activo || !navigator.onLine || sincronizando) return;
   sincronizando = true;
+  let errorSincronizacion = false;
   try {
     const pendientes = await listarPuntosLocales(activo.id);
     for (let i = 0; i < pendientes.length; i += 100) {
@@ -116,10 +118,15 @@ async function sincronizarPuntos() {
     estado(n ? 'Quedan ' + n + ' puntos pendientes de enviar.' : 'GPS activo · puntos sincronizados.');
     if (pendienteFinalizar && n === 0) await finalizarEnServidor(pendienteFinalizar.cancelar);
   } catch (e) {
+    errorSincronizacion = true;
     estado('Sincronización pendiente: ' + (e.message || e) + '. Se conservaron los puntos en este dispositivo.', true);
   } finally {
     sincronizando = false;
     actualizarContadorPendientes().catch(() => {});
+    // Si entró otro punto mientras se enviaba el lote, procesa la cola restante sin esperar otra posición GPS.
+    if (!errorSincronizacion && activo && navigator.onLine) {
+      contarPendientes().then(n => { if (n) sincronizarPuntos(); }).catch(() => {});
+    }
   }
 }
 async function actualizarContadorPendientes() {
@@ -242,7 +249,9 @@ function mostrarFormulario() {
 async function cargarHistorialYCaminos() {
   const lista = document.getElementById('rgps-historial');
   if (!lista || !mapa) return;
-  const capas = window.L.layerGroup().addTo(mapa);
+  if (capaMapaHistorico && mapa) mapa.removeLayer(capaMapaHistorico);
+  capaMapaHistorico = window.L.layerGroup().addTo(mapa);
+  const capas = capaMapaHistorico;
   try {
     const { data: caminos, error: errCaminos } = await clienteSupabase
       .from('caminos_internos').select('id,nombre,coordenadas,estado').eq('estado', 'validado');
@@ -296,6 +305,7 @@ async function mostrarRecorrido(id, capas) {
 export function detenerModuloRecorridosGPS() {
   detenerCaptura();
   if (mapa) { mapa.remove(); mapa = null; }
+  capaMapaHistorico = null;
   if (manejadorOnline) window.removeEventListener('online', manejadorOnline);
   manejadorOnline = null;
   contenedorActual = null;
