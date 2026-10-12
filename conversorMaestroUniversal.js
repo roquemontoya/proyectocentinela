@@ -1037,6 +1037,7 @@ const convertirWktIppAGeometria = (valor) => {
                                     const x = Number(wm[1]), y = Number(wm[2]);
                                     if ((Math.abs(a-y)<0.000001 && Math.abs(b-x)<0.000001) ||
                                         (Math.abs(a-x)<0.000001 && Math.abs(b-y)<0.000001)) {
+                                        filaEcas[2] = String(filaEcas[2]).trim() + ', ' + String(filaEcas[3]).trim();
                                         inicioCampos = 4;
                                     }
                                 }
