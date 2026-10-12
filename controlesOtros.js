@@ -3,7 +3,7 @@
 // Mantiene el modal común y la relación LEU -> tabla de controles -> anomalías.
 // ==========================================
 import { clienteSupabase } from './supabaseClient.js';
-import { aplicarTituloControl, cargarBomberosEnModal, cerrarFormularioControl, subirFotoStorage } from './controlesBase.js';
+import { actualizarDistanciaActivoControl, aplicarTituloControl, cargarBomberosEnModal, cerrarFormularioControl, subirFotoStorage } from './controlesBase.js';
 
 const CONFIG = {
   ecas: {
@@ -202,6 +202,7 @@ export async function abrirControlOtro(modulo, dbId, etiqueta) {
     await cargarBomberosEnModal();
     const modal = document.getElementById('modal-control');
     if (modal) modal.style.display = 'flex';
+    actualizarDistanciaActivoControl(activoActual);
   } catch (error) {
     alert(error.message || String(error));
     console.error('[Centinela controles]', error);
