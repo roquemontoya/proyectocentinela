@@ -2097,7 +2097,7 @@ const convertirWktIppAGeometria = (valor) => {
                         sector: item.sector ?? valorEcas(['Sector']),
                         central_que_reporta: valorEcas(['Central que reporta', 'Central']),
                         estado: valorEcas(['Estado']),
-                        fecha_inspeccion_2025: valorEcas(['Fecha Inspeccion 2025', 'Fecha Inspección 2025', 'Inspeccion 2025']),
+                        fecha_inspeccion_2025: normalizarFechaParaPostgres(valorEcas(['Fecha Inspeccion 2025', 'Fecha Inspección 2025', 'Inspeccion 2025'])),
                         mes: valorEcas(['Mes']),
                         p_entrada: valorEcas(['P/ENTRADA', 'P ENTRADA']),
                         p_salida: valorEcas(['P/SALIDA', 'P SALIDA']),
@@ -2116,7 +2116,7 @@ const convertirWktIppAGeometria = (valor) => {
                         anomalias: valorEcas(['ANOMALIAS SI / NO', 'ANOMALIAS']),
                         evento_numero: valorEcas(['Evento Numero', 'Evento Número']),
                         observacion: valorEcas(['Observacion', 'Observación']),
-                        reportado_fecha: valorEcas(['Reportado Fecha']),
+                        reportado_fecha: normalizarFechaParaPostgres(valorEcas(['Reportado Fecha'])),
                         reportado_mes: valorEcas(['Reportado Mes']),
                         reportado_por: valorEcas(['Reportado Por'])
                     });
