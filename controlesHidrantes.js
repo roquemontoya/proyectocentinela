@@ -157,6 +157,7 @@ export async function abrirControlHidrante(dbId, idElemento) {
     });
 
     if (modal) modal.style.display = 'flex';
+    actualizarDistanciaActivoControl(activoLEU);
 }
 
 function renderizarFormularioHidranteHTML(leu) {
