@@ -357,6 +357,7 @@ export async function guardarControlHidrante(event) {
         });
         if(error) throw new Error(error.message);
 
+        alert('Control de hidrante guardado correctamente.');
         localStorage.setItem('centinela_inspector',realizo);
         cerrarFormularioControl();
         window.cargarModulo('hidrantes');
