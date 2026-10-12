@@ -4,7 +4,7 @@
 // ==========================================
 
 import { clienteSupabase } from './supabaseClient.js';
-import { actualizarDistanciaActivoControl, aplicarTituloControl, cargarBomberosEnModal, cerrarFormularioControl, subirFotoStorage } from './controlesBase.js';
+import { aplicarTituloControl, cargarBomberosEnModal, cerrarFormularioControl, subirFotoStorage } from './controlesBase.js';
 
 let activoLEU = null;
 let inventarioPulmon = [];
@@ -102,7 +102,6 @@ export async function abrirControlExtintor(dbId, idElemento) {
     renderizarFormularioExtintorHTML(activoLEU, attrs, estado);
     await cargarBomberosEnModal();
     if (modal) modal.style.display = 'flex';
-    actualizarDistanciaActivoControl(activoLEU);
 }
 
 function fechaISOParaInput(valor) {
