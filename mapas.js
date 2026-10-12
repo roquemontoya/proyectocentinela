@@ -137,6 +137,40 @@ const TABLAS_FOTOS_CONTROLES = {
     valvulas: { tabla: 'controles_v', orden: 'created_at' }
 };
 
+async function consultarUltimosEstadosControl(moduloKey) {
+    // En hidrantes, el estado operativo vigente proviene del último control guardado,
+    // no del CSV histórico importado en LEU.
+    if (moduloKey !== 'hidrantes') return new Map();
+
+    const ultimos = new Map();
+    const tamanoPagina = 1000;
+    for (let desde = 0; ; desde += tamanoPagina) {
+        const { data, error } = await clienteSupabase
+            .from('controles_h')
+            .select('id_activo, estado, creado_el, id')
+            .not('estado', 'is', null)
+            .neq('estado', '')
+            .order('creado_el', { ascending: false })
+            .order('id', { ascending: false })
+            .range(desde, desde + tamanoPagina - 1);
+
+        if (error) {
+            console.warn('[Centinela mapa] No se pudieron consultar los últimos estados de hidrantes:', error.message);
+            return new Map();
+        }
+
+        const pagina = data || [];
+        for (const control of pagina) {
+            const id = Number(control.id_activo);
+            // La consulta viene ordenada de más reciente a más antiguo:
+            // el primer control de cada activo es el estado que debe mostrarse.
+            if (id && !ultimos.has(id)) ultimos.set(id, control.estado);
+        }
+        if (pagina.length < tamanoPagina) break;
+    }
+    return ultimos;
+}
+
 async function consultarUltimasFotos(moduloKey) {
     const configFotos = TABLAS_FOTOS_CONTROLES[moduloKey];
     if (!configFotos) return new Map();
@@ -312,6 +346,8 @@ export async function cargarModuloMapa(moduloKey, contenedor) {
 
     const ultimasFotos = await consultarUltimasFotos(moduloKey);
     if (miSolicitud !== solicitudMapa) return;
+    const ultimosEstadosControl = await consultarUltimosEstadosControl(moduloKey);
+    if (miSolicitud !== solicitudMapa) return;
 
     if (mapaActivo) {
         mapaActivo.remove();
@@ -331,7 +367,10 @@ export async function cargarModuloMapa(moduloKey, contenedor) {
     const esExtintor = moduloKey === 'extintores';
 
     for (const item of activos) {
-        const estado = leerEstado(item, esExtintor);
+        const estadoControl = ultimosEstadosControl.get(Number(item.id));
+        const estado = estadoControl
+            ? leerEstado({ EstadoReferencia: estadoControl }, false)
+            : leerEstado(item, esExtintor);
         if (!estado.visible) { fueraDePlanta++; continue; }
         const geometria = extraerGeometria(item);
         if (!geometria) { sinUbicacion++; continue; }
