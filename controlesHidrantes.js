@@ -4,7 +4,7 @@
 // ==========================================
 
 import { clienteSupabase } from './supabaseClient.js';
-import { actualizarDistanciaActivoControl, aplicarTituloControl, verificarEstadoControl, cargarBomberosEnModal, cerrarFormularioControl, subirFotoStorage } from './controlesBase.js';
+import { aplicarTituloControl, verificarEstadoControl, cargarBomberosEnModal, cerrarFormularioControl, subirFotoStorage } from './controlesBase.js';
 
 let activoLEU = null;
 
@@ -157,7 +157,6 @@ export async function abrirControlHidrante(dbId, idElemento) {
     });
 
     if (modal) modal.style.display = 'flex';
-    actualizarDistanciaActivoControl(activoLEU);
 }
 
 function renderizarFormularioHidranteHTML(leu) {
