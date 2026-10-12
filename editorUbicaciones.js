@@ -168,7 +168,6 @@ export async function cargarModuloEditorUbicaciones(contenedor) {
     mensaje('Punto provisional colocado. Comprueba su posición y pulsa «Guardar ubicación».');
   });
   document.getElementById('editor-ubicacion-categoria').addEventListener('change',e=>cargarCategoria(e.target.value));
-  document.getElementById('editor-ubicacion-categoria').addEventListener('change',()=>{});
   document.getElementById('editor-ubicacion-cancelar').addEventListener('click',()=>{
     if(!seleccionado)return;
     const coords=coordenadasActivo(seleccionado);
