@@ -241,7 +241,6 @@ export async function guardarControlOtro(event) {
     }
 
     if (tabla === 'controles_ecas') {
-      registro.ubicacion = valorAtributo(attrs,['Ubicación','Ubicacion']) || activoActual.ubicacion_wkt || null;
       registro.fecha_inspeccion_2025 = document.getElementById('otro-fecha-control')?.value || hoy;
       registro.mes = document.getElementById('otro-mes-control')?.value || mesActual();
       registro.control_s_realizado_por = realizo;
@@ -251,13 +250,11 @@ export async function guardarControlOtro(event) {
       registro.reportado_por = realizo;
     } else if (tabla === 'controles_vecas') {
       registro.idvecas_original = valorAtributo(attrs,['ID VECAS','idvecas']) || null;
-      registro.ubicacion = activoActual.ubicacion_wkt || null;
       registro.fecha = document.getElementById('otro-fecha-control')?.value || hoy;
       registro.mes = document.getElementById('otro-mes-control')?.value || mesActual();
       registro.realizo_la_prueba = realizo;
     } else if (tabla === 'controles_v') {
       registro.idv_original = valorAtributo(attrs,['ID Válvula','ID Valvula','idv']) || null;
-      registro.ubicacion = activoActual.ubicacion_wkt || null;
       registro.prueba_fecha = document.getElementById('otro-fecha-control')?.value || hoy;
       registro.prueba_mes = document.getElementById('otro-mes-control')?.value || mesActual();
       registro.control_mensual = document.getElementById('otro-mes-control')?.value || mesActual();
@@ -266,7 +263,6 @@ export async function guardarControlOtro(event) {
       registro.mes = document.getElementById('otro-mes-control')?.value || mesActual();
     } else if (tabla === 'controles_pecas') {
       registro.idpecas_original = valorAtributo(attrs,['ID PECAS','idpecas']) || null;
-      registro.ubicacion = activoActual.ubicacion_wkt || null;
       registro.fecha_control = document.getElementById('otro-fecha-control')?.value || hoy;
       registro.mes = document.getElementById('otro-mes-control')?.value || mesActual();
       registro.control_realizado_por = realizo;
