@@ -196,7 +196,12 @@ export async function subirFotoStorage(fotoInput) {
 export function aplicarTituloControl(titulo, modulo, etiqueta, estado) {
     if (!titulo) return;
     const nombreModulo = String(modulo || '').trim();
-    const nombreEtiqueta = String(etiqueta || '').trim();
+    let nombreEtiqueta = String(etiqueta || '').trim();
+    // Algunas etiquetas LEU ya incluyen el tipo genérico ("Extintor ...").
+    // Evitamos duplicarlo en el título.
+    if (nombreModulo && nombreEtiqueta.toLowerCase().startsWith(nombreModulo.toLowerCase() + ' ')) {
+        nombreEtiqueta = nombreEtiqueta.slice(nombreModulo.length).trim();
+    }
     titulo.textContent = nombreEtiqueta ? `Control ${nombreModulo} ${nombreEtiqueta}` : `Control ${nombreModulo}`;
     const e = String(estado || '').toLowerCase();
     titulo.style.color = (e.includes('vencido') || e.includes('anómalo') || e.includes('anomalo') || e.includes('no operativo'))
