@@ -53,6 +53,7 @@ function detenerGPSMapa() {
 }
 
 export function detenerModuloMapa() {
+    solicitudMapa++;
     detenerGPSMapa();
     if (mapaActivo) {
         mapaActivo.remove();
