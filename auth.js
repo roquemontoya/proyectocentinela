@@ -7,7 +7,7 @@ import { clienteSupabase } from './supabaseClient.js';
 let rolActual = null;
 
 const MODULOS_BOMBEROS = new Set([
-  'ecas', 'extintores', 'hidrantes', 'valvulas', 'vecas', 'pecas', 'ipp', 'pulmon', 'gps'
+  'ecas', 'extintores', 'hidrantes', 'valvulas', 'vecas', 'pecas', 'ipp', 'pulmon'
 ]);
 
 function mostrarError(mensaje) {
