@@ -7,7 +7,8 @@ import { inicializarAutenticacion, verificarPermisoModulo } from './auth.js';
 import { cargarModuloAdminCsv } from './conversorMaestroUniversal.js';
 import { cargarModuloGestorTablas } from './gestorTablas.js';
 import { cargarFormularioCorreccionEcas } from './formularioCorreccionEcas.js';
-import { cargarModuloMapa } from './mapas.js';
+import { cargarModuloMapa, detenerModuloMapa } from './mapas.js';
+import { cargarModuloGPS, detenerModuloGPS } from './gpsActivosCercanos.js';
 import { cargarModuloPulmon } from './moduloPulmon.js';
 import { cargarModuloBomberos } from './bomberos.js';
 import { cargarModuloAnomalias } from './anomalias.js';
@@ -34,6 +35,8 @@ window.toggleMenu = function() {
 
 // Volver al dashboard principal.
 window.irInicio = function() {
+    detenerModuloGPS();
+    detenerModuloMapa();
     const pantallaInicio = document.getElementById('main-content');
     const vistaDinamica = document.getElementById('vista-dinamica');
 
@@ -99,6 +102,8 @@ window.guardarControl = async function(event) {
 // Enrutador único de la PWA.
 // index.html utiliza onclick="cargarModulo('...')", por eso debe existir en window.
 window.cargarModulo = async function(modulo) {
+    detenerModuloGPS();
+    detenerModuloMapa();
     if (!verificarPermisoModulo(modulo)) {
         alert('Tu rol actual no tiene permiso para acceder a este módulo.');
         return;
@@ -140,6 +145,10 @@ window.cargarModulo = async function(modulo) {
 
             case 'editorUbicaciones':
                 await cargarModuloEditorUbicaciones(vistaDinamica);
+                break;
+
+            case 'gps':
+                await cargarModuloGPS(vistaDinamica);
                 break;
 
             case 'correccionEcas':

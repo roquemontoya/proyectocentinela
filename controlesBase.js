@@ -168,6 +168,8 @@ export async function cargarBomberosEnModal() {
 }
 
 export function cerrarFormularioControl() {
+    const panelDistancia = document.getElementById('distancia-activo-control');
+    if (panelDistancia) { panelDistancia.dataset.solicitud = String(Number(panelDistancia.dataset.solicitud || 0) + 1); panelDistancia.style.display = 'none'; panelDistancia.textContent = ''; }
     const modal = document.getElementById('modal-control');
     if (modal) modal.style.display = 'none';
     const form = document.getElementById('form-nuevo-control');

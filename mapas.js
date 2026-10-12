@@ -17,6 +17,136 @@ const MAPEO_MODULOS = {
 
 let mapaActivo = null;
 let solicitudMapa = 0;
+let gpsMapaWatchId = null;
+let marcadorUsuarioMapa = null;
+let circuloPrecisionMapa = null;
+let posicionUsuarioMapa = null;
+let activosPuntualesMapa = [];
+
+function distanciaGPS(a, b) {
+    const rad = n => n * Math.PI / 180;
+    const dLat = rad(b[0] - a[0]);
+    const dLng = rad(b[1] - a[1]);
+    const x = Math.sin(dLat / 2) ** 2 +
+        Math.cos(rad(a[0])) * Math.cos(rad(b[0])) * Math.sin(dLng / 2) ** 2;
+    return 6371000 * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+}
+
+function formatoDistanciaGPS(metros) {
+    return metros < 1000 ? Math.round(metros) + ' m' :
+        (metros / 1000).toLocaleString('es-AR', { maximumFractionDigits: 2 }) + ' km';
+}
+
+function detenerGPSMapa() {
+    if (gpsMapaWatchId !== null && navigator.geolocation) {
+        navigator.geolocation.clearWatch(gpsMapaWatchId);
+        gpsMapaWatchId = null;
+    }
+    if (mapaActivo) {
+        if (marcadorUsuarioMapa) mapaActivo.removeLayer(marcadorUsuarioMapa);
+        if (circuloPrecisionMapa) mapaActivo.removeLayer(circuloPrecisionMapa);
+    }
+    marcadorUsuarioMapa = null;
+    circuloPrecisionMapa = null;
+    posicionUsuarioMapa = null;
+    activosPuntualesMapa = [];
+}
+
+export function detenerModuloMapa() {
+    solicitudMapa++;
+    detenerGPSMapa();
+    if (mapaActivo) {
+        mapaActivo.remove();
+        mapaActivo = null;
+    }
+}
+
+function actualizarListaCercanosMapa() {
+    const lista = document.getElementById('gps-mapa-cercanos');
+    const contador = document.getElementById('gps-mapa-contador');
+    const radioEl = document.getElementById('gps-mapa-radio');
+    if (!lista || !posicionUsuarioMapa) return;
+    const radio = Number(radioEl?.value || 1000);
+    const cercanos = activosPuntualesMapa
+        .map(a => ({ ...a, distancia: distanciaGPS(posicionUsuarioMapa, a.coords) }))
+        .filter(a => a.distancia <= radio)
+        .sort((a, b) => a.distancia - b.distancia);
+    if (contador) contador.textContent = cercanos.length > 99 ? '99+' : String(cercanos.length);
+    lista.innerHTML = cercanos.length
+        ? cercanos.slice(0, 30).map((a, i) =>
+            '<button type="button" data-gps-mapa-index="' + i + '" style="display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;padding:10px 9px;margin-top:5px;text-align:left;background:#172033;color:#fff;border:1px solid #374151;border-radius:7px;font-size:13px;cursor:pointer"><span style="min-width:0;overflow-wrap:anywhere">' +
+            escaparHtml(a.nombre) + '</span><b style="white-space:nowrap;color:#93c5fd">' + formatoDistanciaGPS(a.distancia) + '</b></button>'
+        ).join('')
+        : '<div style="font-size:13px;color:#cbd5e1;padding:12px 4px">' +
+            (posicionUsuarioMapa ? 'No hay puntos de esta categoría dentro del radio elegido.' : 'Activá tu ubicación para calcular distancias.') + '</div>';
+    lista.querySelectorAll('[data-gps-mapa-index]').forEach(boton => {
+        boton.addEventListener('click', () => {
+            const a = cercanos[Number(boton.dataset.gpsMapaIndex)];
+            if (!a || !mapaActivo) return;
+            mapaActivo.setView(a.coords, Math.max(mapaActivo.getZoom(), 18));
+            a.marcador.openPopup();
+            const panel = document.getElementById('gps-mapa-lista-panel');
+            const toggle = document.getElementById('gps-mapa-cercanos-toggle');
+            if (panel) panel.hidden = true;
+            if (toggle) toggle.setAttribute('aria-expanded', 'false');
+        });
+    });
+    const estado = document.getElementById('gps-mapa-estado');
+    if (estado) estado.textContent = cercanos.length + ' elemento(s) dentro de ' +
+        (radio >= 1000 ? (radio / 1000) + ' km' : radio + ' m');
+}
+
+function iniciarGPSMapa() {
+    const estado = document.getElementById('gps-mapa-estado');
+    const boton = document.getElementById('gps-mapa-iniciar');
+    if (!navigator.geolocation) {
+        if (estado) estado.textContent = 'Este navegador no ofrece geolocalización.';
+        return;
+    }
+    if (!window.isSecureContext) {
+        if (estado) estado.textContent = 'La ubicación requiere HTTPS o localhost.';
+        return;
+    }
+    if (gpsMapaWatchId !== null) navigator.geolocation.clearWatch(gpsMapaWatchId);
+    if (estado) estado.textContent = 'Solicitando permiso de ubicación…';
+    if (boton) boton.disabled = true;
+    gpsMapaWatchId = navigator.geolocation.watchPosition(pos => {
+        if (!mapaActivo) return;
+        posicionUsuarioMapa = [pos.coords.latitude, pos.coords.longitude];
+        const precision = Math.max(5, Number(pos.coords.accuracy) || 25);
+        if (!marcadorUsuarioMapa) {
+            marcadorUsuarioMapa = L.circleMarker(posicionUsuarioMapa, {
+                radius: 9, color: '#fff', weight: 3, fillColor: '#2563eb', fillOpacity: 1
+            }).addTo(mapaActivo).bindPopup('Tu ubicación actual');
+            mapaActivo.setView(posicionUsuarioMapa, 18);
+        } else {
+            marcadorUsuarioMapa.setLatLng(posicionUsuarioMapa);
+        }
+        if (circuloPrecisionMapa) mapaActivo.removeLayer(circuloPrecisionMapa);
+        circuloPrecisionMapa = L.circle(posicionUsuarioMapa, {
+            radius: precision, color: '#60a5fa', weight: 1, fillColor: '#3b82f6', fillOpacity: 0.08
+        }).addTo(mapaActivo);
+        if (estado) estado.textContent = 'GPS activo · precisión aproximada ' + Math.round(precision) + ' m';
+        if (boton) {
+            boton.disabled = false;
+            boton.setAttribute('aria-label', 'Centrar mapa en mi ubicación');
+            boton.title = 'Centrar mapa en mi ubicación';
+        }
+        actualizarListaCercanosMapa();
+    }, err => {
+        const mensajes = {
+            1: 'Permiso de ubicación denegado. Habilítalo en el navegador.',
+            2: 'No se pudo determinar la ubicación. Comprueba el GPS del dispositivo.',
+            3: 'La solicitud agotó el tiempo. Intenta nuevamente.'
+        };
+        if (estado) estado.textContent = mensajes[err.code] || 'No se pudo obtener la ubicación.';
+        if (boton) {
+            boton.disabled = false;
+            boton.setAttribute('aria-label', 'Reintentar ubicación');
+            boton.title = 'Reintentar ubicación';
+        }
+    }, { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 });
+}
 
 function normalizarTexto(valor) {
     return String(valor ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
@@ -332,6 +462,56 @@ function crearIcono(color) {
     });
 }
 
+function actualizarDistanciaPopup(popup, item, geometria) {
+    const el = popup.getElement()?.querySelector('#popup-distancia-' + Number(item.id));
+    if (!el) return;
+
+    const vertices = geometria?.tipo === 'punto'
+        ? []
+        : (Array.isArray(geometria?.coordenadas) ? geometria.coordenadas.flat(1) : []);
+    const destino = geometria?.tipo === 'punto'
+        ? geometria.coordenadas
+        : (vertices.length
+            ? vertices.reduce((acc, punto) => [acc[0] + punto[0], acc[1] + punto[1]], [0, 0])
+                .map(valor => valor / vertices.length)
+            : null);
+    if (!destino) {
+        el.textContent = 'Distancia no disponible para esta geometría.';
+        return;
+    }
+
+    const mostrar = (origen, precision = 0) => {
+        if (!el.isConnected) return;
+        const distancia = distanciaGPS(origen, destino);
+        el.textContent = '📍 A ' + formatoDistanciaGPS(distancia) + ' de tu ubicación' +
+            (precision ? ' · precisión GPS ±' + Math.round(precision) + ' m' : '');
+    };
+
+    // Reutiliza la ubicación activa si el usuario ya encendió el GPS del mapa.
+    if (posicionUsuarioMapa) {
+        mostrar(posicionUsuarioMapa, 0);
+        return;
+    }
+    if (!navigator.geolocation) {
+        el.textContent = 'Activá la geolocalización para calcular la distancia.';
+        return;
+    }
+    el.textContent = 'Calculando distancia desde tu ubicación…';
+    const solicitud = String(Date.now()) + '-' + Number(item.id);
+    el.dataset.solicitud = solicitud;
+    navigator.geolocation.getCurrentPosition(pos => {
+        if (!el.isConnected || el.dataset.solicitud !== solicitud) return;
+        mostrar([pos.coords.latitude, pos.coords.longitude], pos.coords.accuracy);
+    }, error => {
+        if (!el.isConnected || el.dataset.solicitud !== solicitud) return;
+        el.textContent = error.code === 1
+            ? 'Permiso GPS denegado. Habilitá la ubicación en el navegador.'
+            : error.code === 2
+                ? 'No se pudo obtener la ubicación GPS.'
+                : 'GPS demoró demasiado. Volvé a abrir el popup para reintentar.';
+    }, { enableHighAccuracy: true, maximumAge: 10000, timeout: 15000 });
+}
+
 function popupActivo(item, moduloKey, config, estado, esExtintor, ultimaFoto = '') {
     const etiqueta = item.etiqueta || item.nombre || 'Activo #' + item.id;
     const sector = item.sector || buscarAtributo(item, 'Sector', 'Ubicación', 'Ubicacion') || 'N/D';
@@ -344,7 +524,8 @@ function popupActivo(item, moduloKey, config, estado, esExtintor, ultimaFoto = '
     return '<div style="font-family:Arial,sans-serif;color:#333;min-width:180px;max-width:230px">' +
         '<div style="font-weight:bold;font-size:13px;margin-bottom:5px">' + escaparHtml(etiqueta) + '</div>' +
         '<div style="font-size:11px;margin-bottom:5px">Categoría: ' + escaparHtml(config.categoria) + '</div>' +
-        '<div style="font-size:11px;margin-bottom:7px">Sector: ' + escaparHtml(sector) + '</div>' +
+        '<div style="font-size:11px;margin-bottom:5px">Sector: ' + escaparHtml(sector) + '</div>' +
+        '<div id="popup-distancia-' + Number(item.id) + '" role="status" style="font-size:11px;font-weight:bold;color:#1d4ed8;background:#eff6ff;border-radius:4px;padding:5px 6px;margin:0 0 7px">Calculando distancia GPS…</div>' +
         (tipo ? '<div style="font-size:11px;margin-bottom:4px">Tipo: ' + escaparHtml(tipo) + '</div>' : '') +
         (vencimiento ? '<div style="font-size:11px;margin-bottom:6px">Vencimiento: <b>' + escaparHtml(vencimiento) + '</b></div>' : '') +
         '<div style="font-size:11px;margin-bottom:9px">Estado: <b style="color:' + estado.color + '">' + escaparHtml(estado.estado) + '</b></div>' +
@@ -359,6 +540,7 @@ function popupActivo(item, moduloKey, config, estado, esExtintor, ultimaFoto = '
 }
 
 export async function cargarModuloMapa(moduloKey, contenedor) {
+    detenerGPSMapa();
     const config = MAPEO_MODULOS[moduloKey];
     if (!config) {
         contenedor.innerHTML = '<div style="padding:24px;color:#ef4444">Módulo cartográfico no configurado: ' + escaparHtml(moduloKey) + '</div>';
@@ -397,8 +579,19 @@ export async function cargarModuloMapa(moduloKey, contenedor) {
         mapaActivo.remove();
         mapaActivo = null;
     }
-    contenedor.innerHTML = '<div id="mapa-modulo" style="width:100%;height:100%;min-height:450px"></div>' +
-        '<div id="mapa-diagnostico" role="status" style="position:absolute;z-index:500;left:10px;bottom:18px;max-width:calc(100% - 40px);background:rgba(15,23,42,.92);color:#fff;padding:8px 11px;border-radius:6px;font:12px Arial;box-shadow:0 2px 8px #0006"></div>';
+    contenedor.innerHTML = '<div style="position:relative;width:100%;height:100%;min-height:450px;overflow:hidden">' +
+        '<div id="mapa-modulo" style="position:absolute;inset:0;width:100%;height:100%;min-height:450px"></div>' +
+        '<div style="position:absolute;z-index:650;right:12px;bottom:76px;display:flex;flex-direction:column;gap:10px;align-items:flex-end;pointer-events:none">' +
+        '<button id="gps-mapa-iniciar" type="button" aria-label="Mostrar mi ubicación" title="Mostrar mi ubicación" style="pointer-events:auto;width:48px;height:48px;border-radius:50%;border:1px solid #d1d5db;background:#fff;color:#2563eb;box-shadow:0 2px 8px #0005;font-size:24px;display:flex;align-items:center;justify-content:center;cursor:pointer">➤</button>' +
+        '<button id="gps-mapa-cercanos-toggle" type="button" aria-label="Mostrar activos cercanos" aria-expanded="false" title="Activos cercanos" style="pointer-events:auto;position:relative;width:48px;height:48px;border-radius:50%;border:1px solid #d1d5db;background:#fff;color:#111827;box-shadow:0 2px 8px #0005;font-size:22px;display:flex;align-items:center;justify-content:center;cursor:pointer">☷<span id="gps-mapa-contador" style="position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;padding:0 3px;border-radius:10px;background:#2563eb;color:#fff;font-size:10px;line-height:18px;font-weight:bold">0</span></button></div>' +
+        '<section id="gps-mapa-lista-panel" aria-label="Activos cercanos" hidden style="position:absolute;z-index:640;right:12px;bottom:188px;width:min(330px,calc(100% - 24px));max-height:min(48vh,390px);overflow:auto;box-sizing:border-box;background:rgba(15,23,42,.97);color:#fff;padding:12px;border:1px solid #475569;border-radius:12px;box-shadow:0 4px 18px #0007;font:12px Arial">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><strong style="font-size:14px">Activos cercanos · ' + escaparHtml(config.nombreLegible) + '</strong>' +
+        '<button id="gps-mapa-cerrar-lista" type="button" aria-label="Cerrar lista" style="border:0;border-radius:50%;background:#374151;color:#fff;width:30px;height:30px;font-size:18px;cursor:pointer">×</button></div>' +
+        '<label style="display:block;margin-top:10px;color:#cbd5e1">Radio de búsqueda ' +
+        '<select id="gps-mapa-radio" style="background:#111827;color:white;border:1px solid #64748b;border-radius:6px;padding:7px;margin-left:5px"><option value="10">10 m</option><option value="25">25 m</option><option value="50">50 m</option><option value="100">100 m</option><option value="250">250 m</option><option value="500">500 m</option><option value="1000" selected>1 km</option><option value="2000">2 km</option><option value="5000">5 km</option></select></label>' +
+        '<div id="gps-mapa-estado" role="status" style="color:#cbd5e1;margin-top:8px">Tocá el botón de ubicación para comenzar.</div>' +
+        '<div id="gps-mapa-cercanos" style="margin-top:5px"></div></section>' +
+        '<div id="mapa-diagnostico" role="status" style="position:absolute;z-index:500;left:10px;bottom:10px;max-width:calc(100% - 80px);background:rgba(15,23,42,.82);color:#fff;padding:6px 9px;border-radius:6px;font:11px Arial;box-shadow:0 2px 8px #0004;pointer-events:none"></div></div>';
 
     mapaActivo = L.map('mapa-modulo', { zoomControl: true }).setView([-31.4168, -64.1834], 17);
     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
@@ -407,6 +600,7 @@ export async function cargarModuloMapa(moduloKey, contenedor) {
     }).addTo(mapaActivo);
 
     const limites = [];
+    activosPuntualesMapa = [];
     let puntosDibujados = 0, poligonosDibujados = 0, sinUbicacion = 0, fueraDePlanta = 0;
     const esExtintor = moduloKey === 'extintores';
 
@@ -428,8 +622,10 @@ export async function cargarModuloMapa(moduloKey, contenedor) {
                 .addTo(mapaActivo).bindPopup(popup);
             marcador.on('popupopen', evento => {
                 inicializarMiniMapaPopup(evento.popup, item);
+                actualizarDistanciaPopup(evento.popup, item, geometria);
             });
             limites.push(coords);
+            activosPuntualesMapa.push({ coords, nombre, marcador });
             puntosDibujados++;
         } else {
             const anillos = geometria.coordenadas;
@@ -438,14 +634,20 @@ export async function cargarModuloMapa(moduloKey, contenedor) {
                     if (anillo.length < 3) return;
                     const capaPoligono = L.polygon(anillo, { color: estado.color, weight: 2, fillColor: estado.color, fillOpacity: 0.22 })
                         .addTo(mapaActivo).bindPopup(popup);
-                    capaPoligono.on('popupopen', evento => inicializarMiniMapaPopup(evento.popup, item));
+                    capaPoligono.on('popupopen', evento => {
+                        inicializarMiniMapaPopup(evento.popup, item);
+                        actualizarDistanciaPopup(evento.popup, item, geometria);
+                    });
                     limites.push(...anillo);
                     poligonosDibujados++;
                 });
             } else {
                 const capaPoligono = L.polygon(anillos, { color: estado.color, weight: 2, fillColor: estado.color, fillOpacity: 0.22 })
                     .addTo(mapaActivo).bindPopup(popup);
-                capaPoligono.on('popupopen', evento => inicializarMiniMapaPopup(evento.popup, item));
+                capaPoligono.on('popupopen', evento => {
+                    inicializarMiniMapaPopup(evento.popup, item);
+                    actualizarDistanciaPopup(evento.popup, item, geometria);
+                });
                 limites.push(...anillos.flat());
                 poligonosDibujados++;
             }
@@ -470,6 +672,30 @@ export async function cargarModuloMapa(moduloKey, contenedor) {
         contenedor.appendChild(aviso);
     }
 
+    document.getElementById('gps-mapa-iniciar')?.addEventListener('click', () => {
+        if (posicionUsuarioMapa && mapaActivo) {
+            mapaActivo.setView(posicionUsuarioMapa, Math.max(mapaActivo.getZoom(), 18));
+            marcadorUsuarioMapa?.openPopup();
+            return;
+        }
+        iniciarGPSMapa();
+    });
+    document.getElementById('gps-mapa-cercanos-toggle')?.addEventListener('click', () => {
+        const panel = document.getElementById('gps-mapa-lista-panel');
+        const boton = document.getElementById('gps-mapa-cercanos-toggle');
+        if (!panel || !boton) return;
+        panel.hidden = !panel.hidden;
+        boton.setAttribute('aria-expanded', String(!panel.hidden));
+        if (!panel.hidden && !posicionUsuarioMapa) iniciarGPSMapa();
+        if (!panel.hidden) actualizarListaCercanosMapa();
+    });
+    document.getElementById('gps-mapa-cerrar-lista')?.addEventListener('click', () => {
+        const panel = document.getElementById('gps-mapa-lista-panel');
+        const boton = document.getElementById('gps-mapa-cercanos-toggle');
+        if (panel) panel.hidden = true;
+        if (boton) boton.setAttribute('aria-expanded', 'false');
+    });
+    document.getElementById('gps-mapa-radio')?.addEventListener('change', actualizarListaCercanosMapa);
     setTimeout(() => {
         if (miSolicitud === solicitudMapa && mapaActivo) mapaActivo.invalidateSize();
     }, 250);

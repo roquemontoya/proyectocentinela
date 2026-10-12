@@ -60,6 +60,7 @@
             <li onclick="cargarModulo('hidrantes')">🚰 Hidrantes</li>
             <li onclick="cargarModulo('anomalias')">⚠️ Seguimiento de anomalías</li>
             <li onclick="cargarModulo('editorUbicaciones')">📍 Corregir ubicaciones en mapa</li>
+            <li onclick="cargarModulo('gps')">🛰️ Mi ubicación y activos cercanos</li>
             <li onclick="cargarModulo('valvulas')">⚙️ Válvulas</li>
             <li onclick="cargarModulo('bomberos')">👨‍🚒 Personal / Bomberos</li>
             <li onclick="cargarModulo('ipp')">👷‍♂️ IPP</li>
@@ -72,6 +73,10 @@
 
     <!-- Pantalla Principal: Tarjetas (Visible por defecto) -->
     <main id="main-content" class="dashboard-grid" style="display:none;">
+        <div class="card" onclick="cargarModulo('gps')">
+            <div class="card-img" style="font-size: 45px; text-align: center; margin: 15px 0;">🛰️</div>
+            <div class="card-title">Ubicacion GPS</div>
+        </div>
         <div class="card" onclick="cargarModulo('hidrantes')">
             <div class="card-img" style="font-size: 45px; text-align: center; margin: 15px 0;">🚰</div>
             <div class="card-title">Hidrantes</div>
