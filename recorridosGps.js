@@ -2,6 +2,7 @@
 // Captura en primer plano, cola IndexedDB y sincronización idempotente por secuencia.
 import { clienteSupabase } from './supabaseClient.js';
 import { obtenerRolActual } from './auth.js';
+import { agregarCapasBase } from './mapaBase.js';
 
 const CLAVE_ACTIVO = 'centinela.recorridosGps.activo.v1';
 const DB_NAME = 'centinela-recorridos-gps';
@@ -338,9 +339,7 @@ export async function cargarModuloRecorridosGPS(contenedor) {
       </div>
     </section>`;
   mapa = window.L.map('rgps-mapa').setView([-38.88, -62.08], 15);
-  window.L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-    attribution: 'Tiles &copy; Esri', maxZoom: 22
-  }).addTo(mapa);
+  agregarCapasBase(mapa);
   const guardado = (() => { try { return JSON.parse(localStorage.getItem('centinela.recorridosGps.equipo.v1') || 'null'); } catch { return null; } })();
   if (guardado) {
     document.getElementById('rgps-equipo-id').value = guardado.equipoId || '';

@@ -4,6 +4,7 @@
 // ==========================================
 
 import { clienteSupabase } from './supabaseClient.js';
+import { agregarCapasBase } from './mapaBase.js';
 
 const MAPEO_MODULOS = {
     hidrantes: { categoria: 'Hidrantes', nombreLegible: 'Hidrantes' },
@@ -381,9 +382,7 @@ function inicializarMiniMapaPopup(popup, item) {
         scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false, keyboard: false,
         tap: false
     });
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-        maxZoom: 22
-    }).addTo(mini);
+    agregarCapasBase(mini, { selector: false });
 
     if (geometria.tipo === 'punto') {
         L.circleMarker(geometria.coordenadas, {
@@ -594,10 +593,7 @@ export async function cargarModuloMapa(moduloKey, contenedor) {
         '<div id="mapa-diagnostico" role="status" style="position:absolute;z-index:500;left:10px;bottom:10px;max-width:calc(100% - 80px);background:rgba(15,23,42,.82);color:#fff;padding:6px 9px;border-radius:6px;font:11px Arial;box-shadow:0 2px 8px #0004;pointer-events:none"></div></div>';
 
     mapaActivo = L.map('mapa-modulo', { zoomControl: true }).setView([-31.4168, -64.1834], 17);
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-        attribution: 'Tiles &copy; Esri',
-        maxZoom: 22
-    }).addTo(mapaActivo);
+    agregarCapasBase(mapaActivo);
 
     const limites = [];
     activosPuntualesMapa = [];

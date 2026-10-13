@@ -1,4 +1,5 @@
 import { clienteSupabase } from './supabaseClient.js';
+import { agregarCapasBase } from './mapaBase.js';
 
 const CATEGORIAS = [
   { valor: 'Hidrantes', etiqueta: 'Hidrantes' },
@@ -187,7 +188,7 @@ export async function cargarModuloEditorUbicaciones(contenedor) {
       </div>
     </section>`;
   mapa=L.map('editor-ubicacion-mapa',{zoomControl:true}).setView(VISTA_INICIAL,16);
-  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'Tiles &copy; Esri',maxZoom:22}).addTo(mapa);
+  agregarCapasBase(mapa);
   mapa.on('click',evento=>{
     if(!seleccionado)return;
     if(coordenadasActivo(seleccionado))return;
