@@ -9,6 +9,7 @@ import { cargarModuloGestorTablas } from './gestorTablas.js';
 import { cargarFormularioCorreccionEcas } from './formularioCorreccionEcas.js';
 import { cargarModuloMapa, detenerModuloMapa } from './mapas.js';
 import { cargarModuloGPS, detenerModuloGPS } from './gpsActivosCercanos.js';
+import { cargarModuloRecorridosGPS, detenerModuloRecorridosGPS } from './recorridosGps.js';
 import { cargarModuloPulmon } from './moduloPulmon.js';
 import { cargarModuloBomberos } from './bomberos.js';
 import { cargarModuloAnomalias } from './anomalias.js';
@@ -36,6 +37,7 @@ window.toggleMenu = function() {
 // Volver al dashboard principal.
 window.irInicio = function() {
     detenerModuloGPS();
+    detenerModuloRecorridosGPS();
     detenerModuloMapa();
     const pantallaInicio = document.getElementById('main-content');
     const vistaDinamica = document.getElementById('vista-dinamica');
@@ -103,6 +105,7 @@ window.guardarControl = async function(event) {
 // index.html utiliza onclick="cargarModulo('...')", por eso debe existir en window.
 window.cargarModulo = async function(modulo) {
     detenerModuloGPS();
+    detenerModuloRecorridosGPS();
     detenerModuloMapa();
     if (!verificarPermisoModulo(modulo)) {
         alert('Tu rol actual no tiene permiso para acceder a este módulo.');
@@ -149,6 +152,10 @@ window.cargarModulo = async function(modulo) {
 
             case 'gps':
                 await cargarModuloGPS(vistaDinamica);
+                break;
+
+            case 'recorridosGps':
+                await cargarModuloRecorridosGPS(vistaDinamica);
                 break;
 
             case 'correccionEcas':
