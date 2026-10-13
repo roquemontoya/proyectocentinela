@@ -3,6 +3,7 @@
 // Proyecto Centinela 2.0
 // ==========================================
 import { clienteSupabase } from './supabaseClient.js';
+import { agregarCapasBase } from './mapaBase.js';
 
 const VISTA_INICIAL = [-38.88, -62.08];
 const RADIO_INICIAL = 1000;
@@ -258,9 +259,7 @@ export async function cargarModuloGPS(contenedor) {
       </div>
     </section>`;
   mapa = L.map('gps-mapa', { zoomControl: true }).setView(VISTA_INICIAL, 16);
-  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-    attribution: 'Tiles &copy; Esri', maxZoom: 22
-  }).addTo(mapa);
+  agregarCapasBase(mapa);
   document.getElementById('gps-iniciar').addEventListener('click', iniciarGPS);
   document.getElementById('gps-radio').addEventListener('change', evento => {
     radioMetros = Number(evento.target.value) || RADIO_INICIAL;
