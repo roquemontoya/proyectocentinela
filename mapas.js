@@ -159,6 +159,80 @@ function escaparHtml(valor) {
     }[caracter]));
 }
 
+const PALETA_SECTORES_IPP = [
+    '#2563eb', '#16a34a', '#dc2626', '#9333ea', '#ea580c',
+    '#0891b2', '#ca8a04', '#db2777', '#4f46e5', '#65a30d',
+    '#0f766e', '#c2410c', '#7c3aed', '#be123c', '#0369a1',
+    '#15803d', '#b45309', '#a21caf', '#475569', '#0e7490'
+];
+
+function obtenerSectorMapa(item) {
+    return String(
+        item?.sector ??
+        buscarAtributo(item, 'Sector', 'Macro Sector', 'MacroSector', 'Ubicación', 'Ubicacion') ??
+        'Sin sector'
+    ).trim() || 'Sin sector';
+}
+
+function crearColoresSectoresIPP(activos) {
+    const sectores = [...new Set(activos.map(obtenerSectorMapa))]
+        .sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
+    const colores = new Map();
+    sectores.forEach((sector, indice) => {
+        colores.set(sector, PALETA_SECTORES_IPP[indice % PALETA_SECTORES_IPP.length]);
+    });
+    return colores;
+}
+
+function obtenerCentroGeometria(geometria) {
+    if (!geometria || geometria.tipo === 'punto') return geometria?.coordenadas || null;
+    const puntos = Array.isArray(geometria.coordenadas)
+        ? geometria.coordenadas.flat(1).filter(p => Array.isArray(p) && p.length >= 2)
+        : [];
+    if (!puntos.length) return null;
+    const suma = puntos.reduce((acc, punto) => [acc[0] + Number(punto[0]), acc[1] + Number(punto[1])], [0, 0]);
+    return [suma[0] / puntos.length, suma[1] / puntos.length];
+}
+
+function agregarEtiquetaSectorIPP(mapa, item, geometria, color) {
+    const centro = obtenerCentroGeometria(geometria);
+    if (!centro) return null;
+    const sector = obtenerSectorMapa(item);
+    return L.marker(centro, {
+        interactive: false,
+        keyboard: false,
+        zIndexOffset: 1000,
+        icon: L.divIcon({
+            className: 'centinela-ipp-sector-label',
+            html: '<div style="display:inline-block;max-width:180px;padding:4px 8px;border:1px solid rgba(255,255,255,.9);border-radius:6px;background:' +
+                color + 'dd;color:#fff;font:bold 12px Arial,sans-serif;line-height:1.15;text-align:center;text-shadow:0 1px 2px #000;box-shadow:0 1px 5px #0007;white-space:normal;pointer-events:none">' +
+                escaparHtml(sector) + '</div>',
+            iconSize: [0, 0],
+            iconAnchor: [0, 0]
+        })
+    }).addTo(mapa);
+}
+
+function agregarLeyendaSectoresIPP(mapa, colores) {
+    if (!colores?.size) return;
+    const control = L.control({ position: 'topright' });
+    control.onAdd = () => {
+        const div = L.DomUtil.create('div', 'centinela-ipp-leyenda');
+        div.style.cssText = 'max-width:min(270px,calc(100vw - 90px));max-height:45vh;overflow:auto;padding:10px 12px;background:rgba(15,23,42,.94);color:#fff;border:1px solid #475569;border-radius:10px;box-shadow:0 2px 10px #0007;font:12px Arial,sans-serif';
+        const filas = [...colores.entries()].map(([sector, color]) =>
+            '<div style="display:flex;align-items:center;gap:7px;margin:4px 0;line-height:1.2">' +
+            '<span style="flex:0 0 14px;width:14px;height:14px;border-radius:3px;background:' + color + ';border:1px solid #fff8"></span>' +
+            '<span style="overflow-wrap:anywhere">' + escaparHtml(sector) + '</span></div>'
+        ).join('');
+        div.innerHTML = '<div style="font-weight:bold;font-size:13px;margin-bottom:6px">Sectores IPP</div>' + filas;
+        L.DomEvent.disableClickPropagation(div);
+        L.DomEvent.disableScrollPropagation(div);
+        return div;
+    };
+    control.addTo(mapa);
+    return control;
+}
+
 function obtenerAtributos(item) {
     const tecnicos = item?.atributos_tecnicos;
     return tecnicos?.atributos_originales || tecnicos?.originales || tecnicos || {};
@@ -599,6 +673,8 @@ export async function cargarModuloMapa(moduloKey, contenedor) {
     activosPuntualesMapa = [];
     let puntosDibujados = 0, poligonosDibujados = 0, sinUbicacion = 0, fueraDePlanta = 0;
     const esExtintor = moduloKey === 'extintores';
+    const esIPP = moduloKey === 'ipp';
+    const coloresSectoresIPP = esIPP ? crearColoresSectoresIPP(activos) : new Map();
 
     for (const item of activos) {
         const estadoControl = ultimosEstadosControl.get(Number(item.id));
@@ -628,7 +704,8 @@ export async function cargarModuloMapa(moduloKey, contenedor) {
             if (geometria.tipo === 'multipoligono') {
                 anillos.forEach(anillo => {
                     if (anillo.length < 3) return;
-                    const capaPoligono = L.polygon(anillo, { color: estado.color, weight: 2, fillColor: estado.color, fillOpacity: 0.22 })
+                    const colorPoligono = esIPP ? coloresSectoresIPP.get(obtenerSectorMapa(item)) : estado.color;
+                    const capaPoligono = L.polygon(anillo, { color: colorPoligono, weight: 2, fillColor: colorPoligono, fillOpacity: 0.22 })
                         .addTo(mapaActivo).bindPopup(popup);
                     capaPoligono.on('popupopen', evento => {
                         inicializarMiniMapaPopup(evento.popup, item);
@@ -636,9 +713,11 @@ export async function cargarModuloMapa(moduloKey, contenedor) {
                     });
                     limites.push(...anillo);
                     poligonosDibujados++;
+                    if (esIPP && anillo === anillos[0]) agregarEtiquetaSectorIPP(mapaActivo, item, geometria, colorPoligono);
                 });
             } else {
-                const capaPoligono = L.polygon(anillos, { color: estado.color, weight: 2, fillColor: estado.color, fillOpacity: 0.22 })
+                const colorPoligono = esIPP ? coloresSectoresIPP.get(obtenerSectorMapa(item)) : estado.color;
+                const capaPoligono = L.polygon(anillos, { color: colorPoligono, weight: 2, fillColor: colorPoligono, fillOpacity: 0.22 })
                     .addTo(mapaActivo).bindPopup(popup);
                 capaPoligono.on('popupopen', evento => {
                     inicializarMiniMapaPopup(evento.popup, item);
@@ -646,9 +725,12 @@ export async function cargarModuloMapa(moduloKey, contenedor) {
                 });
                 limites.push(...anillos.flat());
                 poligonosDibujados++;
+                if (esIPP) agregarEtiquetaSectorIPP(mapaActivo, item, geometria, colorPoligono);
             }
         }
     }
+
+    if (esIPP) agregarLeyendaSectoresIPP(mapaActivo, coloresSectoresIPP);
 
     const diagnostico = document.getElementById('mapa-diagnostico');
     if (diagnostico) {
