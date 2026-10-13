@@ -17,7 +17,8 @@ export function agregarCapasBase(mapa, { selector = true } = {}) {
     {
       attribution: 'Mapa base © Instituto Geográfico Nacional (IGN)',
       tms: false,
-      maxZoom: 20,
+      maxZoom: 22,
+      maxNativeZoom: 18,
       keepBuffer: 3
     }
   );
