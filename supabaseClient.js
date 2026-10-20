@@ -28,7 +28,12 @@ const storage = new Proxy(original.storage,{get(t,p) {
 export const clienteSupabase = new Proxy(original,{get(t,p) {
   if(p==='from') return (table)=>wrapQuery(t.from(table));
   if(p==='storage') return storage;
-  if(p==='rpc') return ()=>blocked();
+  if(p==='rpc') return (name,args)=>{
+    // Permitir únicamente la función de autorización de solo lectura usada por auth.js.
+    // Toda otra RPC queda bloqueada por seguridad en esta rama.
+    if(name === 'current_user_has_role') return target.rpc(name,args);
+    return blocked();
+  };
   if(p==='functions') return new Proxy(t.functions,{get(ft,fp) {
     if(fp==='invoke') return ()=>blocked();
     const fv=Reflect.get(ft,fp,ft);
