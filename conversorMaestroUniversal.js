@@ -220,8 +220,8 @@ export function cargarModuloAdminCsv(contenedor) {
         if (valor === null || valor === undefined) return null;
 
         const texto = String(valor)
-            .replace(/^\\uFEFF/, '')
-            .replace(/[\\u00A0\\u1680\\u2000-\\u200B\\u202F\\u205F\\u3000]/g, ' ')
+            .replace(/^\uFEFF/, '')
+            .replace(/[\u00A0\u1680\u2000-\u200B\u202F\u205F\u3000]/g, ' ')
             .trim();
 
         if (!texto) return null;
@@ -285,12 +285,12 @@ export function cargarModuloAdminCsv(contenedor) {
                     if (!linea.trim()) continue;
                     // Aceptar WKT POINT tanto entrecomillado como sin comillas.
                     // Algunas exportaciones alternan ambos formatos entre filas.
-                    const inicio = linea.match(/^("?POINT\\s*\\([^)]*\\)"?),(.*)$/i);
+                    const inicio = linea.match(/^("?POINT\s*\([^)]*\)"?),(.*)$/i);
                     if (!inicio) continue;
                     const wktEpi = inicio[1].replace(/^"|"$/g, '');
                     let resto = inicio[2];
                     // GPS decimal partido: latitud, longitud, siguiente columna.
-                    const decimal = resto.match(/^-?\\d+(?:\\.\\d+)?\\s*,\\s*-?\\d+(?:\\.\\d+)?\\s*,/);
+                    const decimal = resto.match(/^-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?\s*,/);
                     if (decimal) {
                         resto = resto.slice(decimal[0].length);
                     } else {
@@ -808,7 +808,7 @@ const convertirWktIppAGeometria = (valor) => {
 
                         const wkt = limpiarTextoSeguro(fila[0]);
                         const matchWkt = wkt?.match(
-                            /POINT\\s*\\(\\s*([-\\d.]+)\\s+([-\\d.]+)\\s*\\)/i
+                            /POINT\s*\(\s*([-\d.]+)\s+([-\d.]+)\s*\)/i
                         );
                         if (!matchWkt) return null;
 
@@ -1783,7 +1783,7 @@ const convertirWktIppAGeometria = (valor) => {
                         });
 
                         alert(
-                            '❌ No se encontraron registros de datos después de procesar el CSV.\\n\\n' +
+                            '❌ No se encontraron registros de datos después de procesar el CSV.\n\n' +
                             'Diagnóstico CMU: ' +
                             (categoriaDetectadaGlobal || 'sin categoría') +
                             ' · ' + COLUMNAS_ESPERADAS + ' columnas · ' +
@@ -1800,7 +1800,7 @@ const convertirWktIppAGeometria = (valor) => {
                     // la geometría ni ningún registro de Supabase.
                     const puntosReferencia = listaTemporal.map(registro => {
                         const wkt = String(registro.ubicacion_wkt || registro.WKT || '').trim();
-                        const match = wkt.match(/POINT\\s*\\(\\s*(-?\\d+(?:\\.\\d+)?)\\s+(-?\\d+(?:\\.\\d+)?)\\s*\\)/i);
+                        const match = wkt.match(/POINT\s*\(\s*(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s*\)/i);
                         if (!match) return null;
                         const lon = Number(match[1]), lat = Number(match[2]);
                         return Number.isFinite(lat) && Number.isFinite(lon) &&
@@ -1945,9 +1945,9 @@ const convertirWktIppAGeometria = (valor) => {
 
         if (auditoriaCsvGlobal?.filasSospechosas > 0) {
             alert(
-                `⛔ Importación bloqueada.\\n\\n` +
-                `El CSV contiene ${auditoriaCsvGlobal.filasSospechosas} fila(s) que no pudieron reconstruirse de forma determinista.\\n` +
-                `No se insertó ningún registro en Supabase.\\n\\n` +
+                `⛔ Importación bloqueada.\n\n` +
+                `El CSV contiene ${auditoriaCsvGlobal.filasSospechosas} fila(s) que no pudieron reconstruirse de forma determinista.\n` +
+                `No se insertó ningún registro en Supabase.\n\n` +
                 `Corregí el CSV original y volvé a procesarlo.`
             );
             return;
