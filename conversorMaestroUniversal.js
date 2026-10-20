@@ -1789,6 +1789,32 @@ const convertirWktIppAGeometria = (valor) => {
                     }
 
                     datosConvertidosGlobal = listaTemporal;
+
+                    // Centrar el visor histórico en la ubicación media de los activos
+                    // del CSV, usando WKT POINT(longitud latitud). No altera el mapa,
+                    // la geometría ni ningún registro de Supabase.
+                    const puntosReferencia = listaTemporal.map(registro => {
+                        const wkt = String(registro.ubicacion_wkt || registro.WKT || '').trim();
+                        const match = wkt.match(/POINT\\s*\\(\\s*(-?\\d+(?:\\.\\d+)?)\\s+(-?\\d+(?:\\.\\d+)?)\\s*\\)/i);
+                        if (!match) return null;
+                        const lon = Number(match[1]), lat = Number(match[2]);
+                        return Number.isFinite(lat) && Number.isFinite(lon) &&
+                            lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180
+                            ? {lat, lon} : null;
+                    }).filter(Boolean);
+                    if (puntosReferencia.length) {
+                        const lat = puntosReferencia.reduce((s,p) => s+p.lat, 0) / puntosReferencia.length;
+                        const lon = puntosReferencia.reduce((s,p) => s+p.lon, 0) / puntosReferencia.length;
+                        const mapaId = MAPAS_CONFIG[categoriaDetectadaGlobal];
+                        if (mapaId) {
+                            const zoom = categoriaDetectadaGlobal === 'Extintores' ? 14 : 11;
+                            document.getElementById('iframe-container').innerHTML =
+                                `<iframe title="Visor histórico de My Maps" src="https://www.google.com/maps/d/embed?mid=${mapaId}&ll=${lat.toFixed(6)},${lon.toFixed(6)}&z=${zoom}" width="100%" height="100%" style="border:0;border-radius:6px" allowfullscreen loading="lazy"></iframe>`;
+                            document.getElementById('btn-ir-editor').href =
+                                `https://www.google.com/maps/d/edit?mid=${mapaId}`;
+                        }
+                    }
+
                     auditoria.registrosLogicos = listaTemporal.length;
 
                     document.getElementById('admin-resultado-container').style.display = 'block';
