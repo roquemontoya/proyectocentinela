@@ -45,7 +45,7 @@ export async function compararCsvCompleto({registros,categoria,contenedor,estado
       '<p style="color:#86efac">Coincidencias exactas: '+exact+'</p><p style="color:#fca5a5">Registros con diferencias: '+diffCount+' · Diferencias de campos: '+fieldDiffs+'</p>'+
       '<p style="color:#fcd34d">Nuevos/no existentes: '+newCount+' · Ausentes en CSV: '+missing+' · Duplicados CSV: '+dupes+'</p>'+
       '<p>Se muestran todas las filas y todos los campos. Rojo = diferencia o ausencia; verde = coincidencia.</p>'+
-      '<button type="button" id="cmu-descargar-comparacion" style="padding:10px 14px;margin-top:8px;border:1px solid #38bdf8;border-radius:6px;background:#075985;color:white;font-weight:700;cursor:pointer">⬇ Descargar comparación completa en CSV</button></div>'+
+      '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px"><button type="button" id="cmu-descargar-comparacion" style="padding:10px 14px;border:1px solid #38bdf8;border-radius:6px;background:#075985;color:white;font-weight:700;cursor:pointer">⬇ Descargar comparación completa en CSV</button><button type="button" id="cmu-descargar-comparacion-xlsx" style="padding:10px 14px;border:1px solid #22c55e;border-radius:6px;background:#166534;color:white;font-weight:700;cursor:pointer">▦ Descargar como Excel (.xlsx)</button></div></div>'+
       '<style>.cmu-comparacion-visor{display:block;width:100%;max-width:100%;height:65vh;max-height:720px;overflow:scroll;overscroll-behavior:contain;touch-action:pan-x pan-y;border:1px solid #475569;background:#0b1220;scrollbar-gutter:stable both-edges}.cmu-comparacion-tabla{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-size:12px;color:#e5e7eb}.cmu-comparacion-tabla th{position:sticky;top:0;background:#1e293b;z-index:3}.cmu-comparacion-tabla th,.cmu-comparacion-tabla td{border:1px solid #475569;padding:6px;vertical-align:top}.cmu-comparacion-tabla td{max-width:520px;overflow-wrap:anywhere}.cmu-comparacion-tabla td:first-child,.cmu-comparacion-tabla td:nth-child(2),.cmu-comparacion-tabla td:nth-child(3){white-space:nowrap}</style>'+
       '<div class="cmu-comparacion-visor" id="cmu-comparacion-visor" tabindex="0" role="region" aria-label="Tabla completa de comparación. Se puede desplazar horizontal y verticalmente"><table class="cmu-comparacion-tabla"><thead><tr>'+
       '<th># CSV</th><th>Estado</th><th>ID LEU</th><th>Campo</th><th>Valor CSV</th><th>Valor Supabase</th></tr></thead><tbody>';
@@ -127,6 +127,96 @@ export async function compararCsvCompleto({registros,categoria,contenedor,estado
         enlace.click();
         enlace.remove();
         URL.revokeObjectURL(url);
+      });
+    }
+
+    // Exportación XLSX auténtica (no CSV renombrado). Carga SheetJS bajo demanda.
+    const botonExcel = contenedor.querySelector('#cmu-descargar-comparacion-xlsx');
+    if (botonExcel) {
+      botonExcel.addEventListener('click', async () => {
+        const etiquetaOriginal = botonExcel.textContent;
+        botonExcel.disabled = true;
+        botonExcel.textContent = 'Preparando Excel…';
+        try {
+          if (!window.XLSX) {
+            await new Promise((resolve, reject) => {
+              const script = document.createElement('script');
+              script.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+              script.onload = resolve;
+              script.onerror = () => reject(new Error('No se pudo cargar el generador Excel. Revisá la conexión e intentá nuevamente.'));
+              document.head.appendChild(script);
+            });
+          }
+          const excelRows = [[
+            'Fila CSV','Estado','ID LEU','Categoría','Etiqueta','Campo',
+            'Valor CSV','Valor Supabase','Resultado del campo'
+          ]];
+          rows.forEach(r => {
+            let pairs = [];
+            if (r.csv) {
+              const ac = r.csv.atributos_tecnicos || {};
+              const ad = r.db
+                ? (r.db.atributos_tecnicos?.atributos_originales ?? r.db.atributos_tecnicos ?? {})
+                : {};
+              pairs = [
+                ['etiqueta',r.csv.etiqueta,r.db?.etiqueta],
+                ['categoria',r.csv.categoria,r.db?.categoria],
+                ['sector',r.csv.sector,r.db?.sector],
+                ['ronda',r.csv.ronda,r.db?.ronda],
+                ['ubicacion_wkt',r.csv.ubicacion_wkt,r.db?.ubicacion_wkt]
+              ];
+              [...new Set([...Object.keys(ac),...(ad && typeof ad === 'object' ? Object.keys(ad) : [])])]
+                .sort().forEach(k => pairs.push(['atributos_tecnicos.'+k,ac[k],ad?.[k]]));
+            } else {
+              pairs = [
+                ['id',null,r.db.id],['etiqueta',null,r.db.etiqueta],
+                ['categoria',null,r.db.categoria],['sector',null,r.db.sector],
+                ['ronda',null,r.db.ronda],['ubicacion_wkt',null,r.db.ubicacion_wkt],
+                ['atributos_tecnicos',null,r.db.atributos_tecnicos]
+              ];
+            }
+            pairs.forEach(([campo,valorCsv,valorDb]) => {
+              const coincide = norm(valorCsv) === norm(valorDb);
+              const serializar = v => v === null || v === undefined ? '' : (typeof v === 'object' ? JSON.stringify(v) : v);
+              excelRows.push([
+                r.n, r.status, r.db?.id ?? '', categoria,
+                r.csv?.etiqueta ?? r.db?.etiqueta ?? '', campo,
+                serializar(valorCsv), serializar(valorDb), coincide ? 'COINCIDE' : 'DIFERENCIA'
+              ]);
+            });
+          });
+          const libro = window.XLSX.utils.book_new();
+          const hoja = window.XLSX.utils.aoa_to_sheet(excelRows);
+          hoja['!cols'] = [
+            {wch:12},{wch:24},{wch:12},{wch:26},{wch:32},
+            {wch:38},{wch:55},{wch:55},{wch:22}
+          ];
+          window.XLSX.utils.book_append_sheet(libro, hoja, 'Comparacion');
+          const resumen = [
+            ['Categoría',categoria],
+            ['Registros CSV',registros.length],
+            ['Registros LEU de la categoría',existing.length],
+            ['Coincidencias exactas',exact],
+            ['Registros con diferencias',diffCount],
+            ['Diferencias de campos',fieldDiffs],
+            ['Nuevos/no existentes',newCount],
+            ['Ausentes en CSV',missing],
+            ['Duplicados CSV',dupes],
+            ['Modo','Solo lectura']
+          ];
+          const hojaResumen = window.XLSX.utils.aoa_to_sheet(resumen);
+          hojaResumen['!cols'] = [{wch:32},{wch:28}];
+          window.XLSX.utils.book_append_sheet(libro, hojaResumen, 'Resumen');
+          const nombreSeguro = String(categoria || 'categoria').normalize('NFD')
+            .replace(/[\\u0300-\\u036f]/g,'').replace(/[^a-zA-Z0-9_-]+/g,'_');
+          window.XLSX.writeFile(libro, 'Centinela_Comparacion_' + nombreSeguro + '_' +
+            new Date().toISOString().slice(0,10) + '.xlsx');
+        } catch (error) {
+          alert('No se pudo generar el Excel: ' + error.message);
+        } finally {
+          botonExcel.disabled = false;
+          botonExcel.textContent = etiquetaOriginal;
+        }
       });
     }
 
