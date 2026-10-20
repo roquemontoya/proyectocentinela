@@ -44,8 +44,10 @@ export async function compararCsvCompleto({registros,categoria,contenedor,estado
       '<p>Categoría: <b>'+esc(categoria)+'</b> · CSV: <b>'+registros.length+'</b> · LEU: <b>'+existing.length+'</b></p>'+
       '<p style="color:#86efac">Coincidencias exactas: '+exact+'</p><p style="color:#fca5a5">Registros con diferencias: '+diffCount+' · Diferencias de campos: '+fieldDiffs+'</p>'+
       '<p style="color:#fcd34d">Nuevos/no existentes: '+newCount+' · Ausentes en CSV: '+missing+' · Duplicados CSV: '+dupes+'</p>'+
-      '<p>Se muestran todas las filas y todos los campos. Rojo = diferencia o ausencia; verde = coincidencia.</p></div>'+
-      '<div style="overflow:auto;max-height:65vh"><table style="border-collapse:collapse;width:100%;font-size:12px;color:#e5e7eb"><thead><tr>'+
+      '<p>Se muestran todas las filas y todos los campos. Rojo = diferencia o ausencia; verde = coincidencia.</p>'+
+      '<button type="button" id="cmu-descargar-comparacion" style="padding:10px 14px;margin-top:8px;border:1px solid #38bdf8;border-radius:6px;background:#075985;color:white;font-weight:700;cursor:pointer">⬇ Descargar comparación completa en CSV</button></div>'+
+      '<style>.cmu-comparacion-visor{display:block;width:100%;max-width:100%;height:65vh;max-height:720px;overflow:scroll;overscroll-behavior:contain;touch-action:pan-x pan-y;border:1px solid #475569;background:#0b1220;scrollbar-gutter:stable both-edges}.cmu-comparacion-tabla{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-size:12px;color:#e5e7eb}.cmu-comparacion-tabla th{position:sticky;top:0;background:#1e293b;z-index:3}.cmu-comparacion-tabla th,.cmu-comparacion-tabla td{border:1px solid #475569;padding:6px;vertical-align:top}.cmu-comparacion-tabla td{max-width:520px;overflow-wrap:anywhere}.cmu-comparacion-tabla td:first-child,.cmu-comparacion-tabla td:nth-child(2),.cmu-comparacion-tabla td:nth-child(3){white-space:nowrap}</style>'+
+      '<div class="cmu-comparacion-visor" id="cmu-comparacion-visor" tabindex="0" role="region" aria-label="Tabla completa de comparación. Se puede desplazar horizontal y verticalmente"><table class="cmu-comparacion-tabla"><thead><tr>'+
       '<th># CSV</th><th>Estado</th><th>ID LEU</th><th>Campo</th><th>Valor CSV</th><th>Valor Supabase</th></tr></thead><tbody>';
     rows.forEach(r=>{
       const statusColor=r.status==='COINCIDE'?'#86efac':r.status==='DIFERENCIAS'?'#fca5a5':'#fcd34d';
@@ -64,6 +66,70 @@ export async function compararCsvCompleto({registros,categoria,contenedor,estado
     });
     html+='</tbody></table></div>';
     contenedor.innerHTML=html;
+
+    // Exportar la misma comparación completa en formato CSV UTF-8 con BOM
+    // para abrirla correctamente en Excel y poder filtrar por estado/campo.
+    const botonDescarga = contenedor.querySelector('#cmu-descargar-comparacion');
+    if (botonDescarga) {
+      botonDescarga.addEventListener('click', () => {
+        const csvEscape = value => {
+          let text = value === null || value === undefined ? '' :
+            (typeof value === 'object' ? JSON.stringify(value) : String(value));
+          return '"' + text.replace(/"/g, '""') + '"';
+        };
+        const exportRows = [[
+          'Fila CSV','Estado','ID LEU','Categoría','Etiqueta','Campo',
+          'Valor CSV','Valor Supabase','Resultado del campo'
+        ]];
+        rows.forEach(r => {
+          let pairs = [];
+          if (r.csv) {
+            const ac = r.csv.atributos_tecnicos || {};
+            const ad = r.db
+              ? (r.db.atributos_tecnicos?.atributos_originales ?? r.db.atributos_tecnicos ?? {})
+              : {};
+            pairs = [
+              ['etiqueta',r.csv.etiqueta,r.db?.etiqueta],
+              ['categoria',r.csv.categoria,r.db?.categoria],
+              ['sector',r.csv.sector,r.db?.sector],
+              ['ronda',r.csv.ronda,r.db?.ronda],
+              ['ubicacion_wkt',r.csv.ubicacion_wkt,r.db?.ubicacion_wkt]
+            ];
+            [...new Set([...Object.keys(ac),...(ad && typeof ad === 'object' ? Object.keys(ad) : [])])]
+              .sort().forEach(k => pairs.push(['atributos_tecnicos.'+k,ac[k],ad?.[k]]));
+          } else {
+            pairs = [
+              ['id',null,r.db.id],['etiqueta',null,r.db.etiqueta],
+              ['categoria',null,r.db.categoria],['sector',null,r.db.sector],
+              ['ronda',null,r.db.ronda],['ubicacion_wkt',null,r.db.ubicacion_wkt],
+              ['atributos_tecnicos',null,r.db.atributos_tecnicos]
+            ];
+          }
+          pairs.forEach(([campo,valorCsv,valorDb]) => {
+            const coincide = norm(valorCsv) === norm(valorDb);
+            exportRows.push([
+              r.n, r.status, r.db?.id ?? '', categoria,
+              r.csv?.etiqueta ?? r.db?.etiqueta ?? '', campo,
+              valorCsv, valorDb, coincide ? 'COINCIDE' : 'DIFERENCIA'
+            ]);
+          });
+        });
+        const contenido = '\\uFEFF' + exportRows.map(fila => fila.map(csvEscape).join(';')).join('\\r\\n');
+        const blob = new Blob([contenido], {type:'text/csv;charset=utf-8;'});
+        const url = URL.createObjectURL(blob);
+        const enlace = document.createElement('a');
+        const nombreSeguro = String(categoria || 'categoria').normalize('NFD')
+          .replace(/[\\u0300-\\u036f]/g,'').replace(/[^a-zA-Z0-9_-]+/g,'_');
+        enlace.href = url;
+        enlace.download = 'Centinela_Comparacion_' + nombreSeguro + '_' +
+          new Date().toISOString().slice(0,10) + '.csv';
+        document.body.appendChild(enlace);
+        enlace.click();
+        enlace.remove();
+        URL.revokeObjectURL(url);
+      });
+    }
+
     estado.textContent='Comparación completa finalizada · solo lectura'; estado.style.color='#86efac';
     contador.textContent=rows.length+' filas · '+fieldDiffs+' diferencias de campos';
   } catch(e) {
