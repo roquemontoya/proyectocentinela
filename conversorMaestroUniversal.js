@@ -2349,9 +2349,8 @@ const convertirWktIppAGeometria = (valor) => {
                 arrayControlesIpp.length;
 
             alert(
-                `¡Carga masiva completada!\n\nLEU: ${arrayLEU.length}\nControles: ${totalControles}\nAnomalías: ${arrayAnomalias.length}\n\nCategoría: ${categoriaDetectadaGlobal}`
+                `¡Sincronización completada!\n\nLEU actualizados: ${leuActualizados}\nLEU nuevos: ${leuNuevos}\nControles actualizados: ${controlesActualizados}\nControles creados: ${controlesCreados}\nAnomalías procesadas: ${arrayAnomalias.length}\n\nCategoría: ${categoriaDetectadaGlobal}`
             );
-
             btnSubir.innerText = '🚀 Inyectar en LEU, Controles y Anomalías (Supabase)';
             btnSubir.disabled = false;
         } catch (err) {
