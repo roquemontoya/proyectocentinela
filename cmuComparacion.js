@@ -1,0 +1,229 @@
+import { clienteSupabase } from './supabaseClient.js';
+
+const norm = v => {
+  if (v === null || v === undefined) return '';
+  if (typeof v === 'object') return JSON.stringify(v, Object.keys(v).sort());
+  return String(v).trim().replace(/\s+/g,' ').toLocaleLowerCase('es-AR');
+};
+const esc = v => String(v ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+
+export async function compararCsvCompleto({registros,categoria,contenedor,estado,contador}) {
+  contenedor.innerHTML = '<p style="color:#bae6fd;padding:12px">Consultando LEU en modo de solo lectura…</p>';
+  try {
+    const all=[]; const size=1000;
+    for(let from=0;;from+=size) {
+      const {data,error}=await clienteSupabase.from('leu').select('*').order('id',{ascending:true}).range(from,from+size-1);
+      if(error) throw new Error(error.message);
+      all.push(...(data||[]));
+      if(!data || data.length<size) break;
+    }
+    const cat=String(categoria||'').trim().toLocaleLowerCase('es-AR');
+    const existing=all.filter(x=>String(x.categoria||'').trim().toLocaleLowerCase('es-AR')===cat);
+    const key=x=>norm(x.etiqueta);
+    const byKey=new Map();
+    existing.forEach(x=>{const k=key(x);if(!byKey.has(k))byKey.set(k,[]);byKey.get(k).push(x);});
+    const seen=new Set(), used=new Set(), rows=[];
+    let exact=0,diffCount=0,newCount=0,dupes=0,fieldDiffs=0;
+    registros.forEach((csv,i)=>{
+      const k=key(csv), candidates=byKey.get(k)||[];
+      const db=candidates.find(x=>!used.has(String(x.id)))||null;
+      const duplicate=seen.has(k); if(duplicate)dupes++; seen.add(k);
+      if(!db){newCount++;rows.push({n:i+1,status:duplicate?'DUPLICADO EN CSV':'NUEVO / NO EXISTE EN LEU',csv,db:null});return;}
+      used.add(String(db.id));
+      const attrsCsv=csv.atributos_tecnicos||{};
+      const attrsDb=db.atributos_tecnicos?.atributos_originales ?? db.atributos_tecnicos ?? {};
+      const pairs=[['etiqueta',csv.etiqueta,db.etiqueta],['categoria',csv.categoria,db.categoria],['sector',csv.sector,db.sector],['ronda',csv.ronda,db.ronda],['ubicacion_wkt',csv.ubicacion_wkt,db.ubicacion_wkt]];
+      [...new Set([...Object.keys(attrsCsv),...(attrsDb&&typeof attrsDb==='object'?Object.keys(attrsDb):[])])].sort().forEach(k=>pairs.push(['atributos_tecnicos.'+k,attrsCsv[k],attrsDb?.[k]]));
+      const differences=pairs.filter(p=>norm(p[1])!==norm(p[2]));
+      if(differences.length){diffCount++;fieldDiffs+=differences.length;}else exact++;
+      rows.push({n:i+1,status:differences.length?'DIFERENCIAS':'COINCIDE',csv,db,pairs});
+    });
+    existing.forEach(db=>{if(!used.has(String(db.id))&&!registros.some(csv=>key(csv)===key(db)))rows.push({n:'—',status:'AUSENTE EN CSV',csv:null,db});});
+    const missing=rows.filter(x=>x.status==='AUSENTE EN CSV').length;
+    let html='<div style="padding:12px;background:#0f172a;border:1px solid #475569;border-radius:8px;margin-bottom:12px;color:#e2e8f0"><h3>Comparación completa · solo lectura</h3>'+
+      '<p>Categoría: <b>'+esc(categoria)+'</b> · CSV: <b>'+registros.length+'</b> · LEU: <b>'+existing.length+'</b></p>'+
+      '<p style="color:#86efac">Coincidencias exactas: '+exact+'</p><p style="color:#fca5a5">Registros con diferencias: '+diffCount+' · Diferencias de campos: '+fieldDiffs+'</p>'+
+      '<p style="color:#fcd34d">Nuevos/no existentes: '+newCount+' · Ausentes en CSV: '+missing+' · Duplicados CSV: '+dupes+'</p>'+
+      '<p>Se muestran todas las filas y todos los campos. Rojo = diferencia o ausencia; verde = coincidencia.</p>'+
+      '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px"><button type="button" id="cmu-descargar-comparacion" style="padding:10px 14px;border:1px solid #38bdf8;border-radius:6px;background:#075985;color:white;font-weight:700;cursor:pointer">⬇ Descargar comparación completa en CSV</button><button type="button" id="cmu-descargar-comparacion-xlsx" style="padding:10px 14px;border:1px solid #22c55e;border-radius:6px;background:#166534;color:white;font-weight:700;cursor:pointer">▦ Descargar como Excel (.xlsx)</button></div></div>'+
+      '<style>.cmu-comparacion-visor{display:block;width:100%;max-width:100%;height:65vh;max-height:720px;overflow:scroll;overscroll-behavior:contain;touch-action:pan-x pan-y;border:1px solid #475569;background:#0b1220;scrollbar-gutter:stable both-edges}.cmu-comparacion-tabla{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-size:12px;color:#e5e7eb}.cmu-comparacion-tabla th{position:sticky;top:0;background:#1e293b;z-index:3}.cmu-comparacion-tabla th,.cmu-comparacion-tabla td{border:1px solid #475569;padding:6px;vertical-align:top}.cmu-comparacion-tabla td{max-width:520px;overflow-wrap:anywhere}.cmu-comparacion-tabla td:first-child,.cmu-comparacion-tabla td:nth-child(2),.cmu-comparacion-tabla td:nth-child(3){white-space:nowrap}</style>'+
+      '<div class="cmu-comparacion-visor" id="cmu-comparacion-visor" tabindex="0" role="region" aria-label="Tabla completa de comparación. Se puede desplazar horizontal y verticalmente"><table class="cmu-comparacion-tabla"><thead><tr>'+
+      '<th># CSV</th><th>Estado</th><th>ID LEU</th><th>Campo</th><th>Valor CSV</th><th>Valor Supabase</th></tr></thead><tbody>';
+    rows.forEach(r=>{
+      const statusColor=r.status==='COINCIDE'?'#86efac':r.status==='DIFERENCIAS'?'#fca5a5':'#fcd34d';
+      let pairs=[];
+      if(r.csv) {
+        const ac=r.csv.atributos_tecnicos||{}, ad=r.db?(r.db.atributos_tecnicos?.atributos_originales??r.db.atributos_tecnicos??{}):{};
+        pairs=[['etiqueta',r.csv.etiqueta,r.db?.etiqueta],['categoria',r.csv.categoria,r.db?.categoria],['sector',r.csv.sector,r.db?.sector],['ronda',r.csv.ronda,r.db?.ronda],['ubicacion_wkt',r.csv.ubicacion_wkt,r.db?.ubicacion_wkt]];
+        [...new Set([...Object.keys(ac),...(ad&&typeof ad==='object'?Object.keys(ad):[])])].sort().forEach(k=>pairs.push(['atributos_tecnicos.'+k,ac[k],ad?.[k]]));
+      } else pairs=[['id',null,r.db.id],['etiqueta',null,r.db.etiqueta],['categoria',null,r.db.categoria],['sector',null,r.db.sector],['ronda',null,r.db.ronda],['ubicacion_wkt',null,r.db.ubicacion_wkt],['atributos_tecnicos',null,r.db.atributos_tecnicos]];
+      pairs.forEach((p,j)=>{
+        const different=norm(p[1])!==norm(p[2]), bg=different?'#451a1a':'#10291b', border=different?'#ef4444':'#22c55e';
+        const cell=v=>'<div style="white-space:pre-wrap;overflow-wrap:anywhere;min-width:150px;background:'+bg+';border-left:3px solid '+border+';padding:6px">'+(v===null||v===undefined||v===''?'<span style="color:#94a3b8">(vacío)</span>':esc(typeof v==='object'?JSON.stringify(v,null,2):v))+'</div>';
+        html+='<tr style="border:1px solid #475569"><td>'+esc(r.n)+'</td>'+ (j===0?'<td rowspan="'+pairs.length+'" style="color:'+statusColor+';font-weight:bold">'+esc(r.status)+'</td><td rowspan="'+pairs.length+'">'+esc(r.db?.id??'—')+'</td>':'')+
+          '<td style="border:1px solid #475569;padding:6px">'+esc(p[0])+'</td><td style="border:1px solid #475569;padding:6px">'+cell(p[1])+'</td><td style="border:1px solid #475569;padding:6px">'+cell(p[2])+'</td></tr>';
+      });
+    });
+    html+='</tbody></table></div>';
+    contenedor.innerHTML=html;
+
+    // Exportar la misma comparación completa en formato CSV UTF-8 con BOM
+    // para abrirla correctamente en Excel y poder filtrar por estado/campo.
+    const botonDescarga = contenedor.querySelector('#cmu-descargar-comparacion');
+    if (botonDescarga) {
+      botonDescarga.addEventListener('click', () => {
+        const csvEscape = value => {
+          let text = value === null || value === undefined ? '' :
+            (typeof value === 'object' ? JSON.stringify(value) : String(value));
+          return '"' + text.replace(/"/g, '""') + '"';
+        };
+        const exportRows = [[
+          'Fila CSV','Estado','ID LEU','Categoría','Etiqueta','Campo',
+          'Valor CSV','Valor Supabase','Resultado del campo'
+        ]];
+        rows.forEach(r => {
+          let pairs = [];
+          if (r.csv) {
+            const ac = r.csv.atributos_tecnicos || {};
+            const ad = r.db
+              ? (r.db.atributos_tecnicos?.atributos_originales ?? r.db.atributos_tecnicos ?? {})
+              : {};
+            pairs = [
+              ['etiqueta',r.csv.etiqueta,r.db?.etiqueta],
+              ['categoria',r.csv.categoria,r.db?.categoria],
+              ['sector',r.csv.sector,r.db?.sector],
+              ['ronda',r.csv.ronda,r.db?.ronda],
+              ['ubicacion_wkt',r.csv.ubicacion_wkt,r.db?.ubicacion_wkt]
+            ];
+            [...new Set([...Object.keys(ac),...(ad && typeof ad === 'object' ? Object.keys(ad) : [])])]
+              .sort().forEach(k => pairs.push(['atributos_tecnicos.'+k,ac[k],ad?.[k]]));
+          } else {
+            pairs = [
+              ['id',null,r.db.id],['etiqueta',null,r.db.etiqueta],
+              ['categoria',null,r.db.categoria],['sector',null,r.db.sector],
+              ['ronda',null,r.db.ronda],['ubicacion_wkt',null,r.db.ubicacion_wkt],
+              ['atributos_tecnicos',null,r.db.atributos_tecnicos]
+            ];
+          }
+          pairs.forEach(([campo,valorCsv,valorDb]) => {
+            const coincide = norm(valorCsv) === norm(valorDb);
+            exportRows.push([
+              r.n, r.status, r.db?.id ?? '', categoria,
+              r.csv?.etiqueta ?? r.db?.etiqueta ?? '', campo,
+              valorCsv, valorDb, coincide ? 'COINCIDE' : 'DIFERENCIA'
+            ]);
+          });
+        });
+        const contenido = '\\uFEFF' + exportRows.map(fila => fila.map(csvEscape).join(';')).join('\\r\\n');
+        const blob = new Blob([contenido], {type:'text/csv;charset=utf-8;'});
+        const url = URL.createObjectURL(blob);
+        const enlace = document.createElement('a');
+        const nombreSeguro = String(categoria || 'categoria').normalize('NFD')
+          .replace(/[\\u0300-\\u036f]/g,'').replace(/[^a-zA-Z0-9_-]+/g,'_');
+        enlace.href = url;
+        enlace.download = 'Centinela_Comparacion_' + nombreSeguro + '_' +
+          new Date().toISOString().slice(0,10) + '.csv';
+        document.body.appendChild(enlace);
+        enlace.click();
+        enlace.remove();
+        URL.revokeObjectURL(url);
+      });
+    }
+
+    // Exportación XLSX auténtica (no CSV renombrado). Carga SheetJS bajo demanda.
+    const botonExcel = contenedor.querySelector('#cmu-descargar-comparacion-xlsx');
+    if (botonExcel) {
+      botonExcel.addEventListener('click', async () => {
+        const etiquetaOriginal = botonExcel.textContent;
+        botonExcel.disabled = true;
+        botonExcel.textContent = 'Preparando Excel…';
+        try {
+          if (!window.XLSX) {
+            await new Promise((resolve, reject) => {
+              const script = document.createElement('script');
+              script.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+              script.onload = resolve;
+              script.onerror = () => reject(new Error('No se pudo cargar el generador Excel. Revisá la conexión e intentá nuevamente.'));
+              document.head.appendChild(script);
+            });
+          }
+          const excelRows = [[
+            'Fila CSV','Estado','ID LEU','Categoría','Etiqueta','Campo',
+            'Valor CSV','Valor Supabase','Resultado del campo'
+          ]];
+          rows.forEach(r => {
+            let pairs = [];
+            if (r.csv) {
+              const ac = r.csv.atributos_tecnicos || {};
+              const ad = r.db
+                ? (r.db.atributos_tecnicos?.atributos_originales ?? r.db.atributos_tecnicos ?? {})
+                : {};
+              pairs = [
+                ['etiqueta',r.csv.etiqueta,r.db?.etiqueta],
+                ['categoria',r.csv.categoria,r.db?.categoria],
+                ['sector',r.csv.sector,r.db?.sector],
+                ['ronda',r.csv.ronda,r.db?.ronda],
+                ['ubicacion_wkt',r.csv.ubicacion_wkt,r.db?.ubicacion_wkt]
+              ];
+              [...new Set([...Object.keys(ac),...(ad && typeof ad === 'object' ? Object.keys(ad) : [])])]
+                .sort().forEach(k => pairs.push(['atributos_tecnicos.'+k,ac[k],ad?.[k]]));
+            } else {
+              pairs = [
+                ['id',null,r.db.id],['etiqueta',null,r.db.etiqueta],
+                ['categoria',null,r.db.categoria],['sector',null,r.db.sector],
+                ['ronda',null,r.db.ronda],['ubicacion_wkt',null,r.db.ubicacion_wkt],
+                ['atributos_tecnicos',null,r.db.atributos_tecnicos]
+              ];
+            }
+            pairs.forEach(([campo,valorCsv,valorDb]) => {
+              const coincide = norm(valorCsv) === norm(valorDb);
+              const serializar = v => v === null || v === undefined ? '' : (typeof v === 'object' ? JSON.stringify(v) : v);
+              excelRows.push([
+                r.n, r.status, r.db?.id ?? '', categoria,
+                r.csv?.etiqueta ?? r.db?.etiqueta ?? '', campo,
+                serializar(valorCsv), serializar(valorDb), coincide ? 'COINCIDE' : 'DIFERENCIA'
+              ]);
+            });
+          });
+          const libro = window.XLSX.utils.book_new();
+          const hoja = window.XLSX.utils.aoa_to_sheet(excelRows);
+          hoja['!cols'] = [
+            {wch:12},{wch:24},{wch:12},{wch:26},{wch:32},
+            {wch:38},{wch:55},{wch:55},{wch:22}
+          ];
+          window.XLSX.utils.book_append_sheet(libro, hoja, 'Comparacion');
+          const resumen = [
+            ['Categoría',categoria],
+            ['Registros CSV',registros.length],
+            ['Registros LEU de la categoría',existing.length],
+            ['Coincidencias exactas',exact],
+            ['Registros con diferencias',diffCount],
+            ['Diferencias de campos',fieldDiffs],
+            ['Nuevos/no existentes',newCount],
+            ['Ausentes en CSV',missing],
+            ['Duplicados CSV',dupes],
+            ['Modo','Solo lectura']
+          ];
+          const hojaResumen = window.XLSX.utils.aoa_to_sheet(resumen);
+          hojaResumen['!cols'] = [{wch:32},{wch:28}];
+          window.XLSX.utils.book_append_sheet(libro, hojaResumen, 'Resumen');
+          const nombreSeguro = String(categoria || 'categoria').normalize('NFD')
+            .replace(/[\\u0300-\\u036f]/g,'').replace(/[^a-zA-Z0-9_-]+/g,'_');
+          window.XLSX.writeFile(libro, 'Centinela_Comparacion_' + nombreSeguro + '_' +
+            new Date().toISOString().slice(0,10) + '.xlsx');
+        } catch (error) {
+          alert('No se pudo generar el Excel: ' + error.message);
+        } finally {
+          botonExcel.disabled = false;
+          botonExcel.textContent = etiquetaOriginal;
+        }
+      });
+    }
+
+    estado.textContent='Comparación completa finalizada · solo lectura'; estado.style.color='#86efac';
+    contador.textContent=rows.length+' filas · '+fieldDiffs+' diferencias de campos';
+  } catch(e) {
+    contenedor.textContent='No se pudo completar la comparación: '+e.message;
+    estado.textContent='Error al comparar'; estado.style.color='#fca5a5';
+  }
+}
