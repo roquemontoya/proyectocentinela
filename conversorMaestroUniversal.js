@@ -321,7 +321,7 @@ export function cargarModuloAdminCsv(contenedor) {
                 header: false,
                 skipEmptyLines: true,
                 encoding: 'UTF-8',
-                complete: function(results) {
+                complete: async function(results) {
                     const filasCrudas = results.data;
 
                     if (!filasCrudas || filasCrudas.length < 2) {
