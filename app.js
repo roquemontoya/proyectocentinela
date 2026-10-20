@@ -5,6 +5,7 @@
 import { inicializarAutenticacion, verificarPermisoModulo } from './auth.js';
 
 import { cargarModuloAdminCsv } from './conversorMaestroUniversal.js';
+import { cargarModuloCoordenadasGms } from './coordenadasGms.js';
 import { cargarModuloGestorTablas } from './gestorTablas.js';
 import { cargarFormularioCorreccionEcas } from './formularioCorreccionEcas.js';
 import { cargarModuloMapa, detenerModuloMapa } from './mapas.js';
@@ -132,6 +133,10 @@ window.cargarModulo = async function(modulo) {
         switch (modulo) {
             case 'adminCsv':
                 cargarModuloAdminCsv(vistaDinamica);
+                break;
+
+            case 'coordenadasGms':
+                cargarModuloCoordenadasGms(vistaDinamica);
                 break;
 
             case 'gestorTablas':
