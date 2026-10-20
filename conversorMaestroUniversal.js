@@ -110,11 +110,11 @@ export function cargarModuloAdminCsv(contenedor) {
             <div style="background:#0f172a;border:1px solid #475569;padding:14px;border-radius:8px;margin-bottom:16px;">
                 <label for="cmu-modo-operacion" style="display:block;font-weight:bold;color:#e2e8f0;margin-bottom:8px;">Modo del Bibliotecario</label>
                 <select id="cmu-modo-operacion" style="width:100%;padding:12px;background:#111827;color:#fff;border:1px solid #64748b;border-radius:6px;">
-                    <option value="agregar">Agregar registros (importación existente)</option>
+                    <option value="agregar">Actualizar activos existentes en LEU</option>
                     <option value="comparar">Comparar datos (solo lectura)</option>
                     <option value="preparar_reemplazo">Preparar reemplazo de LEU (solo auditoría)</option>
                 </select>
-                <p id="cmu-modo-operacion-ayuda" style="font-size:12px;color:#bae6fd;line-height:1.5;">La comparación no modifica la base. La importación mantiene el comportamiento actual del CMU.</p>
+                <p id="cmu-modo-operacion-ayuda" style="font-size:12px;color:#bae6fd;line-height:1.5;">La comparación es de solo lectura. La actualización modifica únicamente activos existentes en LEU; no crea ni elimina activos ni altera controles históricos.</p>
             </div>
             <div style="background:#0f172a;border:1px solid #38bdf8;padding:16px;border-radius:8px;margin-bottom:20px;">
                 <h4 style="color:#38bdf8;margin:0 0 10px;">🧭 Calculadora de coordenadas</h4>
@@ -149,7 +149,7 @@ export function cargarModuloAdminCsv(contenedor) {
                 <button id="btn-descargar-cmu" type="button" style="display:none;background:#0284c7;color:#fff;border:1px solid #38bdf8;padding:12px 20px;border-radius:5px;font-weight:bold;cursor:pointer;width:100%;font-size:14px;margin-bottom:12px;">⬇️ Descargar resultado procesado (CSV)</button>
                 <div id="admin-preview-tabla" style="max-height: 280px; overflow: auto; margin-bottom: 15px; font-size: 12px; background: #121212; padding: 10px; border-radius: 4px; border: 1px solid #444;"></div>
                 
-                <button id="btn-subir-supabase" style="background: #38bdf8; color: #000; border: none; padding: 12px 20px; border-radius: 5px; font-weight: bold; cursor: pointer; width: 100%; font-size: 14px;">🚀 Inyectar en LEU, Controles y Anomalías (Supabase)</button>
+                <button id="btn-subir-supabase" style="background: #38bdf8; color: #000; border: none; padding: 12px 20px; border-radius: 5px; font-weight: bold; cursor: pointer; width: 100%; font-size: 14px;">🔄 Actualizar activos existentes en LEU</button>
             </div>
         </div>
     `;
@@ -2020,7 +2020,7 @@ const convertirWktIppAGeometria = (valor) => {
             return;
         }
 
-        if (!confirm(`¿Inyectar los ${datosConvertidosGlobal.length} registros exactos como "${categoriaDetectadaGlobal}"?`)) return;
+        if (!confirm(`Se actualizarán únicamente activos existentes en LEU para la categoría "${categoriaDetectadaGlobal}". No se crearán activos nuevos ni se modificarán controles o historiales. ¿Continuar?`)) return;
 
         const btnSubir = document.getElementById('btn-subir-supabase');
         btnSubir.innerText = 'Inyectando...';
@@ -2446,7 +2446,7 @@ const convertirWktIppAGeometria = (valor) => {
         } catch (err) {
             console.error('CMU - error de carga:', err);
             alert('❌ Error durante la carga. No se confirmó la importación completa: ' + err.message);
-            btnSubir.innerText = '🚀 Reintentar inyección';
+            btnSubir.innerText = '🔄 Reintentar actualización';
             btnSubir.disabled = false;
         }
     });
