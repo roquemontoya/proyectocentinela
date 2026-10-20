@@ -110,7 +110,7 @@ export function cargarModuloAdminCsv(contenedor) {
             <div style="background:#0f172a;border:1px solid #475569;padding:14px;border-radius:8px;margin-bottom:16px;">
                 <label for="cmu-modo-operacion" style="display:block;font-weight:bold;color:#e2e8f0;margin-bottom:8px;">¿Qué querés hacer con los datos?</label>
                 <select id="cmu-modo-operacion" style="width:100%;padding:12px;background:#111827;color:#fff;border:1px solid #64748b;border-radius:6px;">
-                    <option value="agregar">Agregar datos (simulación segura)</option>
+                    <option value="agregar">Complementar datos (simulación segura)</option>
                     <option value="comparar">Comparar datos (solo lectura)</option>
                     <option value="reemplazar">Reemplazar datos (simulación segura)</option>
                 </select>
@@ -135,7 +135,7 @@ export function cargarModuloAdminCsv(contenedor) {
                     <span id="admin-contador-registros" style="background: #2a2a2a; padding: 3px 8px; border-radius: 4px; font-size: 12px; color: #ccc;"></span>
                 </div>
                 
-                <div id="admin-preview-tabla" style="max-height: 280px; overflow: auto; margin-bottom: 15px; font-size: 12px; background: #121212; padding: 10px; border-radius: 4px; border: 1px solid #444;"></div>
+                <div id="admin-preview-tabla" style="max-height: none; overflow: visible; margin-bottom: 15px; box-sizing: border-box; font-size: 12px; background: #121212; padding: 10px; border-radius: 4px; border: 1px solid #444;"></div>
                 
                 <button id="btn-subir-supabase" style="background: #38bdf8; color: #000; border: none; padding: 12px 20px; border-radius: 5px; font-weight: bold; cursor: pointer; width: 100%; font-size: 14px;">🚀 Inyectar en LEU, Controles y Anomalías (Supabase)</button>
             </div>
@@ -203,7 +203,7 @@ export function cargarModuloAdminCsv(contenedor) {
         modoOperacionGlobal = e.target.value;
         const b = document.getElementById('btn-subir-supabase');
         b.disabled = modoOperacionGlobal !== 'comparar';
-        b.innerText = modoOperacionGlobal === 'comparar' ? '🔎 Comparar todos los datos (solo lectura)' : (modoOperacionGlobal === 'reemplazar' ? '🔒 Reemplazar (simulación; escritura bloqueada)' : '🔒 Agregar (simulación; escritura bloqueada)');
+        b.innerText = modoOperacionGlobal === 'comparar' ? '🔎 Comparar todos los datos (solo lectura)' : (modoOperacionGlobal === 'reemplazar' ? '🔒 Reemplazar (simulación; escritura bloqueada)' : '🔒 Complementar (simulación; escritura bloqueada)');
     });
 
     // Utilidad compartida: el botón de importación se ejecuta fuera del
