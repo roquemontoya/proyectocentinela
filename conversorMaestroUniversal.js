@@ -2361,101 +2361,85 @@ const convertirWktIppAGeometria = (valor) => {
                 }
             });
 
-            const chunkSize = 250;
-            let leuActualizados = 0, leuNuevos = 0;
-            const existentesIds = new Set(leuCategoria.map(f => String(f.id)));
-            for (let i = 0; i < arrayLEU.length; i += chunkSize) {
-                const lote = arrayLEU.slice(i, i + chunkSize);
-                const respuesta = await clienteSupabase.from('leu').upsert(lote, { onConflict: 'id' });
-                exigir(respuesta, 'LEU');
-            }
-            arrayLEU.forEach(f => {
-                if (existentesIds.has(String(f.id))) leuActualizados++;
-                else leuNuevos++;
-            });
-
-            // No duplicar la misma anomalía en reimportaciones; las anomalías anteriores nunca se borran.
-            if (arrayAnomalias.length) {
-                const anomalíasExistentes = await leerTablaCompleta('anomalias');
-                const clavesAnomalias = new Set(anomalíasExistentes.map(a =>
-                    String(a.id_activo) + '|' + normalizarIdentidad(a.anomalia_detectada)));
-                const nuevasAnomalias = arrayAnomalias.filter(a => {
-                    const k = String(a.id_activo) + '|' + normalizarIdentidad(a.anomalia_detectada);
-                    if (clavesAnomalias.has(k)) return false;
-                    clavesAnomalias.add(k);
-                    return true;
-                });
-                for (let i = 0; i < nuevasAnomalias.length; i += chunkSize) {
-                    const respuesta = await clienteSupabase.from('anomalias').insert(nuevasAnomalias.slice(i, i + chunkSize));
-                    exigir(respuesta, 'anomalias');
-                }
-            }
-
-            const mapTablas = [
-                { data: arrayControlesE, tabla: 'controles_e' },
-                { data: arrayControlesH, tabla: 'controles_h' },
-                { data: arrayControlesPfp, tabla: 'controles_pfp' },
-                { data: arrayControlesV, tabla: 'controles_v' },
-                { data: arrayControlesEcas, tabla: 'controles_ecas' },
-                { data: arrayControlesVecas, tabla: 'controles_vecas' },
-                { data: arrayControlesC, tabla: 'controles_c' },
-                { data: arrayControlesPc, tabla: 'controles_pc' },
-                { data: arrayControlesEs, tabla: 'controles_es' },
-                { data: arrayControlesIpp, tabla: 'ipp' }
-            ];
-
-            let controlesActualizados = 0, controlesCreados = 0;
-            for (const t of mapTablas) {
-                if (!t.data.length) continue;
-                if (t.tabla === 'ipp') {
-                    // IPP usa el mismo ID que LEU: actualizar por PK y conservar los campos no enviados.
-                    for (let i = 0; i < t.data.length; i += chunkSize) {
-                        const lote = t.data.slice(i, i + chunkSize);
-                        const respuesta = await clienteSupabase.from('ipp').upsert(lote, { onConflict: 'id' });
-                        exigir(respuesta, 'ipp');
-                    }
+            // MODO ACTUALIZACIÓN: solo modifica activos ya existentes en LEU.
+            // Nunca inserta activos, controles ni anomalías; no toca tablas históricas.
+            let leuActualizados = 0;
+            let sinCambios = 0;
+            let pendientesRevision = 0;
+            let noEncontrados = 0;
+            const erroresActualizacion = [];
+            for (const item of datosConvertidosGlobal) {
+                const clave = normalizarIdentidad(item.etiqueta);
+                const candidatos = leuPorEtiqueta.get(clave) || [];
+                if (candidatos.length !== 1) {
+                    pendientesRevision++;
+                    if (candidatos.length === 0) noEncontrados++;
                     continue;
                 }
-                const filasDb = await leerTablaCompleta(t.tabla);
-                const porActivo = new Map();
-                filasDb.forEach(f => {
-                    if (f.id_activo === null || f.id_activo === undefined) return;
-                    const k = String(f.id_activo);
-                    if (!porActivo.has(k)) porActivo.set(k, []);
-                    porActivo.get(k).push(f);
-                });
-                for (const filaCsv of t.data) {
-                    const historial = porActivo.get(String(filaCsv.id_activo)) || [];
-                    // Actualizar el registro vigente (más reciente); los registros anteriores quedan intactos.
-                    historial.sort((a,b) =>
-                        String(b.created_at || '').localeCompare(String(a.created_at || '')) || Number(b.id)-Number(a.id));
-                    const vigente = historial[0];
-                    if (vigente) {
-                        const { error } = await clienteSupabase.from(t.tabla).update(filaCsv).eq('id', vigente.id);
-                        if (error) throw new Error('Error actualizando ' + t.tabla + ' ID ' + vigente.id + ': ' + error.message);
-                        controlesActualizados++;
-                    } else {
-                        const { error } = await clienteSupabase.from(t.tabla).insert(filaCsv);
-                        if (error) throw new Error('Error creando control en ' + t.tabla + ' para activo ' + filaCsv.id_activo + ': ' + error.message);
-                        controlesCreados++;
+                const existente = candidatos[0];
+                const filaNueva = arrayLEU.find(f => String(f.id) === String(existente.id));
+                if (!filaNueva) {
+                    pendientesRevision++;
+                    continue;
+                }
+
+                // Campos base del activo. Los campos vacíos del CSV no borran valores existentes.
+                const cambios = {};
+                for (const campo of ['categoria', 'etiqueta', 'sector', 'ronda', 'ubicacion_wkt']) {
+                    const valorCsv = filaNueva[campo];
+                    if (valorCsv !== null && valorCsv !== undefined && String(valorCsv).trim() !== '' &&
+                        String(valorCsv) !== String(existente[campo] ?? '')) {
+                        cambios[campo] = valorCsv;
                     }
+                }
+
+                // El CSV sobrescribe únicamente las claves técnicas que realmente trae con valor.
+                const attrsExistentes = existente.atributos_tecnicos && typeof existente.atributos_tecnicos === 'object'
+                    ? existente.atributos_tecnicos : {};
+                const attrsCsv = item.atributos_tecnicos && typeof item.atributos_tecnicos === 'object'
+                    ? item.atributos_tecnicos : {};
+                const attrsAnteriores = attrsExistentes.atributos_originales &&
+                    typeof attrsExistentes.atributos_originales === 'object'
+                    ? attrsExistentes.atributos_originales : {};
+                const attrsFusionados = { ...attrsAnteriores };
+                for (const [claveAtributo, valor] of Object.entries(attrsCsv)) {
+                    if (valor !== null && valor !== undefined && String(valor).trim() !== '') {
+                        attrsFusionados[claveAtributo] = valor;
+                    }
+                }
+                const attrsActualizados = { ...attrsExistentes, fuente: 'My Maps CSV', atributos_originales: attrsFusionados };
+                if (JSON.stringify(attrsActualizados) !== JSON.stringify(attrsExistentes)) {
+                    cambios.atributos_tecnicos = attrsActualizados;
+                }
+
+                if (Object.keys(cambios).length === 0) {
+                    sinCambios++;
+                    continue;
+                }
+                const { error } = await clienteSupabase.from('leu').update(cambios).eq('id', existente.id);
+                if (error) {
+                    erroresActualizacion.push('ID ' + existente.id + ' (' + item.etiqueta + '): ' + error.message);
+                } else {
+                    leuActualizados++;
                 }
             }
 
-            const totalControles =
-                arrayControlesE.length +
-                arrayControlesH.length +
-                arrayControlesPfp.length +
-                arrayControlesV.length +
-                arrayControlesEcas.length +
-                arrayControlesVecas.length +
-                arrayControlesC.length +
-                arrayControlesPc.length +
-                arrayControlesEs.length +
-                arrayControlesIpp.length;
-
+            const pendientes = datosConvertidosGlobal
+                .filter(item => (leuPorEtiqueta.get(normalizarIdentidad(item.etiqueta)) || []).length !== 1)
+                .map(item => item.etiqueta);
+            const estadoFinal = erroresActualizacion.length
+                ? 'Actualización parcial: revisar errores reportados.'
+                : 'Actualización finalizada. No se crearon registros ni se eliminaron activos.';
             alert(
-                `¡Sincronización completada!\n\nLEU actualizados: ${leuActualizados}\nLEU nuevos: ${leuNuevos}\nControles actualizados: ${controlesActualizados}\nControles creados: ${controlesCreados}\nAnomalías procesadas: ${arrayAnomalias.length}\n\nCategoría: ${categoriaDetectadaGlobal}`
+                estadoFinal + '\\n\\n' +
+                'Activos LEU actualizados: ' + leuActualizados + '\\n' +
+                'Sin cambios necesarios: ' + sinCambios + '\\n' +
+                'Pendientes de revisión: ' + pendientesRevision + '\\n' +
+                'No encontrados en LEU (no insertados): ' + noEncontrados + '\\n' +
+                'Errores al actualizar: ' + erroresActualizacion.length +
+                (pendientes.length ? '\\n\\nPendientes (primeros 30):\\n' + pendientes.slice(0, 30).join('\\n') : '') +
+                (erroresActualizacion.length ? '\\n\\nErrores (primeros 10):\\n' + erroresActualizacion.slice(0, 10).join('\\n') : '') +
+                '\\n\\nNo se modificaron controles, anomalías ni historiales. Categoría: ' + categoriaDetectadaGlobal
             );
             btnSubir.innerText = '🚀 Inyectar en LEU, Controles y Anomalías (Supabase)';
             btnSubir.disabled = false;
