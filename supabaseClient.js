@@ -9,6 +9,7 @@ function wrapQuery(q) {
   return new Proxy(q,{get(t,p) {
     if (writes.has(p)) return () => blocked();
     const v=Reflect.get(t,p,t);
+    if (p === 'then' && typeof v === 'function') return v.bind(t);
     return typeof v==='function' ? (...a)=>wrapQuery(v.apply(t,a)) : v;
   }});
 }
