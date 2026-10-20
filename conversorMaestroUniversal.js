@@ -93,8 +93,12 @@ export function cargarModuloAdminCsv(contenedor) {
                 <span style="background: #22c55e; color: #000; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: bold;">Papa Parse · CONTROL DE DATOS</span>
             </div>
             
+            <div role="status" aria-live="polite" style="background:#082f49;border:2px solid #38bdf8;border-left:7px solid #38bdf8;border-radius:8px;padding:14px 16px;margin:0 0 18px;color:#e0f2fe;box-shadow:0 4px 14px rgba(2,132,199,.15);">
+                <div style="font-size:14px;font-weight:800;letter-spacing:.04em;margin-bottom:5px;">🧪 ENTORNO BETA · SOLO LECTURA</div>
+                <div style="font-size:13px;line-height:1.55;">Podés iniciar sesión y revisar los datos. En esta rama, Complementar y Reemplazar son simulaciones; las escrituras de tablas, RPC no autorizadas, funciones y almacenamiento de Supabase están bloqueadas desde el cliente de prueba. La comparación consulta datos existentes sin modificarlos.</div>
+            </div>
             <p style="color: #aaa; font-size: 13px; margin-bottom: 20px; line-height: 1.4;">
-                Procesa tus archivos CSV asegurando que se lean absolutamente todos los registros físicos sin cortes ni omisiones.
+                Procesa tus archivos CSV con Papa Parse, revisa la auditoría estructural y la vista previa antes de comparar los registros.
             </p>
 
             <div style="background: #1e1e1e; padding: 20px; border-radius: 8px; border: 1px solid #333; margin-bottom: 20px;">
@@ -114,7 +118,7 @@ export function cargarModuloAdminCsv(contenedor) {
                     <option value="comparar">Comparar datos (solo lectura)</option>
                     <option value="reemplazar">Reemplazar datos (simulación segura)</option>
                 </select>
-                <p style="font-size:12px;color:#cbd5e1;line-height:1.5;">Rama protegida: las escrituras a Supabase están bloqueadas. Agregar/Reemplazar son simulaciones; Comparar no modifica datos.</p>
+                <p style="font-size:12px;color:#bae6fd;line-height:1.5;"><strong>Modo seguro:</strong> solo «Comparar» realiza consultas de lectura. «Complementar» y «Reemplazar» no ejecutan importaciones. No uses datos reales esperando que se guarden.</p>
             </div>
             <div style="background: #1e1e1e; padding: 20px; border-radius: 8px; border: 1px solid #333; margin-bottom: 20px;">
                 <div style="margin-bottom: 15px;">
@@ -137,7 +141,8 @@ export function cargarModuloAdminCsv(contenedor) {
                 
                 <div id="admin-preview-tabla" style="max-height: none; overflow: visible; margin-bottom: 15px; box-sizing: border-box; font-size: 12px; background: #121212; padding: 10px; border-radius: 4px; border: 1px solid #444;"></div>
                 
-                <button id="btn-subir-supabase" style="background: #38bdf8; color: #000; border: none; padding: 12px 20px; border-radius: 5px; font-weight: bold; cursor: pointer; width: 100%; font-size: 14px;">🚀 Inyectar en LEU, Controles y Anomalías (Supabase)</button>
+                <button id="btn-subir-supabase" disabled aria-describedby="cmu-modo-seguro-ayuda" style="background: #334155; color: #cbd5e1; border: 1px solid #64748b; padding: 12px 20px; border-radius: 5px; font-weight: bold; cursor: not-allowed; width: 100%; font-size: 14px;">🔒 Seleccioná «Comparar» para consultar (solo lectura)</button>
+                <p id="cmu-modo-seguro-ayuda" style="color:#94a3b8;font-size:12px;line-height:1.45;margin:8px 0 0;">El botón de escritura está deshabilitado por defecto y nunca habilita una importación en esta versión beta.</p>
             </div>
         </div>
     `;
