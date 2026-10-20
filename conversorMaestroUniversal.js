@@ -195,14 +195,14 @@ export function cargarModuloAdminCsv(contenedor) {
         const encabezados = [...new Set(filas.flatMap(fila => Object.keys(fila)))];
         const csvEscapar = valor => {
             const texto = valor == null ? '' : String(valor);
-            return /[",\\r\\n]/.test(texto) ? '"' + texto.replace(/"/g, '""') + '"' : texto;
+            return /["\r\n]/.test(texto) ? '"' + texto.replace(/"/g, '""') + '"' : texto;
         };
-        const csv = '\\uFEFF' + [encabezados.map(csvEscapar).join(','),
-            ...filas.map(fila => encabezados.map(campo => csvEscapar(fila[campo])).join(','))].join('\\r\\n');
+        const csv = '\uFEFF' + [encabezados.map(csvEscapar).join(','),
+            ...filas.map(fila => encabezados.map(campo => csvEscapar(fila[campo])).join(','))].join('\r\n');
         const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
         const url = URL.createObjectURL(blob);
         const enlace = document.createElement('a');
-        const categoria = String(categoriaDetectadaGlobal || 'resultado').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').replace(/[^a-zA-Z0-9_-]+/g,'_');
+        const categoria = String(categoriaDetectadaGlobal || 'resultado').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_-]+/g,'_');
         enlace.href = url;
         enlace.download = 'CMU_' + categoria + '_procesado.csv';
         document.body.appendChild(enlace);
@@ -384,11 +384,11 @@ export function cargarModuloAdminCsv(contenedor) {
                     const limpiarCeldaCMU = valor => {
                         if (typeof valor !== 'string') return valor;
                         return valor
-                            .replace(/^\\uFEFF+|\\uFEFF+$/g, '')
-                            .replace(/[\\u200B-\\u200D\\u2060\\u180E\\uFEFF]+/g, '')
-                            .replace(/[\\u00A0\\u1680\\u2000-\\u200A\\u202F\\u205F\\u3000]/g, ' ')
-                            .replace(/[\\t\\r\\n ]+$/g, '')
-                            .replace(/^[\\t\\r\\n ]+/g, '')
+                            .replace(/^\uFEFF+|\uFEFF+$/g, '')
+                            .replace(/[\u200B-\u200D\u2060\u180E\uFEFF]+/g, '')
+                            .replace(/[\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]/g, ' ')
+                            .replace(/[\t\r\n ]+$/g, '')
+                            .replace(/^[\t\r\n ]+/g, '')
                             .replace(/Â°/g, '°')
                             .replace(/Ã‚°/g, '°');
                     };
