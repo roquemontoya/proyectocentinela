@@ -243,7 +243,13 @@ export function cargarModuloAdminCsv(contenedor) {
 
         const mid = MAPAS_CONFIG[categoriaDetectadaGlobal];
         if (mid) {
-            document.getElementById('iframe-container').innerHTML = `<iframe src="https://www.google.com/maps/d/embed?mid=${mid}" width="100%" height="100%" style="border:0; border-radius: 6px;" allowfullscreen></iframe>`;
+            // Visor histórico de referencia para administradores: centrar en Córdoba.
+            // No modifica coordenadas, LEU ni los mapas operativos Leaflet.
+            const centroReferencia = categoriaDetectadaGlobal === 'Extintores'
+                ? '&ll=-31.40,-64.20&z=13'
+                : '&ll=-31.40,-64.20&z=11';
+            document.getElementById('iframe-container').innerHTML =
+                `<iframe title="Visor histórico de My Maps" src="https://www.google.com/maps/d/embed?mid=${mid}${centroReferencia}" width="100%" height="100%" style="border:0; border-radius:6px;" allowfullscreen loading="lazy"></iframe>`;
             document.getElementById('btn-ir-editor').href = `https://www.google.com/maps/d/edit?mid=${mid}`;
         }
     });
@@ -466,7 +472,7 @@ export function cargarModuloAdminCsv(contenedor) {
                         const midEstructural = MAPAS_CONFIG[categoriaDetectadaGlobal];
                         if (midEstructural) {
                             document.getElementById('iframe-container').innerHTML =
-                                `<iframe src="https://www.google.com/maps/d/embed?mid=${midEstructural}" width="100%" height="100%" style="border:0; border-radius: 6px;" allowfullscreen></iframe>`;
+                                `<iframe title="Visor histórico de My Maps" src="https://www.google.com/maps/d/embed?mid=${midEstructural}&ll=-31.40,-64.20&z=11" width="100%" height="100%" style="border:0; border-radius:6px;" allowfullscreen loading="lazy"></iframe>`;
                             document.getElementById('btn-ir-editor').href =
                                 `https://www.google.com/maps/d/edit?mid=${midEstructural}`;
                         }
