@@ -4,6 +4,7 @@
 // ==========================================
 
 import { clienteSupabase } from './supabaseClient.js';
+import { compararCsvCompleto } from './cmuComparacion.js';
 
 
 
@@ -106,6 +107,14 @@ export function cargarModuloAdminCsv(contenedor) {
                 </div>
             </div>
 
+            <div style="background:#0f172a;border:1px solid #475569;padding:14px;border-radius:8px;margin-bottom:16px;">
+                <label for="cmu-modo-operacion" style="display:block;font-weight:bold;color:#e2e8f0;margin-bottom:8px;">Modo del Bibliotecario</label>
+                <select id="cmu-modo-operacion" style="width:100%;padding:12px;background:#111827;color:#fff;border:1px solid #64748b;border-radius:6px;">
+                    <option value="agregar">Agregar registros (importación existente)</option>
+                    <option value="comparar">Comparar datos (solo lectura)</option>
+                </select>
+                <p style="font-size:12px;color:#bae6fd;line-height:1.5;">La comparación no modifica la base. La importación mantiene el comportamiento actual del CMU.</p>
+            </div>
             <div style="background: #1e1e1e; padding: 20px; border-radius: 8px; border: 1px solid #333; margin-bottom: 20px;">
                 <div style="margin-bottom: 15px;">
                     <label style="display: block; font-size: 13px; font-weight: bold; margin-bottom: 8px; color: #38bdf8;">Cargar CSV exportado:</label>
@@ -131,6 +140,16 @@ export function cargarModuloAdminCsv(contenedor) {
             </div>
         </div>
     `;
+
+    let modoOperacionGlobal = 'agregar';
+    const selectorModo = document.getElementById('cmu-modo-operacion');
+    selectorModo?.addEventListener('change', e => {
+        modoOperacionGlobal = e.target.value;
+        const boton = document.getElementById('btn-subir-supabase');
+        if (boton) boton.textContent = modoOperacionGlobal === 'comparar'
+            ? '🔎 Comparar todos los datos (solo lectura)'
+            : '🚀 Inyectar en LEU, Controles y Anomalías (Supabase)';
+    });
 
     const normalizarClave = (texto) => String(texto || '')
         .normalize('NFD')
@@ -1868,6 +1887,17 @@ const convertirWktIppAGeometria = (valor) => {
     });
 
     document.getElementById('btn-subir-supabase').addEventListener('click', async () => {
+        if (modoOperacionGlobal === 'comparar') {
+            await compararCsvCompleto({
+                registros: datosConvertidosGlobal,
+                categoria: categoriaDetectadaGlobal,
+                contenedor: document.getElementById('admin-preview-tabla'),
+                estado: document.getElementById('admin-estado-texto'),
+                contador: document.getElementById('admin-contador-registros')
+            });
+            return;
+        }
+
         if (datosConvertidosGlobal.length === 0) return;
         if (!categoriaDetectadaGlobal) {
             alert('❌ No hay una categoría válida para importar.');
