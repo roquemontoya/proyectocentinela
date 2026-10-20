@@ -31,7 +31,7 @@ export const clienteSupabase = new Proxy(original,{get(t,p) {
   if(p==='rpc') return (name,args)=>{
     // Permitir únicamente la función de autorización de solo lectura usada por auth.js.
     // Toda otra RPC queda bloqueada por seguridad en esta rama.
-    if(name === 'current_user_has_role') return target.rpc(name,args);
+    if(name === 'current_user_has_role') return t.rpc(name,args);
     return blocked();
   };
   if(p==='functions') return new Proxy(t.functions,{get(ft,fp) {
