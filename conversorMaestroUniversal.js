@@ -106,8 +106,8 @@ export function cargarModuloAdminCsv(contenedor) {
                     <h4 style="color: #38bdf8; margin: 0; font-size: 14px;">🗺️ Visor de Referencia Visual</h4>
                     <a id="btn-ir-editor" href="https://www.google.com/maps/d/" target="_blank" style="background: #2563eb; color: #fff; padding: 6px 12px; border-radius: 4px; text-decoration: none; font-size: 11px; font-weight: bold;">📥 Abrir Editor My Maps</a>
                 </div>
-                <div id="iframe-container" style="width: 100%; height: 250px; background: #121212; border-radius: 6px; border: 1px solid #444; display: flex; align-items: center; justify-content: center; color: #666; font-size: 13px;">
-                    Cargando visor...
+                <div id="iframe-container" style="width:100%;height:300px;background:#121212;border-radius:6px;border:1px solid #444;overflow:hidden;position:relative;">
+                    <div id="cmu-mapa-leaflet" style="width:100%;height:100%;background:#111827;display:flex;align-items:center;justify-content:center;color:#9ca3af;font-size:13px;">Cargá un CSV para visualizar su ubicación</div>
                 </div>
             </div>
 
@@ -146,6 +146,24 @@ export function cargarModuloAdminCsv(contenedor) {
             </div>
         </div>
     `;
+
+    const asegurarLeafletCmu = async () => {
+        if (window.L) return;
+        if (!document.getElementById('cmu-leaflet-css')) {
+            const css = document.createElement('link');
+            css.id = 'cmu-leaflet-css';
+            css.rel = 'stylesheet';
+            css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+            document.head.appendChild(css);
+        }
+        await new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+            script.onload = resolve;
+            script.onerror = () => reject(new Error('No se pudo cargar Leaflet para el visor CMU.'));
+            document.head.appendChild(script);
+        });
+    };
 
     const normalizarClave = (texto) => String(texto || '')
         .normalize('NFD')
@@ -247,16 +265,8 @@ export function cargarModuloAdminCsv(contenedor) {
         document.getElementById('badge-categoria-detectada').style.display = 'block';
 
         const mid = MAPAS_CONFIG[categoriaDetectadaGlobal];
-        if (mid) {
-            // Visor histórico de referencia para administradores: centrar en Córdoba.
-            // No modifica coordenadas, LEU ni los mapas operativos Leaflet.
-            const centroReferencia = categoriaDetectadaGlobal === 'Extintores'
-                ? '&ll=-31.40,-64.20&z=13'
-                : '&ll=-31.40,-64.20&z=11';
-            document.getElementById('iframe-container').innerHTML =
-                `<iframe title="Visor histórico de My Maps" src="https://www.google.com/maps/d/embed?mid=${mid}${centroReferencia}" width="100%" height="100%" style="border:0; border-radius:6px;" allowfullscreen loading="lazy"></iframe>`;
-            document.getElementById('btn-ir-editor').href = `https://www.google.com/maps/d/edit?mid=${mid}`;
-        }
+        if (mid) document.getElementById('btn-ir-editor').href = `https://www.google.com/maps/d/edit?mid=${mid}`;
+        document.getElementById('cmu-mapa-leaflet').textContent = 'Procesá el CSV para centrar el mapa en sus coordenadas WKT.';
     });
 
     document.getElementById('btn-procesar-csv').addEventListener('click', async () => {
@@ -1795,30 +1805,36 @@ const convertirWktIppAGeometria = (valor) => {
 
                     datosConvertidosGlobal = listaTemporal;
 
-                    // Centrar el visor histórico en la ubicación media de los activos
-                    // del CSV, usando WKT POINT(longitud latitud). No altera el mapa,
-                    // la geometría ni ningún registro de Supabase.
+                    // Visor Leaflet de la nube real del CSV: WKT POINT(longitud latitud).
+                    // Se centra con fitBounds para incluir todos los puntos, no en un centro aproximado.
                     const puntosReferencia = listaTemporal.map(registro => {
                         const wkt = String(registro.ubicacion_wkt || registro.WKT || '').trim();
-                        const match = wkt.match(/POINT\s*\(\s*(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s*\)/i);
+                        const match = wkt.match(/(?:SRID=\d+;)?POINT\s*\(\s*(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s*\)/i);
                         if (!match) return null;
                         const lon = Number(match[1]), lat = Number(match[2]);
                         return Number.isFinite(lat) && Number.isFinite(lon) &&
-                            lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180
-                            ? {lat, lon} : null;
+                            lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180 ? [lat, lon] : null;
                     }).filter(Boolean);
-                    if (puntosReferencia.length) {
-                        const lat = puntosReferencia.reduce((s,p) => s+p.lat, 0) / puntosReferencia.length;
-                        const lon = puntosReferencia.reduce((s,p) => s+p.lon, 0) / puntosReferencia.length;
-                        const mapaId = MAPAS_CONFIG[categoriaDetectadaGlobal];
-                        if (mapaId) {
-                            const zoom = categoriaDetectadaGlobal === 'Extintores' ? 14 : 11;
-                            document.getElementById('iframe-container').innerHTML =
-                                `<iframe title="Visor histórico de My Maps" src="https://www.google.com/maps/d/embed?mid=${mapaId}&ll=${lat.toFixed(6)},${lon.toFixed(6)}&z=${zoom}" width="100%" height="100%" style="border:0;border-radius:6px" allowfullscreen loading="lazy"></iframe>`;
-                            document.getElementById('btn-ir-editor').href =
-                                `https://www.google.com/maps/d/edit?mid=${mapaId}`;
-                        }
+                    await asegurarLeafletCmu();
+                    const mapaCmu = window.__cmuMapaLeaflet || (window.__cmuMapaLeaflet = L.map('cmu-mapa-leaflet'));
+                    if (!mapaCmu._cmuBase) {
+                        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                            maxZoom: 19, attribution: '&copy; OpenStreetMap contributors'
+                        }).addTo(mapaCmu);
+                        mapaCmu._cmuBase = true;
                     }
+                    if (window.__cmuPuntosLayer) window.__cmuPuntosLayer.remove();
+                    window.__cmuPuntosLayer = L.layerGroup().addTo(mapaCmu);
+                    puntosReferencia.forEach((p, i) => L.circleMarker(p, {
+                        radius: 4, color: '#38bdf8', weight: 1, fillColor: '#0ea5e9', fillOpacity: 0.85
+                    }).bindTooltip(String(listaTemporal[i]?.etiqueta || 'Activo')).addTo(window.__cmuPuntosLayer));
+                    if (puntosReferencia.length) {
+                        mapaCmu.fitBounds(puntosReferencia, {padding:[18,18], maxZoom:17});
+                    } else {
+                        document.getElementById('cmu-mapa-leaflet').textContent =
+                            'No se encontraron WKT POINT válidos en este CSV.';
+                    }
+                    setTimeout(() => mapaCmu.invalidateSize(), 80);
 
                     auditoria.registrosLogicos = listaTemporal.length;
 
@@ -1910,7 +1926,10 @@ const convertirWktIppAGeometria = (valor) => {
                     });
 
                     tablaHtml += '</tbody></table>';
-                    previewDiv.innerHTML += tablaHtml;
+                    // Solo la grilla tiene scroll. El resumen de auditoría queda fuera y fijo arriba.
+                    previewDiv.insertAdjacentHTML('beforeend',
+                        '<div id="cmu-tabla-scroll" style="width:100%;max-width:100%;height:420px;overflow:auto;overscroll-behavior:contain;touch-action:pan-x pan-y;border:1px solid #444;position:relative;">' +
+                        tablaHtml + '</div>');
                     if (modoOperacionGlobal === 'comparar') {
                         const botonComparar = document.getElementById('btn-subir-supabase');
                         botonComparar.disabled = false;
