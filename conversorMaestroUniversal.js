@@ -324,6 +324,27 @@ export function cargarModuloAdminCsv(contenedor) {
                 complete: async function(results) {
                     const filasCrudas = results.data;
 
+                    // Limpieza transversal de celdas: quitar espacios y caracteres invisibles
+                    // sobrantes en los extremos ANTES de reparar filas y mapear atributos.
+                    // No altera espacios internos ni elimina columnas; las celdas vacías siguen
+                    // siendo cadenas vacías para no cambiar la estructura del CSV.
+                    const limpiarCeldaCMU = (valor) => {
+                        if (typeof valor !== 'string') return valor;
+                        return valor
+                            .replace(/^\\uFEFF+|\\uFEFF+$/g, '')
+                            .replace(/[\\u200B-\\u200D\\u2060\\u180E\\uFEFF]+/g, '')
+                            .replace(/[\\u00A0\\u1680\\u2000-\\u200A\\u202F\\u205F\\u3000]/g, ' ')
+                            .replace(/[\\t\\r\\n ]+$/g, '')
+                            .replace(/^[\\t\\r\\n ]+/g, '')
+                            .replace(/Â°/g, '°')
+                            .replace(/Ã‚°/g, '°');
+                    };
+
+                    for (let i = 0; i < filasCrudas.length; i++) {
+                        if (!Array.isArray(filasCrudas[i])) continue;
+                        filasCrudas[i] = filasCrudas[i].map(limpiarCeldaCMU);
+                    }
+
                     if (!filasCrudas || filasCrudas.length < 2) {
                         alert('El archivo CSV está vacío o no contiene una fila de encabezados y datos.');
                         return;
