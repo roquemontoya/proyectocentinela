@@ -23,6 +23,9 @@ let marcadorUsuarioMapa = null;
 let circuloPrecisionMapa = null;
 let posicionUsuarioMapa = null;
 let activosPuntualesMapa = [];
+let marcadorDireccionUsuarioMapa = null;
+let lineaDireccionMapa = null;
+let destinoSeleccionadoMapa = null;
 
 function distanciaGPS(a, b) {
     const rad = n => n * Math.PI / 180;
@@ -38,6 +41,65 @@ function formatoDistanciaGPS(metros) {
         (metros / 1000).toLocaleString('es-AR', { maximumFractionDigits: 2 }) + ' km';
 }
 
+function rumboGrados(origen, destino) {
+    const rad = n => n * Math.PI / 180;
+    const lat1 = rad(origen[0]), lat2 = rad(destino[0]);
+    const dLng = rad(destino[1] - origen[1]);
+    const y = Math.sin(dLng) * Math.cos(lat2);
+    const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+    return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+}
+function escaparHtmlMapa(valor) {
+    return String(valor ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function destinoDesdeGeometria(geometria) {
+    if (!geometria) return null;
+    if (geometria.tipo === 'punto') return geometria.coordenadas;
+    const vertices = [];
+    const recorrer = valor => {
+        if (!Array.isArray(valor)) return;
+        if (valor.length >= 2 && typeof valor[0] === 'number' && typeof valor[1] === 'number') { vertices.push(valor); return; }
+        valor.forEach(recorrer);
+    };
+    recorrer(geometria.coordenadas);
+    if (!vertices.length) return null;
+    return [
+        vertices.reduce((s,p)=>s+p[0],0)/vertices.length,
+        vertices.reduce((s,p)=>s+p[1],0)/vertices.length
+    ];
+}
+function actualizarIndicacionDireccionMapa() {
+    if (!mapaActivo || !posicionUsuarioMapa || !destinoSeleccionadoMapa) return;
+    const rumbo = rumboGrados(posicionUsuarioMapa, destinoSeleccionadoMapa.coords);
+    if (!lineaDireccionMapa) {
+        lineaDireccionMapa = L.polyline([posicionUsuarioMapa,destinoSeleccionadoMapa.coords], {
+            color:'#facc15',weight:3,opacity:0.9,dashArray:'7 7',interactive:false
+        }).addTo(mapaActivo);
+    } else lineaDireccionMapa.setLatLngs([posicionUsuarioMapa,destinoSeleccionadoMapa.coords]);
+    const icono = L.divIcon({
+        className:'centinela-flecha-direccion',
+        html:'<div style="width:40px;height:40px;filter:drop-shadow(0 1px 3px #0009)"><svg width="40" height="40" viewBox="0 0 40 40" aria-label="Dirección al elemento seleccionado"><path d="M20 2 L10 23 L20 17 L30 23 Z" transform="rotate('+rumbo+' 20 20)" fill="#facc15" stroke="#111827" stroke-width="2" stroke-linejoin="round"/><circle cx="20" cy="20" r="7" fill="#2563eb" stroke="#fff" stroke-width="2.5"/></svg></div>',
+        iconSize:[40,40],iconAnchor:[20,20]
+    });
+    if (!marcadorDireccionUsuarioMapa) {
+        marcadorDireccionUsuarioMapa=L.marker(posicionUsuarioMapa,{icon:icono,interactive:true,keyboard:false,zIndexOffset:1200})
+            .addTo(mapaActivo).bindPopup('Flecha orientada hacia: '+escaparHtmlMapa(destinoSeleccionadoMapa.nombre));
+    } else {
+        marcadorDireccionUsuarioMapa.setLatLng(posicionUsuarioMapa);
+        marcadorDireccionUsuarioMapa.setIcon(icono);
+        marcadorDireccionUsuarioMapa.setPopupContent('Flecha orientada hacia: '+escaparHtmlMapa(destinoSeleccionadoMapa.nombre));
+    }
+    marcadorDireccionUsuarioMapa.bringToFront();
+}
+function seleccionarDestinoMapa(coords,nombre) {
+    if (!Array.isArray(coords)||coords.length<2) return;
+    destinoSeleccionadoMapa={coords,nombre:nombre||'elemento seleccionado'};
+    actualizarIndicacionDireccionMapa();
+    const estado=document.getElementById('gps-mapa-estado');
+    if(estado) estado.textContent='Objetivo seleccionado: '+destinoSeleccionadoMapa.nombre+
+        (posicionUsuarioMapa?' · flecha amarilla orientada al objetivo':' · obteniendo ubicación GPS…');
+    if(!posicionUsuarioMapa&&gpsMapaWatchId===null) iniciarGPSMapa();
+}
 function detenerGPSMapa() {
     if (gpsMapaWatchId !== null && navigator.geolocation) {
         navigator.geolocation.clearWatch(gpsMapaWatchId);
@@ -46,9 +108,14 @@ function detenerGPSMapa() {
     if (mapaActivo) {
         if (marcadorUsuarioMapa) mapaActivo.removeLayer(marcadorUsuarioMapa);
         if (circuloPrecisionMapa) mapaActivo.removeLayer(circuloPrecisionMapa);
+        if (marcadorDireccionUsuarioMapa) mapaActivo.removeLayer(marcadorDireccionUsuarioMapa);
+        if (lineaDireccionMapa) mapaActivo.removeLayer(lineaDireccionMapa);
     }
     marcadorUsuarioMapa = null;
     circuloPrecisionMapa = null;
+    marcadorDireccionUsuarioMapa = null;
+    lineaDireccionMapa = null;
+    destinoSeleccionadoMapa = null;
     posicionUsuarioMapa = null;
     activosPuntualesMapa = [];
 }
@@ -127,6 +194,7 @@ function iniciarGPSMapa() {
         circuloPrecisionMapa = L.circle(posicionUsuarioMapa, {
             radius: precision, color: '#60a5fa', weight: 1, fillColor: '#3b82f6', fillOpacity: 0.08
         }).addTo(mapaActivo);
+        actualizarIndicacionDireccionMapa();
         if (estado) estado.textContent = 'GPS activo · precisión aproximada ' + Math.round(precision) + ' m';
         if (boton) {
             boton.disabled = false;
@@ -694,6 +762,8 @@ export async function cargarModuloMapa(moduloKey, contenedor) {
                 .addTo(mapaActivo).bindPopup(popup);
             marcador.on('popupopen', evento => {
                 inicializarMiniMapaPopup(evento.popup, item);
+                const destino = destinoDesdeGeometria(geometria);
+                if (destino) seleccionarDestinoMapa(destino, nombre);
                 actualizarDistanciaPopup(evento.popup, item, geometria);
             });
             limites.push(coords);
@@ -709,6 +779,8 @@ export async function cargarModuloMapa(moduloKey, contenedor) {
                         .addTo(mapaActivo).bindPopup(popup);
                     capaPoligono.on('popupopen', evento => {
                         inicializarMiniMapaPopup(evento.popup, item);
+                        const destino = destinoDesdeGeometria(geometria);
+                        if (destino) seleccionarDestinoMapa(destino, nombre);
                         actualizarDistanciaPopup(evento.popup, item, geometria);
                     });
                     limites.push(...anillo);
@@ -721,6 +793,8 @@ export async function cargarModuloMapa(moduloKey, contenedor) {
                     .addTo(mapaActivo).bindPopup(popup);
                 capaPoligono.on('popupopen', evento => {
                     inicializarMiniMapaPopup(evento.popup, item);
+                    const destino = destinoDesdeGeometria(geometria);
+                    if (destino) seleccionarDestinoMapa(destino, nombre);
                     actualizarDistanciaPopup(evento.popup, item, geometria);
                 });
                 limites.push(...anillos.flat());
