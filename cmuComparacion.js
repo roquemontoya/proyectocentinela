@@ -5,6 +5,27 @@ const norm = v => {
   if (typeof v === 'object') return JSON.stringify(v, Object.keys(v).sort());
   return String(v).trim().replace(/\s+/g,' ').toLocaleLowerCase('es-AR');
 };
+const normNombre = v => String(v ?? '').normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es-AR')
+  .replace(/[’‘´]/g, "'").replace(new RegExp(String.fromCharCode(96), 'g'), "'")
+  .replace(/[^a-z0-9'"″]/g, '');
+const punto = v => {
+  if (v === null || v === undefined) return null;
+  const t = String(v).trim();
+  const wkt = t.match(/(?:SRID=\d+;)?POINT\s*\(\s*(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s*\)/i);
+  if (wkt) return [Number(wkt[2]), Number(wkt[1])];
+  const nums = t.match(/-?\d+(?:\.\d+)?/g);
+  if (nums?.length >= 2) {
+    const a=Number(nums[0]), b=Number(nums[1]);
+    if (Math.abs(a)<=90 && Math.abs(b)<=180) return [a,b];
+    if (Math.abs(b)<=90 && Math.abs(a)<=180) return [b,a];
+  }
+  return null;
+};
+const mismaUbicacion = (a,b) => {
+  const p=punto(a), q=punto(b);
+  return !!p && !!q && Math.abs(p[0]-q[0])<=0.00015 && Math.abs(p[1]-q[1])<=0.00015;
+};
 const esc = v => String(v ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 
 export async function compararCsvCompleto({registros,categoria,contenedor,estado,contador}) {
@@ -19,38 +40,56 @@ export async function compararCsvCompleto({registros,categoria,contenedor,estado
     }
     const cat=String(categoria||'').trim().toLocaleLowerCase('es-AR');
     const existing=all.filter(x=>String(x.categoria||'').trim().toLocaleLowerCase('es-AR')===cat);
-    const key=x=>norm(x.etiqueta);
+    const key=x=>normNombre(x.etiqueta);
     const byKey=new Map();
     existing.forEach(x=>{const k=key(x);if(!byKey.has(k))byKey.set(k,[]);byKey.get(k).push(x);});
     const seen=new Set(), used=new Set(), rows=[];
     let exact=0,diffCount=0,newCount=0,dupes=0,fieldDiffs=0;
     registros.forEach((csv,i)=>{
       const k=key(csv), candidates=byKey.get(k)||[];
-      const db=candidates.find(x=>!used.has(String(x.id)))||null;
+      const available=candidates.filter(x=>!used.has(String(x.id)));
+      let db=available.find(x=>norm(x.ubicacion_wkt)===norm(csv.ubicacion_wkt))
+        || available.find(x=>mismaUbicacion(x.ubicacion_wkt,csv.ubicacion_wkt))
+        || available[0] || null;
       const duplicate=seen.has(k); if(duplicate)dupes++; seen.add(k);
-      if(!db){newCount++;rows.push({n:i+1,status:duplicate?'DUPLICADO EN CSV':'NUEVO / NO EXISTE EN LEU',csv,db:null});return;}
+      if(!db) {
+        const nearby=existing.filter(x=>!used.has(String(x.id)) && mismaUbicacion(x.ubicacion_wkt,csv.ubicacion_wkt));
+        if(nearby.length===1) {
+          db=nearby[0]; used.add(String(db.id));
+          rows.push({n:i+1,status:'REVISAR: MISMA UBICACIÓN, NOMBRE DISTINTO',csv,db,identityReview:true});
+          return;
+        }
+        if(nearby.length>1) {
+          rows.push({n:i+1,status:'REVISAR: UBICACIÓN AMBIGUA',csv,db:null,candidates:nearby,identityReview:true});
+          return;
+        }
+        newCount++;rows.push({n:i+1,status:duplicate?'DUPLICADO EN CSV':'NUEVO CANDIDATO',csv,db:null});return;
+      }
       used.add(String(db.id));
+      const locationMatches=norm(db.ubicacion_wkt)===norm(csv.ubicacion_wkt)||mismaUbicacion(db.ubicacion_wkt,csv.ubicacion_wkt);
+      const labelMatches=key(db)===k;
       const attrsCsv=csv.atributos_tecnicos||{};
       const attrsDb=db.atributos_tecnicos?.atributos_originales ?? db.atributos_tecnicos ?? {};
       const pairs=[['etiqueta',csv.etiqueta,db.etiqueta],['categoria',csv.categoria,db.categoria],['sector',csv.sector,db.sector],['ronda',csv.ronda,db.ronda],['ubicacion_wkt',csv.ubicacion_wkt,db.ubicacion_wkt]];
       [...new Set([...Object.keys(attrsCsv),...(attrsDb&&typeof attrsDb==='object'?Object.keys(attrsDb):[])])].sort().forEach(k=>pairs.push(['atributos_tecnicos.'+k,attrsCsv[k],attrsDb?.[k]]));
       const differences=pairs.filter(p=>norm(p[1])!==norm(p[2]));
       if(differences.length){diffCount++;fieldDiffs+=differences.length;}else exact++;
-      rows.push({n:i+1,status:differences.length?'DIFERENCIAS':'COINCIDE',csv,db,pairs});
+      const status = !locationMatches ? 'REVISAR: UBICACIÓN DISTINTA' : differences.length ? 'DIFERENCIAS' : 'COINCIDE';
+      rows.push({n:i+1,status,csv,db,pairs,identityReview:!locationMatches || !labelMatches});
     });
     existing.forEach(db=>{if(!used.has(String(db.id))&&!registros.some(csv=>key(csv)===key(db)))rows.push({n:'—',status:'AUSENTE EN CSV',csv:null,db});});
-    const missing=rows.filter(x=>x.status==='AUSENTE EN CSV').length;
+    const missing=rows.filter(x=>x.status==='AUSENTE EN CSV').length; const candidates=rows.filter(x=>x.status==='NUEVO CANDIDATO').length; const reviews=rows.filter(x=>String(x.status).startsWith('REVISAR:')).length;
     let html='<div style="padding:12px;background:#0f172a;border:1px solid #475569;border-radius:8px;margin-bottom:12px;color:#e2e8f0"><h3>Comparación completa · solo lectura</h3>'+
       '<p>Categoría: <b>'+esc(categoria)+'</b> · CSV: <b>'+registros.length+'</b> · LEU: <b>'+existing.length+'</b></p>'+
       '<p style="color:#86efac">Coincidencias exactas: '+exact+'</p><p style="color:#fca5a5">Registros con diferencias: '+diffCount+' · Diferencias de campos: '+fieldDiffs+'</p>'+
-      '<p style="color:#fcd34d">Nuevos/no existentes: '+newCount+' · Ausentes en CSV: '+missing+' · Duplicados CSV: '+dupes+'</p>'+
+      '<p style="color:#fcd34d">Nuevos candidatos: '+candidates+' · Ausentes en CSV: '+missing+' · Duplicados CSV: '+dupes+'</p>'+\n      '<p style="color:#fb923c">Revisar identidad/ubicación: '+reviews+' · No se confirman altas automáticamente.</p>'+
       '<p>Se muestran todas las filas y todos los campos. Rojo = diferencia o ausencia; verde = coincidencia.</p>'+
       '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px"><button type="button" id="cmu-descargar-comparacion" style="padding:10px 14px;border:1px solid #38bdf8;border-radius:6px;background:#075985;color:white;font-weight:700;cursor:pointer">⬇ Descargar comparación completa en CSV</button><button type="button" id="cmu-descargar-comparacion-xlsx" style="padding:10px 14px;border:1px solid #22c55e;border-radius:6px;background:#166534;color:white;font-weight:700;cursor:pointer">▦ Descargar como Excel (.xlsx)</button></div></div>'+
       '<style>.cmu-comparacion-visor{display:block;width:100%;max-width:100%;height:65vh;max-height:720px;overflow:scroll;overscroll-behavior:contain;touch-action:pan-x pan-y;border:1px solid #475569;background:#0b1220;scrollbar-gutter:stable both-edges}.cmu-comparacion-tabla{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-size:12px;color:#e5e7eb}.cmu-comparacion-tabla th{position:sticky;top:0;background:#1e293b;z-index:3}.cmu-comparacion-tabla th,.cmu-comparacion-tabla td{border:1px solid #475569;padding:6px;vertical-align:top}.cmu-comparacion-tabla td{max-width:520px;overflow-wrap:anywhere}.cmu-comparacion-tabla td:first-child,.cmu-comparacion-tabla td:nth-child(2),.cmu-comparacion-tabla td:nth-child(3){white-space:nowrap}</style>'+
       '<div class="cmu-comparacion-visor" id="cmu-comparacion-visor" tabindex="0" role="region" aria-label="Tabla completa de comparación. Se puede desplazar horizontal y verticalmente"><table class="cmu-comparacion-tabla"><thead><tr>'+
       '<th># CSV</th><th>Estado</th><th>ID LEU</th><th>Campo</th><th>Valor CSV</th><th>Valor Supabase</th></tr></thead><tbody>';
     rows.forEach(r=>{
-      const statusColor=r.status==='COINCIDE'?'#86efac':r.status==='DIFERENCIAS'?'#fca5a5':'#fcd34d';
+      const statusColor=r.status==='COINCIDE'?'#86efac':String(r.status).startsWith('REVISAR:')?'#fb923c':r.status==='DIFERENCIAS'?'#fca5a5':'#fcd34d';
       let pairs=[];
       if(r.csv) {
         const ac=r.csv.atributos_tecnicos||{}, ad=r.db?(r.db.atributos_tecnicos?.atributos_originales??r.db.atributos_tecnicos??{}):{};
