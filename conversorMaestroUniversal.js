@@ -1929,14 +1929,42 @@ const convertirWktIppAGeometria = (valor) => {
         try {
             let maxId = 0;
             const { data: maxRes, error: maxError } = await clienteSupabase
-                .from('leu')
-                .select('id')
-                .order('id', { ascending: false })
-                .limit(1);
-
+                .from('leu').select('id').order('id', { ascending: false }).limit(1);
             if (maxError) throw new Error('No se pudo obtener el último ID de LEU: ' + maxError.message);
-            if (maxRes && maxRes.length > 0) maxId = Number(maxRes[0].id) || 0;
+            if (maxRes?.length) maxId = Number(maxRes[0].id) || 0;
 
+            const normalizarIdentidad = valor => String(valor ?? '').trim()
+                .replace(/\\s+/g, ' ').toLocaleLowerCase('es-AR');
+            const leerTablaCompleta = async (tabla, columnas = '*') => {
+                const filas = [];
+                const tamano = 1000;
+                for (let desde = 0; ; desde += tamano) {
+                    const { data, error } = await clienteSupabase.from(tabla)
+                        .select(columnas).order('id', { ascending: true }).range(desde, desde + tamano - 1);
+                    if (error) throw new Error('No se pudo leer ' + tabla + ': ' + error.message);
+                    filas.push(...(data || []));
+                    if (!data || data.length < tamano) break;
+                }
+                return filas;
+            };
+            const leuExistente = await leerTablaCompleta('leu');
+            const leuCategoria = leuExistente.filter(f =>
+                normalizarIdentidad(f.categoria) === normalizarIdentidad(categoriaDetectadaGlobal));
+            const leuPorEtiqueta = new Map();
+            leuCategoria.forEach(f => {
+                const clave = normalizarIdentidad(f.etiqueta);
+                if (!leuPorEtiqueta.has(clave)) leuPorEtiqueta.set(clave, []);
+                leuPorEtiqueta.get(clave).push(f);
+            });
+            const etiquetasCsv = new Set();
+            datosConvertidosGlobal.forEach(item => {
+                const clave = normalizarIdentidad(item.etiqueta);
+                if (etiquetasCsv.has(clave)) throw new Error('El CSV contiene etiquetas duplicadas: "' + item.etiqueta + '". Se cancela para no asignar IDs incorrectos.');
+                etiquetasCsv.add(clave);
+                const candidatos = leuPorEtiqueta.get(clave) || [];
+                if (candidatos.length > 1) throw new Error('La etiqueta "' + item.etiqueta + '" aparece ' + candidatos.length + ' veces en LEU para esta categoría. Se cancela la sincronización para evitar cruzar activos.');
+            });
+            const controlesExistentesPorTabla = new Map();
             const arrayLEU = [];
             const arrayControlesH = [];
             const arrayControlesE = [];
@@ -1991,10 +2019,15 @@ const convertirWktIppAGeometria = (valor) => {
             };
 
             datosConvertidosGlobal.forEach((item) => {
-                maxId++;
-                const idActivo = maxId;
                 const attrs = item.atributos_tecnicos || {};
-
+                const clave = normalizarIdentidad(item.etiqueta);
+                const existente = (leuPorEtiqueta.get(clave) || [])[0] || null;
+                const idActivo = existente ? existente.id : ++maxId;
+                const attrsPrevios = existente?.atributos_tecnicos?.atributos_originales
+                    || (existente?.atributos_tecnicos && typeof existente.atributos_tecnicos === 'object'
+                        ? existente.atributos_tecnicos : {});
+                // El CSV manda sobre sus campos; las claves que no vienen en este archivo se conservan.
+                const attrsFusionados = { ...attrsPrevios, ...attrs };
                 arrayLEU.push({
                     id: idActivo,
                     categoria: item.categoria,
@@ -2003,8 +2036,10 @@ const convertirWktIppAGeometria = (valor) => {
                     ronda: item.ronda,
                     ubicacion_wkt: item.ubicacion_wkt,
                     atributos_tecnicos: {
+                        ...(existente?.atributos_tecnicos && typeof existente.atributos_tecnicos === 'object'
+                            ? existente.atributos_tecnicos : {}),
                         fuente: 'My Maps CSV',
-                        atributos_originales: attrs
+                        atributos_originales: attrsFusionados
                     }
                 });
 
@@ -2220,20 +2255,32 @@ const convertirWktIppAGeometria = (valor) => {
                 }
             });
 
-            const chunkSize = 500;
-
+            const chunkSize = 250;
+            let leuActualizados = 0, leuNuevos = 0;
+            const existentesIds = new Set(leuCategoria.map(f => String(f.id)));
             for (let i = 0; i < arrayLEU.length; i += chunkSize) {
-                const respuesta = await clienteSupabase
-                    .from('leu')
-                    .insert(arrayLEU.slice(i, i + chunkSize));
+                const lote = arrayLEU.slice(i, i + chunkSize);
+                const respuesta = await clienteSupabase.from('leu').upsert(lote, { onConflict: 'id' });
                 exigir(respuesta, 'LEU');
             }
+            arrayLEU.forEach(f => {
+                if (existentesIds.has(String(f.id))) leuActualizados++;
+                else leuNuevos++;
+            });
 
-            if (arrayAnomalias.length > 0) {
-                for (let i = 0; i < arrayAnomalias.length; i += chunkSize) {
-                    const respuesta = await clienteSupabase
-                        .from('anomalias')
-                        .insert(arrayAnomalias.slice(i, i + chunkSize));
+            // No duplicar la misma anomalía en reimportaciones; las anomalías anteriores nunca se borran.
+            if (arrayAnomalias.length) {
+                const anomalíasExistentes = await leerTablaCompleta('anomalias');
+                const clavesAnomalias = new Set(anomalíasExistentes.map(a =>
+                    String(a.id_activo) + '|' + normalizarIdentidad(a.anomalia_detectada)));
+                const nuevasAnomalias = arrayAnomalias.filter(a => {
+                    const k = String(a.id_activo) + '|' + normalizarIdentidad(a.anomalia_detectada);
+                    if (clavesAnomalias.has(k)) return false;
+                    clavesAnomalias.add(k);
+                    return true;
+                });
+                for (let i = 0; i < nuevasAnomalias.length; i += chunkSize) {
+                    const respuesta = await clienteSupabase.from('anomalias').insert(nuevasAnomalias.slice(i, i + chunkSize));
                     exigir(respuesta, 'anomalias');
                 }
             }
@@ -2251,14 +2298,41 @@ const convertirWktIppAGeometria = (valor) => {
                 { data: arrayControlesIpp, tabla: 'ipp' }
             ];
 
+            let controlesActualizados = 0, controlesCreados = 0;
             for (const t of mapTablas) {
-                if (t.data.length === 0) continue;
-
-                for (let i = 0; i < t.data.length; i += chunkSize) {
-                    const respuesta = await clienteSupabase
-                        .from(t.tabla)
-                        .insert(t.data.slice(i, i + chunkSize));
-                    exigir(respuesta, t.tabla);
+                if (!t.data.length) continue;
+                if (t.tabla === 'ipp') {
+                    // IPP usa el mismo ID que LEU: actualizar por PK y conservar los campos no enviados.
+                    for (let i = 0; i < t.data.length; i += chunkSize) {
+                        const lote = t.data.slice(i, i + chunkSize);
+                        const respuesta = await clienteSupabase.from('ipp').upsert(lote, { onConflict: 'id' });
+                        exigir(respuesta, 'ipp');
+                    }
+                    continue;
+                }
+                const filasDb = await leerTablaCompleta(t.tabla);
+                const porActivo = new Map();
+                filasDb.forEach(f => {
+                    if (f.id_activo === null || f.id_activo === undefined) return;
+                    const k = String(f.id_activo);
+                    if (!porActivo.has(k)) porActivo.set(k, []);
+                    porActivo.get(k).push(f);
+                });
+                for (const filaCsv of t.data) {
+                    const historial = porActivo.get(String(filaCsv.id_activo)) || [];
+                    // Actualizar el registro vigente (más reciente); los registros anteriores quedan intactos.
+                    historial.sort((a,b) =>
+                        String(b.created_at || '').localeCompare(String(a.created_at || '')) || Number(b.id)-Number(a.id));
+                    const vigente = historial[0];
+                    if (vigente) {
+                        const { error } = await clienteSupabase.from(t.tabla).update(filaCsv).eq('id', vigente.id);
+                        if (error) throw new Error('Error actualizando ' + t.tabla + ' ID ' + vigente.id + ': ' + error.message);
+                        controlesActualizados++;
+                    } else {
+                        const { error } = await clienteSupabase.from(t.tabla).insert(filaCsv);
+                        if (error) throw new Error('Error creando control en ' + t.tabla + ' para activo ' + filaCsv.id_activo + ': ' + error.message);
+                        controlesCreados++;
+                    }
                 }
             }
 
