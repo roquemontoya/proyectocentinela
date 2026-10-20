@@ -115,6 +115,17 @@ export function cargarModuloAdminCsv(contenedor) {
                 </select>
                 <p style="font-size:12px;color:#bae6fd;line-height:1.5;">La comparación no modifica la base. La importación mantiene el comportamiento actual del CMU.</p>
             </div>
+            <div style="background:#0f172a;border:1px solid #38bdf8;padding:16px;border-radius:8px;margin-bottom:20px;">
+                <h4 style="color:#38bdf8;margin:0 0 10px;">🧭 Calculadora de coordenadas</h4>
+                <p style="color:#cbd5e1;font-size:12px;margin:0 0 12px;">Convertí latitud/longitud decimal a WKT POINT y formato grados-minutos-segundos. No modifica el CSV ni Supabase.</p>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;">
+                    <label style="color:#cbd5e1;font-size:12px;">Latitud decimal<input id="cmu-coord-lat" type="number" step="any" min="-90" max="90" placeholder="-31.4708988" style="display:block;width:100%;box-sizing:border-box;margin-top:5px;padding:9px;background:#111827;color:#fff;border:1px solid #475569;border-radius:5px;"></label>
+                    <label style="color:#cbd5e1;font-size:12px;">Longitud decimal<input id="cmu-coord-lon" type="number" step="any" min="-180" max="180" placeholder="-64.2393832" style="display:block;width:100%;box-sizing:border-box;margin-top:5px;padding:9px;background:#111827;color:#fff;border:1px solid #475569;border-radius:5px;"></label>
+                </div>
+                <button id="cmu-coord-calcular" type="button" style="margin-top:10px;background:#0284c7;color:#fff;border:0;padding:9px 14px;border-radius:5px;font-weight:bold;cursor:pointer;">Calcular coordenadas</button>
+                <div id="cmu-coord-resultado" aria-live="polite" style="display:none;margin-top:12px;padding:10px;background:#111827;border:1px solid #334155;border-radius:5px;color:#e2e8f0;font-size:12px;white-space:pre-wrap;overflow-wrap:anywhere;"></div>
+            </div>
+
             <div style="background: #1e1e1e; padding: 20px; border-radius: 8px; border: 1px solid #333; margin-bottom: 20px;">
                 <div style="margin-bottom: 15px;">
                     <label style="display: block; font-size: 13px; font-weight: bold; margin-bottom: 8px; color: #38bdf8;">Cargar CSV exportado:</label>
@@ -134,12 +145,70 @@ export function cargarModuloAdminCsv(contenedor) {
                     <span id="admin-contador-registros" style="background: #2a2a2a; padding: 3px 8px; border-radius: 4px; font-size: 12px; color: #ccc;"></span>
                 </div>
                 
+                <button id="btn-descargar-cmu" type="button" style="display:none;background:#0284c7;color:#fff;border:1px solid #38bdf8;padding:12px 20px;border-radius:5px;font-weight:bold;cursor:pointer;width:100%;font-size:14px;margin-bottom:12px;">⬇️ Descargar resultado procesado (CSV)</button>
                 <div id="admin-preview-tabla" style="max-height: 280px; overflow: auto; margin-bottom: 15px; font-size: 12px; background: #121212; padding: 10px; border-radius: 4px; border: 1px solid #444;"></div>
                 
                 <button id="btn-subir-supabase" style="background: #38bdf8; color: #000; border: none; padding: 12px 20px; border-radius: 5px; font-weight: bold; cursor: pointer; width: 100%; font-size: 14px;">🚀 Inyectar en LEU, Controles y Anomalías (Supabase)</button>
             </div>
         </div>
     `;
+
+    document.getElementById('cmu-coord-calcular')?.addEventListener('click', () => {
+        const lat = Number(document.getElementById('cmu-coord-lat')?.value);
+        const lon = Number(document.getElementById('cmu-coord-lon')?.value);
+        const salida = document.getElementById('cmu-coord-resultado');
+        if (!Number.isFinite(lat) || !Number.isFinite(lon) ||
+            document.getElementById('cmu-coord-lat').value.trim() === '' ||
+            document.getElementById('cmu-coord-lon').value.trim() === '' ||
+            lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+            salida.style.display = 'block';
+            salida.textContent = 'Coordenadas inválidas. Latitud: -90 a 90; longitud: -180 a 180.';
+            return;
+        }
+        const aGms = (valor, latitud) => {
+            const absoluto = Math.abs(valor);
+            const grados = Math.floor(absoluto);
+            const minutosDecimal = (absoluto - grados) * 60;
+            const minutos = Math.floor(minutosDecimal);
+            const segundos = ((minutosDecimal - minutos) * 60).toFixed(3);
+            const hemisferio = latitud ? (valor >= 0 ? 'N' : 'S') : (valor >= 0 ? 'E' : 'O');
+            return grados + '° ' + minutos + "' " + segundos + '" ' + hemisferio;
+        };
+        salida.style.display = 'block';
+        salida.textContent = 'WKT (longitud latitud): POINT (' + lon + ' ' + lat + ')' +
+            '\nLatitud GMS: ' + aGms(lat, true) +
+            '\nLongitud GMS: ' + aGms(lon, false) +
+            '\nGoogle Maps: https://www.google.com/maps?q=' + lat + ',' + lon;
+    });
+
+    document.getElementById('btn-descargar-cmu')?.addEventListener('click', () => {
+        if (!Array.isArray(datosConvertidosGlobal) || datosConvertidosGlobal.length === 0) {
+            alert('Primero procesá un CSV con registros válidos.');
+            return;
+        }
+        const filas = datosConvertidosGlobal.map(registro => {
+            const atributos = registro.atributos_tecnicos && typeof registro.atributos_tecnicos === 'object'
+                ? registro.atributos_tecnicos : {};
+            return { ...atributos, ...registro, atributos_tecnicos: JSON.stringify(atributos) };
+        });
+        const encabezados = [...new Set(filas.flatMap(fila => Object.keys(fila)))];
+        const csvEscapar = valor => {
+            const texto = valor == null ? '' : String(valor);
+            return /[",\\r\\n]/.test(texto) ? '"' + texto.replace(/"/g, '""') + '"' : texto;
+        };
+        const csv = '\\uFEFF' + [encabezados.map(csvEscapar).join(','),
+            ...filas.map(fila => encabezados.map(campo => csvEscapar(fila[campo])).join(','))].join('\\r\\n');
+        const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+        const url = URL.createObjectURL(blob);
+        const enlace = document.createElement('a');
+        const categoria = String(categoriaDetectadaGlobal || 'resultado').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').replace(/[^a-zA-Z0-9_-]+/g,'_');
+        enlace.href = url;
+        enlace.download = 'CMU_' + categoria + '_procesado.csv';
+        document.body.appendChild(enlace);
+        enlace.click();
+        enlace.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    });
 
     let modoOperacionGlobal = 'agregar';
     const selectorModo = document.getElementById('cmu-modo-operacion');
@@ -304,6 +373,21 @@ export function cargarModuloAdminCsv(contenedor) {
                 encoding: 'UTF-8',
                 complete: function(results) {
                     const filasCrudas = results.data;
+                    // Limpieza transversal segura: solo bordes/caracteres invisibles y espacios Unicode.
+                    const limpiarCeldaCMU = valor => {
+                        if (typeof valor !== 'string') return valor;
+                        return valor
+                            .replace(/^\\uFEFF+|\\uFEFF+$/g, '')
+                            .replace(/[\\u200B-\\u200D\\u2060\\u180E\\uFEFF]+/g, '')
+                            .replace(/[\\u00A0\\u1680\\u2000-\\u200A\\u202F\\u205F\\u3000]/g, ' ')
+                            .replace(/[\\t\\r\\n ]+$/g, '')
+                            .replace(/^[\\t\\r\\n ]+/g, '')
+                            .replace(/Â°/g, '°')
+                            .replace(/Ã‚°/g, '°');
+                    };
+                    for (let i = 0; i < filasCrudas.length; i++) {
+                        if (Array.isArray(filasCrudas[i])) filasCrudas[i] = filasCrudas[i].map(limpiarCeldaCMU);
+                    }
 
                     if (!filasCrudas || filasCrudas.length < 2) {
                         alert('El archivo CSV está vacío o no contiene una fila de encabezados y datos.');
@@ -1788,6 +1872,8 @@ const convertirWktIppAGeometria = (valor) => {
                     auditoria.registrosLogicos = listaTemporal.length;
 
                     document.getElementById('admin-resultado-container').style.display = 'block';
+                    const btnDescargarCmu = document.getElementById('btn-descargar-cmu');
+                    if (btnDescargarCmu) btnDescargarCmu.style.display = datosConvertidosGlobal.length > 0 ? 'block' : 'none';
 
                     const estadoTexto = document.getElementById('admin-estado-texto');
                     const contadorRegistros = document.getElementById('admin-contador-registros');
