@@ -139,6 +139,7 @@ export function cargarModuloAdminCsv(contenedor) {
                     <span id="admin-contador-registros" style="background: #2a2a2a; padding: 3px 8px; border-radius: 4px; font-size: 12px; color: #ccc;"></span>
                 </div>
                 
+                <button id="btn-descargar-cmu" type="button" style="display:none;background:#0284c7;color:#fff;border:1px solid #38bdf8;padding:12px 20px;border-radius:5px;font-weight:bold;cursor:pointer;width:100%;font-size:14px;margin-bottom:12px;">⬇️ Descargar resultado procesado (CSV)</button>
                 <div id="admin-preview-tabla" style="max-height: none; overflow: visible; margin-bottom: 15px; box-sizing: border-box; font-size: 12px; background: #121212; padding: 10px; border-radius: 4px; border: 1px solid #444;"></div>
                 
                 <button id="btn-subir-supabase" disabled aria-describedby="cmu-modo-seguro-ayuda" style="background: #334155; color: #cbd5e1; border: 1px solid #64748b; padding: 12px 20px; border-radius: 5px; font-weight: bold; cursor: not-allowed; width: 100%; font-size: 14px;">🔒 Seleccioná «Comparar» para consultar (solo lectura)</button>
@@ -267,6 +268,39 @@ export function cargarModuloAdminCsv(contenedor) {
         const mid = MAPAS_CONFIG[categoriaDetectadaGlobal];
         if (mid) document.getElementById('btn-ir-editor').href = `https://www.google.com/maps/d/edit?mid=${mid}`;
         document.getElementById('cmu-mapa-leaflet').textContent = 'Procesá el CSV para centrar el mapa en sus coordenadas WKT.';
+    });
+
+    // Exporta el resultado normalizado por el CMU sin escribir en Supabase.
+    document.getElementById('btn-descargar-cmu').addEventListener('click', () => {
+        if (!Array.isArray(datosConvertidosGlobal) || datosConvertidosGlobal.length === 0) {
+            alert('Primero procesá un CSV con registros válidos.');
+            return;
+        }
+        const filasExportacion = datosConvertidosGlobal.map((registro) => {
+            const atributos = registro.atributos_tecnicos && typeof registro.atributos_tecnicos === 'object'
+                ? registro.atributos_tecnicos
+                : {};
+            return { ...atributos, ...registro, atributos_tecnicos: JSON.stringify(atributos) };
+        });
+        const encabezados = [...new Set(filasExportacion.flatMap((fila) => Object.keys(fila)))];
+        const escaparCsv = (valor) => {
+            const texto = valor == null ? '' : String(valor);
+            return /[",\r\n]/.test(texto) ? '"' + texto.replace(/"/g, '""') + '"' : texto;
+        };
+        const csv = '\uFEFF' + [
+            encabezados.map(escaparCsv).join(','),
+            ...filasExportacion.map((fila) => encabezados.map((columna) => escaparCsv(fila[columna])).join(','))
+        ].join('\r\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const enlace = document.createElement('a');
+        const nombreCategoria = String(categoriaDetectadaGlobal || 'resultado').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9_-]+/g, '_');
+        enlace.href = url;
+        enlace.download = 'CMU_' + nombreCategoria + '_procesado.csv';
+        document.body.appendChild(enlace);
+        enlace.click();
+        enlace.remove();
+        URL.revokeObjectURL(url);
     });
 
     document.getElementById('btn-procesar-csv').addEventListener('click', async () => {
@@ -1860,6 +1894,8 @@ const convertirWktIppAGeometria = (valor) => {
                     auditoria.registrosLogicos = listaTemporal.length;
 
                     document.getElementById('admin-resultado-container').style.display = 'block';
+                    const btnDescargarCmu = document.getElementById('btn-descargar-cmu');
+                    btnDescargarCmu.style.display = datosConvertidosGlobal.length > 0 ? 'block' : 'none';
 
                     const estadoTexto = document.getElementById('admin-estado-texto');
                     const contadorRegistros = document.getElementById('admin-contador-registros');
