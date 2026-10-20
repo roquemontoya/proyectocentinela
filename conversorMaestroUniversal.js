@@ -4,6 +4,7 @@
 // ==========================================
 
 import { clienteSupabase } from './supabaseClient.js';
+import { compararCsvCompleto } from './cmuComparacion.js';
 
 
 
@@ -106,6 +107,15 @@ export function cargarModuloAdminCsv(contenedor) {
                 </div>
             </div>
 
+            <div style="background:#0f172a;border:1px solid #475569;padding:14px;border-radius:8px;margin-bottom:16px;">
+                <label for="cmu-modo-operacion" style="display:block;font-weight:bold;color:#e2e8f0;margin-bottom:8px;">¿Qué querés hacer con los datos?</label>
+                <select id="cmu-modo-operacion" style="width:100%;padding:12px;background:#111827;color:#fff;border:1px solid #64748b;border-radius:6px;">
+                    <option value="agregar">Agregar datos (simulación segura)</option>
+                    <option value="comparar">Comparar datos (solo lectura)</option>
+                    <option value="reemplazar">Reemplazar datos (simulación segura)</option>
+                </select>
+                <p style="font-size:12px;color:#cbd5e1;line-height:1.5;">Rama protegida: las escrituras a Supabase están bloqueadas. Agregar/Reemplazar son simulaciones; Comparar no modifica datos.</p>
+            </div>
             <div style="background: #1e1e1e; padding: 20px; border-radius: 8px; border: 1px solid #333; margin-bottom: 20px;">
                 <div style="margin-bottom: 15px;">
                     <label style="display: block; font-size: 13px; font-weight: bold; margin-bottom: 8px; color: #38bdf8;">Cargar CSV exportado:</label>
@@ -188,6 +198,13 @@ export function cargarModuloAdminCsv(contenedor) {
     let datosConvertidosGlobal = [];
     let auditoriaCsvGlobal = null;
     let encabezadosOriginalesGlobal = [];
+    let modoOperacionGlobal = 'agregar';
+    document.getElementById('cmu-modo-operacion').addEventListener('change', e => {
+        modoOperacionGlobal = e.target.value;
+        const b = document.getElementById('btn-subir-supabase');
+        b.disabled = modoOperacionGlobal !== 'comparar';
+        b.innerText = modoOperacionGlobal === 'comparar' ? '🔎 Comparar todos los datos (solo lectura)' : (modoOperacionGlobal === 'reemplazar' ? '🔒 Reemplazar (simulación; escritura bloqueada)' : '🔒 Agregar (simulación; escritura bloqueada)');
+    });
 
     // Utilidad compartida: el botón de importación se ejecuta fuera del
     // callback de Papa.parse(), por lo que no puede depender de helpers
@@ -1857,6 +1874,15 @@ const convertirWktIppAGeometria = (valor) => {
 
                     tablaHtml += '</tbody></table>';
                     previewDiv.innerHTML += tablaHtml;
+                    if (modoOperacionGlobal === 'comparar') {
+                        const botonComparar = document.getElementById('btn-subir-supabase');
+                        botonComparar.disabled = false;
+                        botonComparar.innerText = '🔎 Comparar todos los datos (solo lectura)';
+                        compararCsvCompleto({registros: datosConvertidosGlobal, categoria: categoriaDetectadaGlobal, contenedor: previewDiv, estado: estadoTexto, contador: contadorRegistros});
+                    } else {
+                        document.getElementById('btn-subir-supabase').disabled = true;
+                        document.getElementById('btn-subir-supabase').innerText = modoOperacionGlobal === 'reemplazar' ? '🔒 Reemplazar (simulación; escritura bloqueada)' : '🔒 Agregar (simulación; escritura bloqueada)';
+                    }
                 },
                 error: function(err) {
                     alert('❌ Error analizando el CSV con Papa Parse: ' + err.message);
@@ -1868,6 +1894,12 @@ const convertirWktIppAGeometria = (valor) => {
     });
 
     document.getElementById('btn-subir-supabase').addEventListener('click', async () => {
+        if (modoOperacionGlobal === 'comparar') {
+            await compararCsvCompleto({registros: datosConvertidosGlobal, categoria: categoriaDetectadaGlobal, contenedor: document.getElementById('admin-preview-tabla'), estado: document.getElementById('admin-estado-texto'), contador: document.getElementById('admin-contador-registros')});
+            return;
+        }
+        alert('🔒 Esta rama es de prueba: no permite escribir en Supabase. Agregar y Reemplazar solo muestran una simulación.');
+        return;
         if (datosConvertidosGlobal.length === 0) return;
         if (!categoriaDetectadaGlobal) {
             alert('❌ No hay una categoría válida para importar.');
