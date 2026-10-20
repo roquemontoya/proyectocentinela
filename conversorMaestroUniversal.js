@@ -112,8 +112,9 @@ export function cargarModuloAdminCsv(contenedor) {
                 <select id="cmu-modo-operacion" style="width:100%;padding:12px;background:#111827;color:#fff;border:1px solid #64748b;border-radius:6px;">
                     <option value="agregar">Agregar registros (importación existente)</option>
                     <option value="comparar">Comparar datos (solo lectura)</option>
+                    <option value="preparar_reemplazo">Preparar reemplazo de LEU (solo auditoría)</option>
                 </select>
-                <p style="font-size:12px;color:#bae6fd;line-height:1.5;">La comparación no modifica la base. La importación mantiene el comportamiento actual del CMU.</p>
+                <p id="cmu-modo-operacion-ayuda" style="font-size:12px;color:#bae6fd;line-height:1.5;">La comparación no modifica la base. La importación mantiene el comportamiento actual del CMU.</p>
             </div>
             <div style="background:#0f172a;border:1px solid #38bdf8;padding:16px;border-radius:8px;margin-bottom:20px;">
                 <h4 style="color:#38bdf8;margin:0 0 10px;">🧭 Calculadora de coordenadas</h4>
@@ -217,7 +218,13 @@ export function cargarModuloAdminCsv(contenedor) {
         const boton = document.getElementById('btn-subir-supabase');
         if (boton) boton.textContent = modoOperacionGlobal === 'comparar'
             ? '🔎 Comparar todos los datos (solo lectura)'
-            : '🚀 Inyectar en LEU, Controles y Anomalías (Supabase)';
+            : modoOperacionGlobal === 'preparar_reemplazo'
+                ? '🧾 Auditar reemplazo de LEU (sin escribir)'
+                : '🚀 Inyectar en LEU, Controles y Anomalías (Supabase)';
+        const ayuda = document.getElementById('cmu-modo-operacion-ayuda');
+        if (ayuda) ayuda.textContent = modoOperacionGlobal === 'preparar_reemplazo'
+            ? 'Modo preparatorio: compara el CSV con LEU y muestra diferencias. No borra, reemplaza ni escribe datos.'
+            : 'La comparación no modifica la base. La importación mantiene el comportamiento actual del CMU.';
     });
 
     const normalizarClave = (texto) => String(texto || '')
@@ -1973,7 +1980,13 @@ const convertirWktIppAGeometria = (valor) => {
     });
 
     document.getElementById('btn-subir-supabase').addEventListener('click', async () => {
-        if (modoOperacionGlobal === 'comparar') {
+        if (modoOperacionGlobal === 'comparar' || modoOperacionGlobal === 'preparar_reemplazo') {
+            if (!Array.isArray(datosConvertidosGlobal) || datosConvertidosGlobal.length === 0) {
+                alert('Primero procesá un CSV con registros válidos.');
+                return;
+            }
+            if (modoOperacionGlobal === 'preparar_reemplazo' &&
+                !confirm('Se ejecutará una auditoría de reemplazo en modo lectura. No se borrará ni modificará ningún registro. ¿Continuar?')) return;
             await compararCsvCompleto({
                 registros: datosConvertidosGlobal,
                 categoria: categoriaDetectadaGlobal,
@@ -1981,6 +1994,13 @@ const convertirWktIppAGeometria = (valor) => {
                 estado: document.getElementById('admin-estado-texto'),
                 contador: document.getElementById('admin-contador-registros')
             });
+            if (modoOperacionGlobal === 'preparar_reemplazo') {
+                const estado = document.getElementById('admin-estado-texto');
+                if (estado) {
+                    estado.textContent = '🧾 Auditoría de reemplazo finalizada: no se modificó LEU. Revisá diferencias antes de autorizar una operación real.';
+                    estado.style.color = '#fbbf24';
+                }
+            }
             return;
         }
 
