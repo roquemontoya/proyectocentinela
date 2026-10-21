@@ -144,7 +144,6 @@ function mostrarRecorridoControlin(id, indicePunto=null){
     .bindTooltip((i+1)+'. '+esc(p.zona)+' · '+esc(fecha(p.hora))).addTo(capaSimulada));
   mapa.fitBounds(L.latLngBounds(coords),{padding:[30,30],maxZoom:18});
   const tabla=document.getElementById('geo-admin-controlin-player');
-  const eventosEl=document.getElementById('geo-admin-eventos');
   const actual=r.puntos[puntoControlinSeleccionado];
   const porcentaje=Math.round(puntoControlinSeleccionado/Math.max(1,r.puntos.length-1)*100);
   const eventoTipo=puntoControlinSeleccionado===0?'Inicio de ronda':actual.zona!==r.puntos[puntoControlinSeleccionado-1].zona?'Entrada a zona':'Control de recorrido';
@@ -160,9 +159,6 @@ function mostrarRecorridoControlin(id, indicePunto=null){
       const avanzar=()=>{if(!document.getElementById('geo-controlin-tiempo'))return;if(i>=r.puntos.length-1){mostrarRecorridoControlin(id,0);return;}i++;mostrarRecorridoControlin(id,i);setTimeout(avanzar,900);};
       setTimeout(avanzar,250);
     });
-  }
-  if(eventosEl){
-    eventosEl.innerHTML='<div style="padding:7px 9px;background:#3b2f14;border:1px solid #8b6b22;border-radius:7px;color:#fde68a;font-size:11px">El evento seleccionado se muestra junto a la barra temporal. Los datos son simulados, no registros operativos.</div>';
   }
   estado('Controlin · '+r.tipo+' del '+esc(fecha(r.fecha))+' · punto '+(puntoControlinSeleccionado+1)+'/'+r.puntos.length+' · datos simulados.');
 }
@@ -199,8 +195,7 @@ function renderListaControlin(){
       pastillas.querySelectorAll('[data-controlin]').forEach(x=>{x.style.borderColor='#6b356f';x.style.background='#211626';});
       btn.style.borderColor='#e879f9';btn.style.background='#3b2140';
       mostrarRecorridoControlin(btn.dataset.controlin,0);
-      // Mantener el reproductor a la vista tras elegir la jornada.
-      document.getElementById('geo-admin-eventos')?.scrollIntoView({behavior:'smooth',block:'nearest'});
+
     }));
     // Selección inicial del día: mostrar la primera ronda disponible sin exigir desplazarse a una lista larga.
     if(jornada.length===1) mostrarRecorridoControlin(jornada[0].id,0);
@@ -224,21 +219,24 @@ export async function cargarModuloPanelGeografico(contenedor){
     <p style="color:#9ca3af;margin:0 0 12px">Mapa territorial y recorridos GPS sincronizados de Centinela. No representa ubicación en vivo: muestra recorridos registrados y calcula cruces usando los polígonos activos actuales.</p>
     <div id="geo-admin-estado" role="status" style="padding:9px;background:#111827;border-radius:6px;margin-bottom:9px">Cargando datos…</div>
     <div id="geo-admin-mapa-marco" style="position:relative;width:100%;margin-bottom:12px;border-radius:10px;overflow:hidden;border:1px solid #334155;background:#111827">
-      <div id="geo-admin-mapa" style="height:62vh;min-height:420px;max-height:760px;width:100%;background:#1f2937"></div>
+      <div id="geo-admin-mapa" style="height:70vh;min-height:480px;max-height:820px;width:100%;background:#1f2937"></div>
+      <div id="geo-admin-selector-marco" style="position:absolute;top:10px;left:72px;z-index:1100;max-width:min(420px,calc(100% - 84px));pointer-events:none">
+        <button id="geo-admin-selector-toggle" type="button" aria-expanded="false" style="pointer-events:auto;background:#111827ee;color:#f3e8ff;border:1px solid #a855f7;border-radius:7px;padding:9px 12px;box-shadow:0 2px 8px #0008;font-weight:600;cursor:pointer">🗓️ Recorridos por día ▾</button>
+        <div id="geo-admin-selector-panel" style="display:none;pointer-events:auto;margin-top:7px;padding:10px;background:#0f172af5;border:1px solid #6b356f;border-radius:9px;box-shadow:0 8px 24px #0009">
+          <div style="font-size:12px;color:#d8b4fe;margin-bottom:7px">Elegí la fecha y la ronda que querés reproducir.</div>
+          <div id="geo-admin-controlin">Preparando recorridos…</div>
+        </div>
+      </div>
       <div style="position:absolute;left:0;right:0;bottom:0;z-index:1000;padding:36px 14px 12px;background:linear-gradient(180deg,transparent 0%,rgba(5,8,16,.88) 28%,rgba(5,8,16,.97) 100%);pointer-events:none">
-        <div id="geo-admin-controlin-player" style="pointer-events:auto;max-width:1100px;margin:0 auto"></div>
+        <div id="geo-admin-controlin-player" style="pointer-events:auto;max-width:1400px;margin:0 auto"></div>
       </div>
     </div>
-    <div id="geo-admin-paneles" style="display:grid;grid-template-columns:minmax(280px,.85fr) minmax(0,2fr);gap:12px;align-items:start">
-      <div style="display:grid;gap:12px;min-width:0">
-        <section style="background:#0f172a;border:1px solid #6b356f;border-radius:10px;padding:12px"><h3 style="margin:0 0 5px">🧪 Recorridos por día</h3><p style="color:#d8b4fe;font-size:12px;margin:0 0 9px">Elegí la jornada y seleccioná una ronda.</p><div id="geo-admin-controlin">Preparando recorridos…</div></section>
-        <details style="background:#0f172a;border:1px solid #374151;border-radius:10px;padding:10px"><summary style="cursor:pointer;color:#cbd5e1;font-weight:600">Otros recorridos GPS registrados</summary><div id="geo-admin-recorridos">Cargando…</div></details>
-      </div>
-      <section style="background:#0f172a;border:1px solid #374151;border-radius:10px;padding:12px;min-width:0"><h3 style="margin:0 0 5px">Entradas y salidas inferidas</h3><p style="color:#9ca3af;font-size:12px;margin:0 0 10px">Eventos estimados a partir de las posiciones y las zonas activas.</p><div id="geo-admin-eventos"><p style="color:#9ca3af">Elegí un recorrido para consultar los eventos de la jornada.</p></div></section>
-    </div>
-    <style>@media(max-width:800px){#geo-admin-paneles{grid-template-columns:1fr!important}}</style>
+    <details style="background:#0f172a;border:1px solid #374151;border-radius:10px;padding:10px;margin-top:10px"><summary style="cursor:pointer;color:#cbd5e1;font-weight:600">Otros recorridos GPS registrados</summary><div id="geo-admin-recorridos">Cargando…</div></details>
   </section>`;
   mapa=L.map('geo-admin-mapa').setView([-31.47,-64.24],15); agregarCapasBase(mapa); capas=L.layerGroup().addTo(mapa);
+  const selectorToggle=document.getElementById('geo-admin-selector-toggle');
+  const selectorPanel=document.getElementById('geo-admin-selector-panel');
+  selectorToggle?.addEventListener('click',()=>{const abierto=selectorPanel.style.display!=='none';selectorPanel.style.display=abierto?'none':'block';selectorToggle.setAttribute('aria-expanded',String(!abierto));selectorToggle.textContent=abierto?'🗓️ Recorridos por día ▾':'🗓️ Recorridos por día ▴';});
   try{await Promise.all([cargarTerritorios(),cargarRecorridos()]);pintarPuntos([]);renderLista();generarRecorridosControlin();renderListaControlin();estado(territorios.length+' zonas activas · '+recorridos.length+' recorridos GPS reales · '+recorridosControlin.length+' jornadas de Controlin simuladas.');}
   catch(e){estado('Error cargando el panel: '+(e.message||e),true);}
   setTimeout(()=>mapa?.invalidateSize(),200);
