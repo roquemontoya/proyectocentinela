@@ -16,6 +16,8 @@ import { cargarModuloAnomalias } from './anomalias.js';
 import { cargarModuloHistorialFotos } from './historialFotos.js';
 import { cargarModuloEditorUbicaciones } from './editorUbicaciones.js';
 import { cargarModuloEditorTerritorios } from './editorTerritorios.js';
+import { cargarModuloPanelGeografico, detenerModuloPanelGeografico } from './panelGeograficoAdmin.js';
+import { cargarModuloSimulacionControlin } from './simulacionControlin.js';
 import { abrirControlExtintor, guardarControlExtintor } from './controlesExtintores.js';
 import { abrirControlHidrante, guardarControlHidrante, cambiarTipoControl, verificarDetalleLlave } from './controlesHidrantes.js';
 import { cerrarFormularioControl, verificarEstadoControl } from './controlesBase.js';
@@ -39,6 +41,7 @@ window.toggleMenu = function() {
 window.irInicio = function() {
     detenerModuloGPS();
     detenerModuloRecorridosGPS();
+    detenerModuloPanelGeografico();
     detenerModuloMapa();
     const pantallaInicio = document.getElementById('main-content');
     const vistaDinamica = document.getElementById('vista-dinamica');
@@ -161,6 +164,14 @@ window.cargarModulo = async function(modulo) {
 
             case 'recorridosGps':
                 await cargarModuloRecorridosGPS(vistaDinamica);
+                break;
+
+            case 'panelGeografico':
+                await cargarModuloPanelGeografico(vistaDinamica);
+                break;
+
+            case 'simulacionControlin':
+                await cargarModuloSimulacionControlin(vistaDinamica);
                 break;
 
             case 'correccionEcas':
