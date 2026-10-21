@@ -526,12 +526,15 @@ function parsearVencimiento(valor) {
     return Number.isNaN(fecha.getTime()) ? null : fecha;
 }
 
-function crearIcono(color) {
+function crearIcono(color, esProvisorio = false) {
+    const borde = esProvisorio ? '#2dd4bf' : '#fff';
+    const anchoBorde = esProvisorio ? 4 : 2;
+    const halo = esProvisorio ? '0 0 0 3px rgba(45,212,191,.28),0 0 10px #000' : '0 0 8px #000';
     return L.divIcon({
-        className: 'centinela-map-pin',
-        html: '<div style="background:' + color + ';width:16px;height:16px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 8px #000"></div>',
-        iconSize: [20, 20],
-        iconAnchor: [10, 10]
+        className: 'centinela-map-pin' + (esProvisorio ? ' centinela-pin-provisorio' : ''),
+        html: '<div title="' + (esProvisorio ? 'Extintor vigente provisorio' : 'Activo') + '" style="box-sizing:border-box;background:' + color + ';width:18px;height:18px;border-radius:50%;border:' + anchoBorde + 'px solid ' + borde + ';box-shadow:' + halo + '"></div>',
+        iconSize: [22, 22],
+        iconAnchor: [11, 11]
     });
 }
 
@@ -675,6 +678,20 @@ export async function cargarModuloMapa(moduloKey, contenedor) {
     const esExtintor = moduloKey === 'extintores';
     const esIPP = moduloKey === 'ipp';
     const coloresSectoresIPP = esIPP ? crearColoresSectoresIPP(activos) : new Map();
+    // Un titular con ciclo activo se muestra verde (vigente) con halo turquesa.
+    const titularesConProvisorio = new Set();
+    if (esExtintor && activos.length) {
+        const idsTitulares = activos.map(a => Number(a.id)).filter(Number.isFinite);
+        for (let desde = 0; desde < idsTitulares.length; desde += 100) {
+            const lote = idsTitulares.slice(desde, desde + 100);
+            const { data: ciclos } = await clienteSupabase
+                .from('reemplazos_temporales_extintores')
+                .select('activo_titular_id')
+                .in('activo_titular_id', lote)
+                .eq('estado', 'Activo');
+            (ciclos || []).forEach(ciclo => titularesConProvisorio.add(Number(ciclo.activo_titular_id)));
+        }
+    }
 
     for (const item of activos) {
         const estadoControl = ultimosEstadosControl.get(Number(item.id));
@@ -686,11 +703,18 @@ export async function cargarModuloMapa(moduloKey, contenedor) {
         if (!geometria) { sinUbicacion++; continue; }
 
         const nombre = item.etiqueta || item.nombre || 'Activo #' + item.id;
-        const popup = popupActivo(item, moduloKey, config, estado, esExtintor, ultimasFotos.get(Number(item.id)) || '');
+        const esTitularConProvisorio = esExtintor && titularesConProvisorio.has(Number(item.id));
+        const estadoVisual = esTitularConProvisorio
+            ? { ...estado, color: '#22c55e', estado: 'Vigente · provisorio instalado' }
+            : estado;
+        let popup = popupActivo(item, moduloKey, config, estadoVisual, esExtintor, ultimasFotos.get(Number(item.id)) || '');
+        if (esTitularConProvisorio) {
+            popup = '<div style="border:1px solid #2dd4bf;border-left:5px solid #2dd4bf;background:#0f2929;color:#e6fffb;border-radius:8px;padding:10px;margin-bottom:8px"><strong style="color:#5eead4">◉ UBICACIÓN CON EXTINTOR PROVISORIO</strong><div style="font-size:12px;margin-top:5px">El equipo instalado temporalmente está vigente. El titular conserva su identidad e historial.</div></div>' + popup;
+        }
 
         if (geometria.tipo === 'punto') {
             const coords = geometria.coordenadas;
-            const marcador = L.marker(coords, { icon: crearIcono(estado.color), title: nombre })
+            const marcador = L.marker(coords, { icon: crearIcono(estadoVisual.color, esTitularConProvisorio), title: nombre })
                 .addTo(mapaActivo).bindPopup(popup);
             marcador.on('popupopen', evento => {
                 inicializarMiniMapaPopup(evento.popup, item);
