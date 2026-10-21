@@ -73,22 +73,15 @@ async function resolverRolAutenticado() {
 }
 
 export async function inicializarAutenticacion() {
+  // En equipos compartidos no restaurar una sesión anterior automáticamente:
+  // exigir que quien abre Centinela introduzca sus propias credenciales.
   mostrarPantallaAcceso();
   limpiarError();
+  rolActual = null;
 
-  const { data, error } = await clienteSupabase.auth.getSession();
+  const { error } = await clienteSupabase.auth.signOut();
   if (error) {
-    mostrarError('No se pudo verificar la sesión. Recargá la página e iniciá sesión nuevamente.');
-    return;
-  }
-  if (!data?.session) return;
-
-  const rol = await resolverRolAutenticado();
-  if (rol) {
-    mostrarAplicacion(rol);
-  } else {
-    await clienteSupabase.auth.signOut();
-    mostrarError('La cuenta no tiene un rol administrativo asignado. Solicita al Superadministrador que habilite tu acceso.');
+    mostrarError('No se pudo cerrar la sesión anterior. Cerrá esta pestaña y volvé a abrir Centinela; si persiste, limpiá los datos del sitio.');
   }
 }
 
