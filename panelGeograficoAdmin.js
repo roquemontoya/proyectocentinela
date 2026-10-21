@@ -150,8 +150,11 @@ function generarRecorridosControlin(){
       puntos.push({lat: z.centro.lat+variacion,lng:z.centro.lng-variacion, zona:z.nombre,
         hora:new Date(inicio.getTime()+i*105*60*1000)});
     }
+    const modo=(dia%2===0)?'vehiculo':'a_pie';
+    puntos.forEach((p,i)=>{p.estado=(i===0||i===puntos.length-1)?'detenido':((dia+i)%7===0?'incierto':'en_movimiento');p.modo=modo;});
     salida.push({id:'controlin-demo-'+dia,fecha:inicio,tipo:noche?'Ronda nocturna':'Ronda diurna',
-      distancia:5.2+((dia*13)%47)/10,puntos,zonas:new Set(puntos.map(p=>p.zona)).size});
+      modo,distancia:modo==='vehiculo'?5.2+((dia*13)%47)/10:1.1+((dia*7)%18)/10,
+      puntos,zonas:new Set(puntos.map(p=>p.zona)).size});
   }
   recorridosControlin=salida;
 }
@@ -165,13 +168,17 @@ function mostrarRecorridoControlin(id, indicePunto=null){
   capaSimulada=L.layerGroup().addTo(capas);
   const coords=r.puntos.map(p=>[p.lat,p.lng]);
   L.polyline(coords,{color:'#e879f9',weight:5,opacity:.95,dashArray:'8 7'}).bindTooltip('Controlin · RECORRIDO SIMULADO').addTo(capaSimulada);
-  r.puntos.forEach((p,i)=>L.circleMarker([p.lat,p.lng],{radius:i===puntoControlinSeleccionado?9:6,color:'#fff',weight:2,fillColor:i===0?'#22c55e':i===r.puntos.length-1?'#ef4444':i===puntoControlinSeleccionado?'#facc15':'#e879f9',fillOpacity:1})
+  r.puntos.forEach((p,i)=>L.circleMarker([p.lat,p.lng],{radius:i===puntoControlinSeleccionado?7:4,color:'#fff',weight:1.5,fillColor:i===0?'#22c55e':i===r.puntos.length-1?'#ef4444':i===puntoControlinSeleccionado?'#facc15':'#e879f9',fillOpacity:1})
     .bindTooltip((i+1)+'. '+esc(p.zona)+' · '+esc(fecha(p.hora))).addTo(capaSimulada));
+  const actual=r.puntos[puntoControlinSeleccionado];
+  const iconoActual=actual.estado==='detenido'||actual.estado==='incierto'?'☁️❓':r.modo==='vehiculo'?'🚒':'🧑‍🚒';
+  const etiquetaModo=r.modo==='vehiculo'?'Recorrido en autobomba':'Recorrido a pie';
+  L.marker([actual.lat,actual.lng],{icon:L.divIcon({className:'controlin-glyph',html:'<div style="font-size:30px;line-height:36px;text-align:center;filter:drop-shadow(0 2px 3px #000);white-space:nowrap">'+iconoActual+'</div>',iconSize:[38,38],iconAnchor:[19,19]})})
+    .bindTooltip('Controlin · '+etiquetaModo+' · '+(actual.estado==='detenido'?'Detenido / en control':actual.estado==='incierto'?'Sin información suficiente':'En movimiento')).addTo(capaSimulada);
   mapa.fitBounds(L.latLngBounds(coords),{padding:[30,30],maxZoom:18});
   const tabla=document.getElementById('geo-admin-controlin-player');
-  const actual=r.puntos[puntoControlinSeleccionado];
   const porcentaje=Math.round(puntoControlinSeleccionado/Math.max(1,r.puntos.length-1)*100);
-  const eventoTipo=puntoControlinSeleccionado===0?'Inicio de ronda':actual.zona!==r.puntos[puntoControlinSeleccionado-1].zona?'Entrada a zona':'Control de recorrido';
+  const eventoTipo=actual.estado==='detenido'?'Pausa / control en zona':actual.estado==='incierto'?'Estado desconocido · datos insuficientes':puntoControlinSeleccionado===0?'Inicio de ronda':actual.zona!==r.puntos[puntoControlinSeleccionado-1].zona?'Entrada a zona':'Control de recorrido';
   if(tabla){
     tabla.innerHTML='<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(220px,1fr) auto;gap:12px;align-items:center;background:rgba(10,15,28,.88);border:1px solid #6b356f;border-radius:9px;padding:10px 12px;margin-bottom:7px;backdrop-filter:blur(5px)"><div style="min-width:0"><strong style="font-size:13px">'+esc(r.tipo)+' · '+esc(fecha(r.fecha))+'</strong><div style="font-size:11px;color:#d8b4fe;margin-top:3px">'+esc(fecha(actual.hora))+' · Punto '+(puntoControlinSeleccionado+1)+'/'+r.puntos.length+'</div></div><div id="geo-admin-evento-en-barra" style="min-width:0;padding-left:12px;border-left:1px solid #6b356f"><div style="font-size:10px;color:#c084fc;text-transform:uppercase;letter-spacing:.6px">Novedad / evento actual · SIMULADO</div><div style="font-size:13px;font-weight:600;color:#f3e8ff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(eventoTipo)+'</div><div style="font-size:11px;color:#d8b4fe;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(actual.zona)+' · '+new Date(actual.hora).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})+'</div></div><div style="font-size:18px;font-weight:700;color:#f0abfc">'+porcentaje+'%</div></div>'+
     '<input id="geo-controlin-tiempo" aria-label="Posición temporal del recorrido" type="range" min="0" max="'+(r.puntos.length-1)+'" step="1" value="'+puntoControlinSeleccionado+'" style="display:block;width:100%;accent-color:#e879f9;cursor:pointer;margin:0 0 4px"/>'+
@@ -185,7 +192,7 @@ function mostrarRecorridoControlin(id, indicePunto=null){
       setTimeout(avanzar,250);
     });
   }
-  estado('Controlin · '+r.tipo+' del '+esc(fecha(r.fecha))+' · punto '+(puntoControlinSeleccionado+1)+'/'+r.puntos.length+' · datos simulados.');
+  estado('Controlin · '+r.tipo+' · '+(r.modo==='vehiculo'?'autobomba':'a pie')+' · '+esc(fecha(r.fecha))+' · punto '+(puntoControlinSeleccionado+1)+'/'+r.puntos.length+' · '+(actual.estado==='detenido'?'detenido':actual.estado==='incierto'?'sin información suficiente':'en movimiento')+' · datos simulados.');
 }
 function renderListaControlin(){
   const el=document.getElementById('geo-admin-controlin'); if(!el)return;
@@ -215,7 +222,7 @@ function renderListaControlin(){
       return;
     }
     turno.textContent=jornada.length+' recorrido(s) · '+jornada.map(r=>r.tipo).join(', ');
-    pastillas.innerHTML=jornada.map((r,i)=>'<button type="button" data-controlin="'+esc(r.id)+'" style="display:flex;align-items:center;gap:8px;padding:8px 11px;border-radius:9px;border:1px solid '+(i===0?'#a855f7':'#6b356f')+';background:'+(i===0?'#3b2140':'#211626')+';color:#f3e8ff;cursor:pointer;text-align:left;max-width:100%"><span style="font-size:17px">'+(r.tipo==='Ronda nocturna'?'🌙':'☀️')+'</span><span><strong style="display:block;font-size:12px">Controlin · '+(r.tipo==='Ronda nocturna'?'Noche':'Día')+'</strong><span style="font-size:11px;color:#d8b4fe">'+(r.tipo==='Ronda nocturna'?'19:00–07:00':'07:00–19:00')+' · '+r.puntos.length+' puntos · '+r.distancia.toFixed(1)+' km</span></span><span style="font-size:10px;color:#f0abfc">DEMO</span></button>').join('');
+    pastillas.innerHTML=jornada.map((r,i)=>'<button type="button" data-controlin="'+esc(r.id)+'" style="display:flex;align-items:center;gap:8px;padding:8px 11px;border-radius:9px;border:1px solid '+(i===0?'#a855f7':'#6b356f')+';background:'+(i===0?'#3b2140':'#211626')+';color:#f3e8ff;cursor:pointer;text-align:left;max-width:100%"><span style="font-size:17px">'+(r.tipo==='Ronda nocturna'?'🌙':'☀️')+'</span><span><strong style="display:block;font-size:12px">Controlin · '+(r.tipo==='Ronda nocturna'?'Noche':'Día')+' · '+(r.modo==='vehiculo'?'🚒 Autobomba':'🧑‍🚒 A pie')+'</strong><span style="font-size:11px;color:#d8b4fe">'+(r.tipo==='Ronda nocturna'?'19:00–07:00':'07:00–19:00')+' · '+r.puntos.length+' puntos · '+r.distancia.toFixed(1)+' km</span></span><span style="font-size:10px;color:#f0abfc">DEMO</span></button>').join('');
     pastillas.querySelectorAll('[data-controlin]').forEach(btn=>btn.addEventListener('click',()=>{
       pastillas.querySelectorAll('[data-controlin]').forEach(x=>{x.style.borderColor='#6b356f';x.style.background='#211626';});
       btn.style.borderColor='#e879f9';btn.style.background='#3b2140';
