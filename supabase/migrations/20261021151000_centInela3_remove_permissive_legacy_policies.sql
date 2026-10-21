@@ -1,0 +1,8 @@
+-- Retirar políticas permisivas heredadas que permitirían saltarse la matriz de roles.
+drop policy if exists movimientos_reemplazos_authenticated_insert on public.movimientos_reemplazos_extintores;
+drop policy if exists movimientos_reemplazos_authenticated_select on public.movimientos_reemplazos_extintores;
+drop policy if exists pulmon_alveolos_authenticated_select on public.pulmon_alveolos;
+drop policy if exists pulmon_alveolos_authenticated_update on public.pulmon_alveolos;
+drop policy if exists reemplazos_temporales_authenticated_insert on public.reemplazos_temporales_extintores;
+drop policy if exists reemplazos_temporales_authenticated_select on public.reemplazos_temporales_extintores;
+drop policy if exists reemplazos_temporales_authenticated_update on public.reemplazos_temporales_extintores;
