@@ -134,7 +134,20 @@ export async function cargarModuloEditorTerritorios(contenedor) {
     geometriaEditada={type:'Polygon',coordinates:[closed.map(p=>[Number(p[1].toFixed(8)),Number(p[0].toFixed(8))])]};
     if(poligonoTemporal)mapa.removeLayer(poligonoTemporal);
     poligonoTemporal=L.polygon(closed,{color:document.getElementById('territorio-color').value,fillOpacity:.18}).addTo(mapa);
-   });m.on('dragend',()=>aviso('Vértice movido. Guardá la geometría para conservar el cambio.'));});
+   });
+   m.on('dblclick',ev=>{
+    if(ev.originalEvent) L.DomEvent.stop(ev.originalEvent);
+    const base=geoCoords(geometriaEditada||seleccionado.geom);
+    if(!base||base.length<=4){aviso('No se puede eliminar este nodo: el polígono debe conservar al menos 3 vértices.',true);return;}
+    const restantes=base.slice(0,-1).filter((_,j)=>j!==i);
+    if(restantes.length<3){aviso('El polígono debe conservar al menos 3 vértices.',true);return;}
+    const cerrado=[...restantes,restantes[0]];
+    geometriaEditada={type:'Polygon',coordinates:[cerrado.map(p=>[Number(p[1].toFixed(8)),Number(p[0].toFixed(8))])]};
+    aviso('Nodo eliminado. Guardá los cambios para conservarlos.');
+    pintarVertices();
+   });
+   m.on('dragend',()=>aviso('Vértice movido. Guardá la geometría para conservar el cambio.'));
+  });
   aviso('Modo de edición: arrastrá los nodos blancos para mover vértices; hacé clic cerca de un borde para agregar uno. Guardá para persistir.');
  }
  document.getElementById('territorio-editar-vertices').onclick=()=>{if(!seleccionado){aviso('Primero seleccioná un sector desde Zonas y propiedades o tocá su polígono.',true);return;}if(modoVertices){limpiarVertices();pintar();aviso('Edición de vértices desactivada.');}else pintarVertices();};
