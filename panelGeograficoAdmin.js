@@ -166,14 +166,46 @@ function mostrarRecorridoControlin(id, indicePunto=null){
 }
 function renderListaControlin(){
   const el=document.getElementById('geo-admin-controlin'); if(!el)return;
-  el.innerHTML=recorridosControlin.length?'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0"><label for="geo-controlin-dia">Elegir jornada</label><input id="geo-controlin-dia" type="date" value="2026-10-01" min="2026-10-01" max="2026-10-31" style="padding:8px;border-radius:6px;background:#111827;color:white;border:1px solid #6b356f"><button id="geo-controlin-ir" type="button" style="padding:8px 12px;background:#86198f;color:white;border:0;border-radius:6px">Ir al día</button></div>'+recorridosControlin.map(r=>'<article style="padding:10px;border:1px solid #6b356f;border-radius:7px;margin:6px 0;background:#211626"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><strong>🧪 Controlin · '+esc(r.tipo)+'</strong><span style="color:#f0abfc">SIMULADO</span></div><div style="font-size:12px;color:#c4b5fd;margin:5px 0">'+esc(fecha(r.fecha))+' · '+r.puntos.length+' puntos de muestra · '+r.zonas+' zonas · '+r.distancia.toFixed(1)+' km estimados</div><button type="button" data-controlin="'+esc(r.id)+'" style="padding:7px 10px;background:#86198f;color:#fff;border:0;border-radius:5px;cursor:pointer">Ver recorrido en el mapa</button></article>').join(''):'<p style="color:#9ca3af">No hay suficientes zonas con geometría para dibujar recorridos de demostración. Dibujá/activá al menos dos zonas en el editor.</p>';
-  el.querySelectorAll('[data-controlin]').forEach(b=>b.addEventListener('click',()=>mostrarRecorridoControlin(b.dataset.controlin)));
-  el.querySelector('#geo-controlin-ir')?.addEventListener('click',()=>{
-    const valor=el.querySelector('#geo-controlin-dia')?.value;
-    const fechaBuscada=valor?new Date(valor+'T12:00:00'):null;
-    const r=recorridosControlin.find(x=>fechaBuscada&&x.fecha.getFullYear()===fechaBuscada.getFullYear()&&x.fecha.getMonth()===fechaBuscada.getMonth()&&x.fecha.getDate()===fechaBuscada.getDate());
-    if(r)mostrarRecorridoControlin(r.id,0);else estado('Ese día es franco o no tiene recorrido simulado.',true);
-  });
+  if(!recorridosControlin.length){
+    el.innerHTML='<p style="color:#9ca3af">No hay suficientes zonas con geometría para dibujar recorridos de demostración. Dibujá/activá al menos dos zonas en el editor.</p>';
+    return;
+  }
+  el.innerHTML=`
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0 12px">
+      <label for="geo-controlin-dia" style="font-size:13px;color:#d8b4fe">Jornada:</label>
+      <input id="geo-controlin-dia" type="date" value="2026-10-01" min="2026-10-01" max="2026-10-31" style="padding:8px;border-radius:7px;background:#111827;color:white;border:1px solid #6b356f">
+      <button id="geo-controlin-ir" type="button" style="padding:8px 12px;background:#86198f;color:white;border:0;border-radius:7px;cursor:pointer">Ver día</button>
+      <span id="geo-controlin-turno" style="font-size:12px;color:#c4b5fd"></span>
+    </div>
+    <div id="geo-controlin-pastillas" style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:4px"></div>
+  `;
+  const fechaInput=el.querySelector('#geo-controlin-dia');
+  const pastillas=el.querySelector('#geo-controlin-pastillas');
+  const turno=el.querySelector('#geo-controlin-turno');
+  function renderDia(){
+    const valor=fechaInput.value;
+    const f=valor?new Date(valor+'T12:00:00'):null;
+    const jornada=recorridosControlin.filter(r=>f&&r.fecha.getFullYear()===f.getFullYear()&&r.fecha.getMonth()===f.getMonth()&&r.fecha.getDate()===f.getDate());
+    if(!jornada.length){
+      pastillas.innerHTML='<span style="padding:7px 10px;border-radius:8px;background:#292929;color:#9ca3af;font-size:12px">Franco o sin recorrido simulado para este día.</span>';
+      turno.textContent='Franco';
+      return;
+    }
+    turno.textContent=jornada.length+' recorrido(s) · '+jornada.map(r=>r.tipo).join(', ');
+    pastillas.innerHTML=jornada.map((r,i)=>'<button type="button" data-controlin="'+esc(r.id)+'" style="display:flex;align-items:center;gap:8px;padding:8px 11px;border-radius:9px;border:1px solid '+(i===0?'#a855f7':'#6b356f')+';background:'+(i===0?'#3b2140':'#211626')+';color:#f3e8ff;cursor:pointer;text-align:left;max-width:100%"><span style="font-size:17px">'+(r.tipo==='Ronda nocturna'?'🌙':'☀️')+'</span><span><strong style="display:block;font-size:12px">Controlin · '+(r.tipo==='Ronda nocturna'?'Noche':'Día')+'</strong><span style="font-size:11px;color:#d8b4fe">'+(r.tipo==='Ronda nocturna'?'19:00–07:00':'07:00–19:00')+' · '+r.puntos.length+' puntos · '+r.distancia.toFixed(1)+' km</span></span><span style="font-size:10px;color:#f0abfc">DEMO</span></button>').join('');
+    pastillas.querySelectorAll('[data-controlin]').forEach(btn=>btn.addEventListener('click',()=>{
+      pastillas.querySelectorAll('[data-controlin]').forEach(x=>{x.style.borderColor='#6b356f';x.style.background='#211626';});
+      btn.style.borderColor='#e879f9';btn.style.background='#3b2140';
+      mostrarRecorridoControlin(btn.dataset.controlin,0);
+      // Mantener el reproductor a la vista tras elegir la jornada.
+      document.getElementById('geo-admin-eventos')?.scrollIntoView({behavior:'smooth',block:'nearest'});
+    }));
+    // Selección inicial del día: mostrar la primera ronda disponible sin exigir desplazarse a una lista larga.
+    if(jornada.length===1) mostrarRecorridoControlin(jornada[0].id,0);
+  }
+  fechaInput.addEventListener('change',renderDia);
+  el.querySelector('#geo-controlin-ir')?.addEventListener('click',renderDia);
+  renderDia();
 }
 function renderLista(){
   const el=document.getElementById('geo-admin-recorridos'); if(!el)return;
@@ -190,7 +222,7 @@ export async function cargarModuloPanelGeografico(contenedor){
     <p style="color:#9ca3af;margin:0 0 12px">Mapa territorial y recorridos GPS sincronizados de Centinela. No representa ubicación en vivo: muestra recorridos registrados y calcula cruces usando los polígonos activos actuales.</p>
     <div id="geo-admin-estado" role="status" style="padding:9px;background:#111827;border-radius:6px;margin-bottom:9px">Cargando datos…</div>
     <div id="geo-admin-mapa" style="height:55vh;min-height:380px;width:100%;border-radius:8px;background:#1f2937;margin-bottom:10px"></div>
-    <section style="background:#0f172a;border:1px solid #6b356f;border-radius:8px;padding:10px;margin-bottom:10px"><h3 style="margin:0 0 5px">🧪 Recorridos de Controlin · simulación</h3><p style="color:#d8b4fe;font-size:12px">Trazados ficticios para probar el panel; usan los centros aproximados de las zonas activas. No son recorridos reales ni se guardan en la base de datos.</p><div id="geo-admin-controlin">Preparando recorridos…</div></section><section style="background:#0f172a;border:1px solid #374151;border-radius:8px;padding:10px;margin-bottom:10px"><h3 style="margin:0 0 7px">Recorridos GPS reales registrados</h3><div id="geo-admin-recorridos">Cargando…</div></section>
+    <section style="background:#0f172a;border:1px solid #6b356f;border-radius:8px;padding:10px;margin-bottom:10px"><h3 style="margin:0 0 5px">🧪 Controlin · recorridos por día</h3><p style="color:#d8b4fe;font-size:12px;margin:0 0 9px">Elegí una fecha y seleccioná la ronda en las pastillas. Los trazados son simulados, no GPS histórico real.</p><div id="geo-admin-controlin">Preparando recorridos…</div></section><section style="background:#0f172a;border:1px solid #374151;border-radius:8px;padding:10px;margin-bottom:10px"><h3 style="margin:0 0 7px">Recorridos GPS reales registrados</h3><div id="geo-admin-recorridos">Cargando…</div></section>
     <section style="background:#0f172a;border:1px solid #374151;border-radius:8px;padding:10px"><h3 style="margin:0 0 5px">Entradas y salidas inferidas</h3><p style="color:#9ca3af;font-size:12px">El cruce se estima entre muestras GPS consecutivas. Si el polígono cambió desde el recorrido, el resultado refleja la geometría actual, no necesariamente la histórica.</p><div id="geo-admin-eventos"><p style="color:#9ca3af">Elegí un recorrido para calcular los eventos.</p></div></section>
   </section>`;
   mapa=L.map('geo-admin-mapa').setView([-31.47,-64.24],15); agregarCapasBase(mapa); capas=L.layerGroup().addTo(mapa);
