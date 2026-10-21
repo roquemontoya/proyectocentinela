@@ -430,6 +430,21 @@ export async function guardarControlExtintor(event) {
             if (errorStock) {
                 throw new Error('Se registró el reemplazo, pero no se pudo bloquear el stock del Pulmón. No uses ese equipo para otro reemplazo hasta corregir el estado de inventario. Detalle: ' + errorStock.message);
             }
+
+            // La ubicación del Pulmón queda libre al salir el activo físico.
+            const { data: ubicacionEquipo, error: errorUbicacion } = await clienteSupabase
+                .from('Extintores').select('alveolo_id').eq('id', itemReemplazo.id).maybeSingle();
+            if (errorUbicacion) throw new Error('Reemplazo registrado, pero no se pudo consultar su alvéolo: ' + errorUbicacion.message);
+            if (ubicacionEquipo?.alveolo_id) {
+                const { error: errorAlveolo } = await clienteSupabase
+                    .from('pulmon_alveolos')
+                    .update({ estado: 'Libre', activo_extintor_id: null, actualizado_en: new Date().toISOString() })
+                    .eq('id', ubicacionEquipo.alveolo_id).eq('activo_extintor_id', Number(itemReemplazo.id));
+                if (errorAlveolo) throw new Error('Reemplazo bloqueado en stock, pero no se pudo liberar el alvéolo: ' + errorAlveolo.message);
+                const { error: errorDesvincular } = await clienteSupabase
+                    .from('Extintores').update({ alveolo_id: null, UBICACION: 'FUERA DEL PULMÓN' }).eq('id', itemReemplazo.id);
+                if (errorDesvincular) throw new Error('Alvéolo liberado, pero no se pudo actualizar la ubicación del equipo: ' + errorDesvincular.message);
+            }
         }
 
         alert(condicion === 'Vencido'
