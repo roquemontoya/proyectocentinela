@@ -259,6 +259,25 @@ window.registrarDevolucionReemplazo = async function(id) {
             .eq('id', ciclo.inventario_reemplazo_id).eq('PRP','Instalado como provisorio');
         if (errorStock) throw new Error('Movimiento guardado, pero no se pudo actualizar el inventario: ' + errorStock.message);
 
+        // Si el extintor vuelve operativo, asignarlo al primer alvéolo libre.
+        if (prpNuevo === 'En Pulmon') {
+            const { data: libre, error: errorLibre } = await clienteSupabase
+                .from('pulmon_alveolos').select('id,codigo').eq('estado','Libre').is('activo_extintor_id',null).order('id').limit(1).maybeSingle();
+            if (errorLibre) throw new Error('El extintor volvió al stock, pero no se pudo buscar un alvéolo libre: ' + errorLibre.message);
+            if (!libre) throw new Error('El extintor volvió al stock, pero no quedan alvéolos libres. Hay que asignar una ubicación antes de continuar.');
+            const { error: errorAsignacion } = await clienteSupabase.from('Extintores')
+                .update({ alveolo_id: libre.id, UBICACION: libre.codigo })
+                .eq('id', ciclo.inventario_reemplazo_id);
+            if (errorAsignacion) throw new Error('No se pudo asignar ubicación al extintor devuelto: ' + errorAsignacion.message);
+            const { error: errorOcupar } = await clienteSupabase.from('pulmon_alveolos')
+                .update({ estado:'Ocupado', activo_extintor_id:Number(ciclo.inventario_reemplazo_id), actualizado_en:ahora })
+                .eq('id',libre.id).eq('estado','Libre');
+            if (errorOcupar) throw new Error('El extintor fue asignado pero no se pudo marcar el alvéolo como ocupado: ' + errorOcupar.message);
+        } else {
+            // En recarga o fuera de servicio no ocupa un alvéolo de stock disponible.
+            await clienteSupabase.from('Extintores').update({ alveolo_id:null, UBICACION: prpNuevo === 'En Recarga' ? 'EN RECARGA' : 'FUERA DE SERVICIO' }).eq('id', ciclo.inventario_reemplazo_id);
+        }
+
         const { error: errorCerrar } = await clienteSupabase
             .from('reemplazos_temporales_extintores')
             .update({
