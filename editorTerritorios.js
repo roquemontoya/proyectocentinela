@@ -9,11 +9,16 @@ let lineaDibujo = null;
 let poligonoTemporal = null;
 let seleccionado = null;
 let modoDibujo = false;
+let modoVertices = false;
+let capaVertices = null;
+let geometriaEditada = null;
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const colorDefault = '#2563eb';
 function aviso(t, error=false) { const e=document.getElementById('territorio-aviso'); if(e){e.textContent=t;e.style.color=error?'#fca5a5':'#86efac';} }
+function limpiarVertices(){ if(capaVertices && mapa) mapa.removeLayer(capaVertices); capaVertices=null; modoVertices=false; const b=document.getElementById('territorio-editar-vertices'); if(b)b.textContent='Editar vértices del sector'; }
 function limpiarDibujo() {
+  limpiarVertices();
   puntosDibujo=[]; modoDibujo=false;
   if(lineaDibujo) mapa.removeLayer(lineaDibujo);
   if(poligonoTemporal) mapa.removeLayer(poligonoTemporal);
@@ -81,7 +86,7 @@ export async function cargarModuloEditorTerritorios(contenedor) {
  <section style="padding:14px;color:#e5e7eb;max-width:1600px;margin:auto;font-family:Arial,sans-serif">
  <h2 style="margin:0 0 5px">Modelador territorial · etapa previa al Día D</h2>
  <p style="color:#9ca3af;margin:0 0 12px">Las zonas se guardan separadas de LEU. Podés crear, renombrar, clasificar, desactivar y redibujar territorios sin modificar activos ni historiales.</p>
- <div style="display:grid;grid-template-columns:minmax(260px,350px) minmax(0,1fr);gap:12px;align-items:start">
+ <div style="display:grid;grid-template-columns:minmax(190px,230px) minmax(0,1fr);gap:10px;align-items:start">
  <aside style="background:#0f172a;padding:10px;border:1px solid #374151;border-radius:8px;max-height:76vh;overflow:auto">
  <h3 style="margin:4px 0 8px">Territorios</h3><div id="territorio-lista">Cargando…</div>
  <hr style="border-color:#374151;margin:14px 0"><h3 style="margin:4px 0 8px">Ficha territorial</h3>
@@ -100,7 +105,7 @@ export async function cargarModuloEditorTerritorios(contenedor) {
  <button id="territorio-activar" type="button" disabled style="width:100%;margin-top:7px;padding:10px;background:#166534;color:white;border:0;border-radius:5px">Reactivar</button>
  <p id="territorio-aviso" role="status" style="font-size:12px;line-height:1.5;min-height:32px;color:#9ca3af"></p>
  </aside>
- <div id="territorio-mapa" style="height:76vh;min-height:480px;width:100%;border-radius:8px;background:#1f2937"></div>
+ <div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px"><button id="territorio-editar-vertices" type="button" style="padding:8px 11px;background:#7c3aed;color:white;border:0;border-radius:5px;font-weight:bold">Editar vértices del sector</button><span style="font-size:12px;color:#9ca3af;align-self:center">Seleccioná una zona y activá esta herramienta; arrastrá los nodos blancos.</span></div><div id="territorio-mapa" style="height:76vh;min-height:480px;width:100%;border-radius:8px;background:#1f2937"></div></div>
  </div><p style="color:#9ca3af;font-size:12px">Uso inicial: seleccioná un macrosector importado desde IPP o creá uno nuevo; para cambiar su forma, redibujá el polígono y guardá. Los registros IPP de origen permanecen intactos. La detección automática de huecos/solapamientos y la congelación formal quedan para la siguiente etapa.</p>
  </section>`;
  mapa=L.map('territorio-mapa',{zoomControl:true}).setView([-31.47,-64.24],16);agregarCapasBase(mapa);
@@ -113,6 +118,15 @@ export async function cargarModuloEditorTerritorios(contenedor) {
   else lineaDibujo=L.polyline(puntosDibujo,{color:document.getElementById('territorio-color').value,dashArray:'5 5'}).addTo(mapa);
   aviso(`Dibujo en curso: ${puntosDibujo.length} vértices. Hacé clic en «Cerrar polígono» cuando termines.`);
  });
+ function pintarVertices(){
+  limpiarVertices(); if(!seleccionado || !seleccionado.geom){aviso('El territorio seleccionado no tiene polígono para editar.',true);return;}
+  modoVertices=true; document.getElementById('territorio-editar-vertices').textContent='Edición activa · clic para agregar nodo';
+  capaVertices=L.layerGroup().addTo(mapa); const coords=geoCoords(geometriaEditada||seleccionado.geom);
+  if(!coords || coords.length<4){aviso('No se pudo leer el anillo del polígono.',true);limpiarVertices();return;}
+  coords.slice(0,-1).forEach((ll,i)=>{const m=L.marker(ll,{draggable:true,keyboard:false,icon:L.divIcon({className:'',html:'<div style="width:12px;height:12px;background:#fff;border:2px solid #7c3aed;border-radius:50%;box-shadow:0 1px 5px #000;box-sizing:border-box"></div>',iconSize:[12,12],iconAnchor:[6,6]})}).addTo(capaVertices);m.on('drag',()=>{const updated=coords.slice(0,-1);updated[i]=[m.getLatLng().lat,m.getLatLng().lng];const closed=[...updated,updated[0]];geometriaEditada={type:'Polygon',coordinates:[closed.map(p=>[Number(p[1].toFixed(8)),Number(p[0].toFixed(8))])]};if(poligonoTemporal)mapa.removeLayer(poligonoTemporal);poligonoTemporal=L.polygon(closed,{color:document.getElementById('territorio-color').value,fillOpacity:.18}).addTo(mapa);});m.on('dragend',()=>aviso('Vértice movido. Guardá la geometría para conservar el cambio.'));});
+  aviso('Modo de edición: arrastrá los nodos blancos para mover vértices; hacé clic cerca de un borde para agregar uno. Guardá para persistir.');
+ }
+ document.getElementById('territorio-editar-vertices').onclick=()=>{if(!seleccionado){aviso('Primero seleccioná un sector en la lista o tocá su polígono.',true);return;}if(modoVertices){limpiarVertices();aviso('Edición de vértices desactivada.');}else pintarVertices();};
  document.getElementById('territorio-nuevo').onclick=()=>{limpiarDibujo();cargarFormulario(null);aviso('Nuevo territorio. Completá la ficha y dibujá el polígono.');};
  document.getElementById('territorio-modo-dibujo').onclick=()=>{limpiarDibujo();modoDibujo=true;document.getElementById('territorio-modo-dibujo').textContent='Dibujo activo · clic en el mapa';aviso('Hacé clic en el mapa para marcar los vértices del polígono.');};
  document.getElementById('territorio-cerrar-poligono').onclick=()=>{
@@ -127,7 +141,7 @@ export async function cargarModuloEditorTerritorios(contenedor) {
  document.getElementById('territorio-guardar').onclick=async()=>{
   const nombre=document.getElementById('territorio-nombre').value.trim();
   if(!nombre){aviso('El nombre es obligatorio.',true);return;}
-  let geom=seleccionado?.geom||null;
+  let geom=geometriaEditada||seleccionado?.geom||null;
   if(poligonoTemporal){
    const ring=poligonoTemporal.getLatLngs()[0].map(p=>[Number(p.lng.toFixed(8)),Number(p.lat.toFixed(8))]);
    if(ring.length<3){aviso('Geometría insuficiente.',true);return;}
@@ -142,7 +156,7 @@ export async function cargarModuloEditorTerritorios(contenedor) {
    let q=id?clienteSupabase.from('territorios_dinamicos').update(payload).eq('id',Number(id)):clienteSupabase.from('territorios_dinamicos').insert(payload);
    const {error}=await q;
    if(error)throw error;
-   limpiarDibujo();await cargar();
+   limpiarDibujo();geometriaEditada=null;await cargar();
    if(id)seleccionar(Number(id));
    else {const nuevo=territorios.find(t=>t.nombre===nombre);if(nuevo)seleccionar(nuevo.id);}
    aviso('Territorio guardado. LEU y los historiales no fueron modificados.');
