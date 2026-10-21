@@ -73,7 +73,10 @@ Deno.serve(async (req) => {
       const role = String(body.role || "");
       if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !nombre || !rolesPermitidos.has(role)) return responder({ error: "Completá nombre, correo válido y perfil." }, 400);
       if (["superadministrador", "administrador"].includes(role) && !esSuper) return responder({ error: "Solo un Superadministrador puede asignar perfiles administrativos." }, 403);
-      const { data: created, error: createError } = await admin.auth.admin.inviteUserByEmail(email, { data: { nombre_completo: nombre } });
+      const { data: created, error: createError } = await admin.auth.admin.inviteUserByEmail(email, {
+        data: { nombre_completo: nombre },
+        redirectTo: "https://proyectocentinela.vercel.app/"
+      });
       if (createError) throw createError;
       const id = created.user.id;
       const { data: roleRow, error: roleError } = await admin.from("app_roles").select("id").eq("role_key", role).single();
@@ -83,7 +86,7 @@ Deno.serve(async (req) => {
       const { error: assignError } = await admin.from("app_user_roles").insert({ user_id: id, role_id: roleRow.id, assigned_by: actorId });
       if (assignError) throw assignError;
       await admin.from("app_user_audit").insert({ actor_user_id: actorId, target_user_id: id, accion: "usuario_creado", detalle: { email, role } });
-      return responder({ ok: true, user_id: id, message: "Cuenta creada. La invitación depende de que el correo de Supabase esté configurado." }, 201);
+      return responder({ ok: true, user_id: id, message: "Cuenta creada. Se solicitó a Supabase Auth el envío de la invitación para establecer la contraseña." }, 201);
     }
 
     if (action === "update") {
