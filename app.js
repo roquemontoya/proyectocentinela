@@ -266,6 +266,8 @@ document.addEventListener('DOMContentLoaded', () => {
         itemCmu.id = 'nav-cmu';
     }
 
-    inicializarTemaStarTrek(listaMenu);\n\n    console.log('🚀 Centinela 3.0: enrutador y navegación inicializados.');
+    inicializarTemaStarTrek(listaMenu);
+
+    console.log('🚀 Centinela 3.0: enrutador y navegación inicializados.');
     inicializarAutenticacion();
 });
