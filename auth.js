@@ -92,6 +92,11 @@ export async function inicializarAutenticacion() {
   }
 }
 
+export function continuarComoBombero() {
+  limpiarError();
+  mostrarAplicacion('bomberos');
+}
+
 export async function iniciarSesion(event) {
   if (event) event.preventDefault();
   limpiarError();
@@ -174,5 +179,5 @@ function verificarPermisoModuloParaRol(rol, modulo) {
   return ['supervisor', 'mantenimiento'].includes(rol);
 }
 
-window.iniciarSesion = iniciarSesion;
+window.continuarComoBombero = continuarComoBombero;\nwindow.iniciarSesion = iniciarSesion;
 window.cerrarSesion = cerrarSesion;
