@@ -265,6 +265,6 @@ document.addEventListener('DOMContentLoaded', () => {
         itemCmu.id = 'nav-cmu';
     }
 
-    console.log('🚀 Centinela 2.0: enrutador y navegación inicializados.');
+    console.log('🚀 Centinela 3.0: enrutador y navegación inicializados.');
     inicializarAutenticacion();
 });
