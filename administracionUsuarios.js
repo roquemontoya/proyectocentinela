@@ -135,7 +135,7 @@ export async function cargarModuloAdministracionUsuarios(contenedor) {
           ["Actualizar stock y recargas",[1,1,0,0,1]],
           ["Administrar cuentas de usuario",[1,1,0,0,0]],
           ["Administrar roles y permisos",[1,0,0,0,0]],
-          ["Funciones avanzadas del sistema",[1,1,0,0,0]]
+          ["Funciones avanzadas del sistema",[1,0,0,0,0]]
         ].map(([capacidad,vals])=>`<tr><td style="padding:9px;border-bottom:1px solid #263244">${capacidad}</td>${vals.map(v=>`<td style="padding:9px;text-align:center;border-bottom:1px solid #263244;color:${v?"#86efac":"#9ca3af"}">${v?"✓":"—"}</td>`).join("")}</tr>`).join("")}</tbody>
       </table></div>
       <p style="color:#fbbf24;font-size:12px;line-height:1.5">La matriz documenta los permisos configurados; antes de producción debemos comprobar también que cada módulo y operación los aplique efectivamente en el backend.</p>
