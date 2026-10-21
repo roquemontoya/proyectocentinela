@@ -250,7 +250,7 @@ window.registrarDevolucionReemplazo = async function(id) {
             });
         if (errorMovimiento) throw new Error('No se registró el movimiento de devolución: ' + errorMovimiento.message);
 
-        const prpNuevo = estadoProvisorio === 'Operativo' ? 'En Pulmon' : 'En Recarga';
+        const prpNuevo = estadoProvisorio === 'Operativo' ? 'En Pulmon' : estadoProvisorio === 'A recarga' ? 'En Recarga' : 'Fuera de servicio';
         const { error: errorStock } = await clienteSupabase
             .from('Extintores').update({ PRP: prpNuevo })
             .eq('id', ciclo.inventario_reemplazo_id).eq('PRP','Instalado como provisorio');
