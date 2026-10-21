@@ -5,6 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Centinela 2.0</title>
     <link rel="stylesheet" href="style.css">
+    <style>
+        .menu-organizado { padding-bottom: 18px; }
+        .menu-organizado > .menu-grupo { padding: 0; display: block; border-bottom: 1px solid rgba(255,255,255,.07); }
+        .menu-organizado .menu-grupo details > summary { list-style: none; cursor: pointer; padding: 14px 12px; font-weight: 600; color: #e5e7eb; user-select: none; }
+        .menu-organizado .menu-grupo details > summary::-webkit-details-marker { display: none; }
+        .menu-organizado .menu-grupo details > summary::after { content: '＋'; float: right; color: #9ca3af; }
+        .menu-organizado .menu-grupo details[open] > summary::after { content: '−'; }
+        .menu-organizado .menu-grupo details > summary:hover, .menu-organizado .menu-inicio:hover { background: rgba(255,255,255,.06); }
+        .menu-organizado .menu-grupo ul { list-style: none; margin: 0; padding: 0 0 7px 10px; }
+        .menu-organizado .menu-grupo ul li { padding: 10px 12px; margin: 1px 0; border: 0; border-left: 2px solid transparent; font-size: 13px; }
+        .menu-organizado .menu-grupo ul li:hover { background: rgba(59,130,246,.12); border-left-color: #60a5fa; }
+        .menu-organizado .menu-inicio { padding: 14px 12px; cursor: pointer; font-weight: 600; border-bottom: 1px solid rgba(255,255,255,.07); }
+        @media (max-width: 600px) { .menu-organizado .menu-grupo details > summary { padding: 13px 10px; } }
+    </style>
+
     <!-- Estilos de Leaflet para los mapas -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <!-- Motor de Supabase -->
@@ -52,23 +67,62 @@
             <span>🛡️ Módulos de Red</span>
             <button onclick="toggleMenu()" class="close-menu">&times;</button>
         </div>
-        <ul class="drawer-list">
-            <li onclick="cargarModulo('ecas')">📋 ECAS</li>
-            <li onclick="cargarModulo('correccionEcas')">📝 Corrección de datos ECAS</li>
-            <li onclick="cargarModulo('extintores')">🧯 Extintores en Planta</li>
-            <li onclick="cargarModulo('pulmon')">📦 Pulmón / Reserva</li>
-            <li onclick="cargarModulo('hidrantes')">🚰 Hidrantes</li>
-            <li onclick="cargarModulo('anomalias')">⚠️ Seguimiento de anomalías</li>
-            <li onclick="cargarModulo('editorUbicaciones')">📍 Corregir ubicaciones en mapa</li>
-            <li onclick="cargarModulo('editorTerritorios')">🗺️ Modelador territorial (pre-Día D)</li>
-            <li onclick="cargarModulo('gps')">🛰️ Mi ubicación y activos cercanos</li>
-            <li onclick="cargarModulo('recorridosGps')">🧭 Recorridos GPS y caminos internos</li>
-            <li onclick="cargarModulo('valvulas')">⚙️ Válvulas</li>
-            <li onclick="cargarModulo('bomberos')">👨‍🚒 Personal / Bomberos</li>
-            <li onclick="cargarModulo('ipp')">👷‍♂️ IPP</li>
-            <li onclick="cargarModulo('pecas')">🔧 PECAS</li>
-            <li onclick="cargarModulo('vecas')">⚙️ VECAS</li>
-            <li onclick="cargarModulo('adminCsv')" style="color: #38bdf8; font-weight: bold;">🛠️ CMU (Conversor Admin)</li>
+        <ul class="drawer-list menu-organizado">
+            <li class="menu-inicio" onclick="irInicio()">🏠 Inicio</li>
+            <li class="menu-grupo">
+                <details open>
+                    <summary>🗺️ Mapas y ubicaciones</summary>
+                    <ul>
+                        <li onclick="cargarModulo('editorTerritorios')">🗺️ Editor de zonas de planta</li>
+                        <li onclick="cargarModulo('editorUbicaciones')">📍 Corregir ubicaciones de activos</li>
+                        <li onclick="cargarModulo('gps')">🛰️ Mi ubicación y activos cercanos</li>
+                        <li onclick="cargarModulo('panelGeografico')">🌐 Mapa de supervisión</li>
+                    </ul>
+                </details>
+            </li>
+            <li class="menu-grupo">
+                <details>
+                    <summary>🧯 Instalaciones contra incendios</summary>
+                    <ul>
+                        <li onclick="cargarModulo('extintores')">🧯 Extintores en planta</li>
+                        <li onclick="cargarModulo('pulmon')">📦 Pulmón / reserva</li>
+                        <li onclick="cargarModulo('hidrantes')">🚰 Hidrantes</li>
+                        <li onclick="cargarModulo('ecas')">📋 ECAS</li>
+                        <li onclick="cargarModulo('valvulas')">⚙️ Válvulas</li>
+                        <li onclick="cargarModulo('vecas')">⚙️ VECAS</li>
+                        <li onclick="cargarModulo('pecas')">🔧 PECAS</li>
+                        <li onclick="cargarModulo('ipp')">👷 IPP</li>
+                    </ul>
+                </details>
+            </li>
+            <li class="menu-grupo">
+                <details>
+                    <summary>👥 Personal y recorridos</summary>
+                    <ul>
+                        <li onclick="cargarModulo('bomberos')">👨‍🚒 Personal / Bomberos</li>
+                        <li onclick="cargarModulo('recorridosGps')">🧭 Recorridos y caminos internos</li>
+                    </ul>
+                </details>
+            </li>
+            <li class="menu-grupo">
+                <details>
+                    <summary>⚠️ Novedades y controles</summary>
+                    <ul>
+                        <li onclick="cargarModulo('anomalias')">⚠️ Seguimiento de anomalías</li>
+                        <li onclick="cargarModulo('correccionEcas')">📝 Corrección de datos ECAS</li>
+                        <li id="nav-historial-fotos" onclick="cargarModulo('historialFotos')">📷 Historial de fotos de controles</li>
+                    </ul>
+                </details>
+            </li>
+            <li class="menu-grupo menu-solo-admin">
+                <details>
+                    <summary>🛠️ Administración del sistema</summary>
+                    <ul>
+                        <li onclick="cargarModulo('adminCsv')" id="nav-cmu">🛠️ CMU (Conversor Admin)</li>
+                        <li id="nav-gestor-tablas" onclick="cargarModulo('gestorTablas')">🎛️ Gestor de tablas</li>
+                    </ul>
+                </details>
+            </li>
         </ul>
     </nav>
     <div id="drawer-overlay" class="overlay" style="display:none;" onclick="toggleMenu()"></div>
