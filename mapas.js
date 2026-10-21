@@ -543,12 +543,22 @@ function crearIcono(color, esProvisorio = false, moduloKey = '') {
     };
     const simbolo = simbolos[moduloKey] || '•';
     const titulo = esProvisorio ? 'Extintor vigente provisorio' : 'Activo';
+    const pinClase = 'centinela-map-pin' + (esProvisorio ? ' centinela-pin-provisorio' : '');
+    const htmlPin = '<div title="' + titulo + '" style="box-sizing:border-box;position:relative;width:32px;height:32px;transform:rotate(-45deg);border-radius:50% 50% 50% 5px;background:' + color + ';border:' + anchoBorde + 'px solid ' + borde + ';box-shadow:' + halo + ';display:flex;align-items:center;justify-content:center;">' +
+        '<span style="display:flex;align-items:center;justify-content:center;width:22px;height:22px;transform:rotate(45deg);font-size:16px;line-height:1;filter:drop-shadow(0 1px 1px #0005)">' + simbolo + '</span>' +
+        (esProvisorio ? '<span style="position:absolute;right:-5px;top:-5px;width:10px;height:10px;background:#2dd4bf;border:2px solid #083344;border-radius:50%;transform:rotate(45deg)"></span>' : '') +
+        '</div>';
+    if (esProvisorio && !document.getElementById('centinela-pin-animacion-css')) {
+        const estilo = document.createElement('style');
+        estilo.id = 'centinela-pin-animacion-css';
+        estilo.textContent = '@keyframes centinela-pulso-turquesa{0%,100%{filter:drop-shadow(0 0 0 rgba(45,212,191,0));transform:scale(1)}50%{filter:drop-shadow(0 0 7px rgba(45,212,191,.95));transform:scale(1.07)}}' +
+            '.centinela-pin-provisorio .centinela-pin-cuerpo{animation:centinela-pulso-turquesa 1.8s ease-in-out infinite;transform-origin:50% 85%}' +
+            '@media(prefers-reduced-motion:reduce){.centinela-pin-provisorio .centinela-pin-cuerpo{animation:none}}';
+        document.head.appendChild(estilo);
+    }
     return L.divIcon({
-        className: 'centinela-map-pin' + (esProvisorio ? ' centinela-pin-provisorio' : ''),
-        html: '<div title="' + titulo + '" style="box-sizing:border-box;position:relative;width:32px;height:32px;transform:rotate(-45deg);border-radius:50% 50% 50% 5px;background:' + color + ';border:' + anchoBorde + 'px solid ' + borde + ';box-shadow:' + halo + ';display:flex;align-items:center;justify-content:center;">' +
-            '<span style="display:flex;align-items:center;justify-content:center;width:22px;height:22px;transform:rotate(45deg);font-size:16px;line-height:1;filter:drop-shadow(0 1px 1px #0005)">' + simbolo + '</span>' +
-            (esProvisorio ? '<span style="position:absolute;right:-5px;top:-5px;width:10px;height:10px;background:#2dd4bf;border:2px solid #083344;border-radius:50%;transform:rotate(45deg)"></span>' : '') +
-            '</div>',
+        className: pinClase,
+        html: esProvisorio ? '<div class="centinela-pin-cuerpo">' + htmlPin + '</div>' : htmlPin,
         iconSize: [38, 42],
         iconAnchor: [19, 38],
         popupAnchor: [0, -35]
