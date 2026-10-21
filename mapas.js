@@ -396,50 +396,83 @@ function extraerRutaFotoControl(valor) {
     return foto.replace(/^\/+/, '').replace(/^fotos-controles\//i, '');
 }
 
-async function consultarUltimasFotos(moduloKey) {
+// La foto se consulta únicamente cuando se abre el popup de un activo.
+const cacheFotosPopup = new Map();
+
+async function cargarFotoPopup(popup, item, moduloKey) {
     const configFotos = TABLAS_FOTOS_CONTROLES[moduloKey];
-    if (!configFotos) return new Map();
+    const idActivo = Number(item.id);
+    const clave = moduloKey + ':' + idActivo;
+    const contenedor = popup.getElement()?.querySelector('#popup-foto-' + idActivo);
+    if (!configFotos || !contenedor) return;
 
-    const { data: usuarioData } = await clienteSupabase.auth.getUser();
-    if (usuarioData?.user) {
-        // Las cuentas autenticadas solo ven el historial completo si tienen rol administrativo.
-        const { data: esAdmin } = await clienteSupabase.rpc('current_user_has_role', { p_role: 'administrador' });
-        const { data: esSuperadmin } = await clienteSupabase.rpc('current_user_has_role', { p_role: 'superadministrador' });
-        if (!esAdmin && !esSuperadmin) return new Map();
-    }
-    // Para Bomberos, la policy de Storage permite firmar únicamente la última foto
-    // de cada activo. Los objetos históricos permanecen inaccesibles desde el cliente anónimo.
-    const { data, error } = await clienteSupabase
-        .from(configFotos.tabla)
-        .select('id_activo, foto, ' + configFotos.orden)
-        .not('foto', 'is', null)
-        .order(configFotos.orden, { ascending: false });
+    contenedor.textContent = 'Cargando foto…';
+    contenedor.style.cssText = 'height:92px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:11px;color:#aaa;background:#171717;border:1px solid #777;border-radius:4px';
 
-    if (error) {
-        console.warn('[Centinela mapa] No se pudieron consultar las fotos de ' + moduloKey + ':', error.message);
-        return new Map();
-    }
+    let urlFoto = cacheFotosPopup.get(clave);
+    if (!urlFoto) {
+        // Consultar solo el último control con foto de este activo.
+        const { data: control, error } = await clienteSupabase
+            .from(configFotos.tabla)
+            .select('id_activo, foto, ' + configFotos.orden + ', id')
+            .eq('id_activo', idActivo)
+            .not('foto', 'is', null)
+            .neq('foto', '')
+            .order(configFotos.orden, { ascending: false })
+            .order('id', { ascending: false })
+            .limit(1)
+            .maybeSingle();
 
-    const ultimasRutas = new Map();
-    for (const control of data || []) {
-        const id = Number(control.id_activo);
-        const ruta = extraerRutaFotoControl(control.foto);
-        if (id && ruta && !ultimasRutas.has(id)) ultimasRutas.set(id, ruta);
-    }
-
-    const ultimasFirmadas = new Map();
-    await Promise.all([...ultimasRutas.entries()].map(async ([id, ruta]) => {
-        const { data: urlData, error: urlError } = await clienteSupabase.storage
-            .from('fotos-controles')
-            .createSignedUrl(ruta, 300);
-        if (urlError || !urlData?.signedUrl) {
-            // En sesión de Bomberos, Storage rechaza deliberadamente fotos históricas.
-            if (usuarioData?.user) console.warn('[Centinela mapa] No se pudo firmar una foto:', urlError?.message || 'sin URL firmada');
+        if (error) {
+            console.warn('[Centinela mapa] No se pudo consultar la última foto del activo ' + idActivo + ':', error.message);
+            if (contenedor.isConnected) contenedor.textContent = 'FOTO NO DISPONIBLE';
             return;
         }
-        ultimasFirmadas.set(id, urlData.signedUrl);
-    }));
-    return ultimasFirmadas;
+        if (!control?.foto) {
+            if (contenedor.isConnected) contenedor.textContent = 'SIN FOTO';
+            return;
+        }
+
+        const valorFoto = String(control.foto).trim();
+        if (/^https?:\/\//i.test(valorFoto)) {
+            // Compatibilidad con URLs públicas históricas.
+            urlFoto = valorFoto;
+        } else {
+            const ruta = extraerRutaFotoControl(valorFoto);
+            if (!ruta) {
+                if (contenedor.isConnected) contenedor.textContent = 'RUTA DE FOTO INVÁLIDA';
+                return;
+            }
+            const { data: urlData, error: urlError } = await clienteSupabase.storage
+                .from('fotos-controles')
+                .createSignedUrl(ruta, 300);
+            if (urlError || !urlData?.signedUrl) {
+                console.warn('[Centinela mapa] No se pudo obtener acceso a la foto del activo ' + idActivo + ':', urlError?.message || 'sin URL firmada');
+                if (contenedor.isConnected) contenedor.textContent = 'FOTO SIN ACCESO';
+                return;
+            }
+            urlFoto = urlData.signedUrl;
+        }
+        cacheFotosPopup.set(clave, urlFoto);
+    }
+
+    // El popup puede haberse cerrado durante la consulta.
+    const contenedorActual = popup.getElement()?.querySelector('#popup-foto-' + idActivo);
+    if (!contenedorActual) return;
+    const imagen = document.createElement('img');
+    imagen.alt = 'Última foto del control';
+    imagen.loading = 'lazy';
+    imagen.src = urlFoto;
+    imagen.style.cssText = 'display:block;width:100%;height:92px;object-fit:cover;border-radius:4px;background:#111;border:1px solid #bbb';
+    imagen.onerror = () => {
+        if (!imagen.isConnected) return;
+        const aviso = document.createElement('div');
+        aviso.textContent = 'NO SE PUDO MOSTRAR';
+        aviso.style.cssText = 'height:92px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:10px;color:#aaa;background:#171717';
+        imagen.replaceWith(aviso);
+        cacheFotosPopup.delete(clave);
+    };
+    contenedorActual.replaceChildren(imagen);
 }
 
 function inicializarMiniMapaPopup(popup, item) {
@@ -607,7 +640,7 @@ function actualizarDistanciaPopup(popup, item, geometria) {
     }, { enableHighAccuracy: true, maximumAge: 10000, timeout: 15000 });
 }
 
-function popupActivo(item, moduloKey, config, estado, esExtintor, ultimaFoto = '') {
+function popupActivo(item, moduloKey, config, estado, esExtintor) {
     const etiqueta = item.etiqueta || item.nombre || 'Activo #' + item.id;
     const sector = item.sector || buscarAtributo(item, 'Sector', 'Ubicación', 'Ubicacion') || 'N/D';
     const vencimiento = esExtintor ? buscarAtributo(item, 'Vencimiento') : '';
@@ -626,9 +659,7 @@ function popupActivo(item, moduloKey, config, estado, esExtintor, ultimaFoto = '
         '<div style="font-size:11px;margin-bottom:9px">Estado: <b style="color:' + estado.color + '">' + escaparHtml(estado.estado) + '</b></div>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:0 0 9px;align-items:start">' +
             '<div style="min-width:0"><div style="font-size:10px;font-weight:bold;margin-bottom:3px">Última foto</div>' +
-            (ultimaFoto
-                ? '<img src="' + escaparHtml(ultimaFoto) + '" alt="Última foto del control" loading="lazy" style="display:block;width:100%;height:92px;object-fit:cover;border-radius:4px;background:#111;border:1px solid #bbb">' 
-                : '<div style="height:92px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:11px;font-weight:bold;color:#888;background:#171717;border:1px solid #777;border-radius:4px">NO IMAGE</div>') +
+            '<div id="popup-foto-' + Number(item.id) + '" style="height:92px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:11px;color:#aaa;background:#171717;border:1px solid #777;border-radius:4px">Abrí para cargar</div>' +
             '</div><div style="min-width:0"><div style="font-size:10px;font-weight:bold;margin-bottom:3px">Ubicación</div>' +
             '<div id="popup-mini-mapa-' + Number(item.id) + '" style="width:100%;height:92px;border:1px solid #bbb;border-radius:4px;overflow:hidden;background:#171717"></div></div></div>' +
         boton + '</div>';
@@ -728,7 +759,7 @@ export async function cargarModuloMapa(moduloKey, contenedor) {
         const estadoVisual = esTitularConProvisorio
             ? { ...estado, color: '#22c55e', estado: 'Vigente · provisorio instalado' }
             : estado;
-        let popup = popupActivo(item, moduloKey, config, estadoVisual, esExtintor, ultimasFotos.get(Number(item.id)) || '');
+        let popup = popupActivo(item, moduloKey, config, estadoVisual, esExtintor);
         if (esTitularConProvisorio) {
             popup = '<div style="border:1px solid #2dd4bf;border-left:5px solid #2dd4bf;background:#0f2929;color:#e6fffb;border-radius:8px;padding:10px;margin-bottom:8px"><strong style="color:#5eead4">◉ UBICACIÓN CON EXTINTOR PROVISORIO</strong><div style="font-size:12px;margin-top:5px">El equipo instalado temporalmente está vigente. El titular conserva su identidad e historial.</div></div>' + popup;
         }
@@ -740,6 +771,7 @@ export async function cargarModuloMapa(moduloKey, contenedor) {
             marcador.on('popupopen', evento => {
                 inicializarMiniMapaPopup(evento.popup, item);
                 actualizarDistanciaPopup(evento.popup, item, geometria);
+                cargarFotoPopup(evento.popup, item, moduloKey);
             });
             limites.push(coords);
             activosPuntualesMapa.push({ coords, nombre, marcador });
@@ -755,6 +787,7 @@ export async function cargarModuloMapa(moduloKey, contenedor) {
                     capaPoligono.on('popupopen', evento => {
                         inicializarMiniMapaPopup(evento.popup, item);
                         actualizarDistanciaPopup(evento.popup, item, geometria);
+                        cargarFotoPopup(evento.popup, item, moduloKey);
                     });
                     limites.push(...anillo);
                     poligonosDibujados++;
@@ -767,6 +800,7 @@ export async function cargarModuloMapa(moduloKey, contenedor) {
                 capaPoligono.on('popupopen', evento => {
                     inicializarMiniMapaPopup(evento.popup, item);
                     actualizarDistanciaPopup(evento.popup, item, geometria);
+                    cargarFotoPopup(evento.popup, item, moduloKey);
                 });
                 limites.push(...anillos.flat());
                 poligonosDibujados++;
