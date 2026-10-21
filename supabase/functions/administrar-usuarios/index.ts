@@ -72,7 +72,7 @@ Deno.serve(async (req) => {
       const legajo = String(body.legajo || "").trim() || null;
       const role = String(body.role || "");
       if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !nombre || !rolesPermitidos.has(role)) return responder({ error: "Completá nombre, correo válido y perfil." }, 400);
-      if (role === "superadministrador" && !esSuper) return responder({ error: "Solo un Superadministrador puede asignar ese perfil." }, 403);
+      if (["superadministrador", "administrador"].includes(role) && !esSuper) return responder({ error: "Solo un Superadministrador puede asignar perfiles administrativos." }, 403);
       const { data: created, error: createError } = await admin.auth.admin.inviteUserByEmail(email, { data: { nombre_completo: nombre } });
       if (createError) throw createError;
       const id = created.user.id;
@@ -93,7 +93,7 @@ Deno.serve(async (req) => {
       const role = String(body.role || "");
       if (!id || !nombre || !rolesPermitidos.has(role)) return responder({ error: "Datos de edición inválidos." }, 400);
       const { data: targetRole } = await admin.rpc("current_user_role_for_id", { p_user_id: id });
-      if (!esSuper && (role === "superadministrador" || targetRole === "superadministrador")) return responder({ error: "Solo Superadministrador puede modificar esa cuenta." }, 403);
+      if (!esSuper && (["superadministrador", "administrador"].includes(role) || ["superadministrador", "administrador"].includes(targetRole || ""))) return responder({ error: "Solo Superadministrador puede modificar cuentas administrativas." }, 403);
       if (id === actorId && role !== actorRole) return responder({ error: "No podés cambiar tu propio rol." }, 400);
       const { data: roleRow, error: roleError } = await admin.from("app_roles").select("id").eq("role_key", role).single();
       if (roleError) throw roleError;
