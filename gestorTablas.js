@@ -272,9 +272,9 @@ export function cargarModuloGestorTablas(contenedor) {
         estadoBusqueda.textContent = 'Buscando en toda la tabla ' + tabla + '...';
         let consulta = clienteSupabase.from(tabla).select('*');
         if (modo === 'id') {
-            const idNumerico = /^\\d+$/.test(valor) ? Number(valor) : null;
-            if (idNumerico === null) {
-                estadoBusqueda.textContent = 'Para buscar por ID, ingresá un número.';
+            const idNumerico = Number(valor);
+            if (!Number.isInteger(idNumerico) || idNumerico < 0) {
+                estadoBusqueda.textContent = 'Para buscar por ID, ingresá un número entero.';
                 return;
             }
             consulta = consulta.eq('id', idNumerico);
@@ -284,17 +284,7 @@ export function cargarModuloGestorTablas(contenedor) {
                 estadoBusqueda.textContent = 'Seleccioná un campo de texto.';
                 return;
             }
-            consulta = consulta.ilike(campo, '%' + valor.replace(/[%_\\\\]/g, '\\    document.getElementById('input-filtro-tabla').addEventListener('input', (e) => {
-        const texto = e.target.value.toLowerCase();
-        const filtrados = datosActuales.filter(item => {
-            return Object.values(item).some(val => 
-                val !== null && String(val).toLowerCase().includes(texto)
-            );
-        });
-        renderizarTablaDinamica(filtrados);
-    });
-
-    cargarRegistrosTabla('leu');') + '%');
+            consulta = consulta.ilike(campo, '%' + valor + '%');
         }
 
         const { data, error } = await consulta.order('id', { ascending: false }).limit(1000);
@@ -305,7 +295,7 @@ export function cargarModuloGestorTablas(contenedor) {
         const resultados = data || [];
         renderizarTablaDinamica(resultados);
         estadoBusqueda.textContent = resultados.length
-            ? 'Encontrados ' + resultados.length + ' registro(s) en ' + tabla + (resultados.length === 1000 ? ' (límite de 1000; refiná la búsqueda si hace falta).' : '.') 
+            ? 'Encontrados ' + resultados.length + ' registro(s) en ' + tabla + (resultados.length === 1000 ? ' (límite de 1000; refiná la búsqueda si hace falta).' : '.')
             : 'No se encontraron coincidencias en ' + tabla + '. Probá otro campo o término.';
     };
 
