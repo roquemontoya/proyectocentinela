@@ -53,6 +53,73 @@ body.tema-star-trek::before {
 }
 `;
 
+
+/* LCARS personal edition: geometría y paleta inspiradas en interfaces de ciencia ficción */
+.tema-star-trek {
+  --lcars-orange:#ff9b51; --lcars-peach:#ffca9a; --lcars-lilac:#c9a5ff;
+  --lcars-pink:#ff8db7; --lcars-blue:#82dfff; --lcars-cream:#ffe3a6;
+}
+.tema-star-trek .app-header {
+  border-bottom:5px solid var(--lcars-orange) !important;
+  border-radius:0 0 0 34px !important;
+  padding-left:22px !important;
+}
+.tema-star-trek .app-header::after {
+  content:'LCARS  •  CENTINELA OPERATIONS'; display:block; font-size:10px;
+  letter-spacing:.22em; color:var(--lcars-peach); padding:4px 10px 7px;
+}
+.tema-star-trek #side-menu {
+  border-right:7px solid var(--lcars-orange) !important;
+  border-radius:0 0 0 34px !important;
+  box-shadow:8px 0 26px rgba(0,0,0,.35) !important;
+}
+.tema-star-trek #side-menu > * { border-radius:0 0 0 24px; }
+.tema-star-trek #side-menu .drawer-list > li {
+  border-left:7px solid var(--lcars-lilac);
+  margin:5px 7px 5px 0 !important; padding:12px 13px !important;
+  background:linear-gradient(90deg,rgba(201,165,255,.14),rgba(4,25,38,.3)) !important;
+  border-radius:0 18px 3px 0 !important;
+}
+.tema-star-trek #side-menu .drawer-list > li:nth-child(4n+2) { border-left-color:var(--lcars-orange); }
+.tema-star-trek #side-menu .drawer-list > li:nth-child(4n+3) { border-left-color:var(--lcars-pink); }
+.tema-star-trek #side-menu .drawer-list > li:nth-child(4n) { border-left-color:var(--lcars-blue); }
+.tema-star-trek #side-menu .menu-grupo { border-left:0 !important; padding:0 !important; background:transparent !important; }
+.tema-star-trek #side-menu summary {
+  padding:13px 12px !important; margin:5px 0 !important; cursor:pointer;
+  color:#06111b !important; background:var(--lcars-peach) !important;
+  border-radius:0 22px 4px 0 !important; font-weight:800 !important;
+  letter-spacing:.025em; list-style:none;
+}
+.tema-star-trek #side-menu .menu-grupo:nth-of-type(3n) summary { background:var(--lcars-lilac) !important; }
+.tema-star-trek #side-menu .menu-grupo:nth-of-type(3n+1) summary { background:var(--lcars-orange) !important; }
+.tema-star-trek #side-menu .menu-grupo summary::-webkit-details-marker { display:none; }
+.tema-star-trek #side-menu .menu-grupo ul { padding:4px 0 8px 9px !important; }
+.tema-star-trek #side-menu .menu-grupo ul li {
+  border-left:4px solid var(--lcars-blue) !important; border-radius:0 12px 3px 0 !important;
+  margin:5px 0 !important; padding:10px !important; background:rgba(7,29,43,.82) !important;
+}
+.tema-star-trek .card, .tema-star-trek #main-content .card {
+  position:relative; overflow:hidden; border:0 !important;
+  border-left:9px solid var(--lcars-orange) !important;
+  border-radius:0 24px 4px 0 !important;
+  background:linear-gradient(110deg,rgba(8,43,61,.98),rgba(2,14,25,.98)) !important;
+}
+.tema-star-trek #main-content .card:nth-child(4n+2) { border-left-color:var(--lcars-lilac) !important; }
+.tema-star-trek #main-content .card:nth-child(4n+3) { border-left-color:var(--lcars-pink) !important; }
+.tema-star-trek #main-content .card:nth-child(4n) { border-left-color:var(--lcars-blue) !important; }
+.tema-star-trek .card-title { color:var(--lcars-cream) !important; letter-spacing:.04em; }
+.tema-star-trek button, .tema-star-trek .menu-toggle, .tema-star-trek .btn-header-inicio {
+  background:var(--lcars-orange) !important; color:#07131d !important;
+  border:0 !important; border-radius:0 17px 3px 0 !important; font-weight:800 !important;
+  box-shadow:none !important;
+}
+.tema-star-trek button:hover { background:var(--lcars-peach) !important; filter:brightness(1.04); }
+.tema-star-trek input, .tema-star-trek select, .tema-star-trek textarea {
+  border-radius:0 12px 3px 0 !important; border-left:5px solid var(--lcars-lilac) !important;
+}
+.tema-star-trek #star-trek-status { color:var(--lcars-cream) !important; }
+.tema-star-trek .dynamic-container { border-top:5px solid var(--lcars-pink) !important; }
+
 export function alternarTemaStarTrek(force) {
   const enabled = typeof force === 'boolean' ? force : !document.body.classList.contains('tema-star-trek');
   let style = document.getElementById(STYLE_ID);
