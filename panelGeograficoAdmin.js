@@ -89,6 +89,30 @@ function pintarPuntos(puntos){
     if(bounds.length) mapa.fitBounds(bounds.reduce((a,b)=>a.extend(b),bounds[0]),{padding:[25,25],maxZoom:18});
   }
 }
+function distanciaEntrePuntosMetros(a,b){
+  const rad=x=>x*Math.PI/180, R=6371000;
+  const dLat=rad(Number(b.latitud)-Number(a.latitud)), dLng=rad(Number(b.longitud)-Number(a.longitud));
+  const la1=rad(Number(a.latitud)), la2=rad(Number(b.latitud));
+  const h=Math.sin(dLat/2)**2+Math.cos(la1)*Math.cos(la2)*Math.sin(dLng/2)**2;
+  return 2*R*Math.asin(Math.min(1,Math.sqrt(h)));
+}
+function analizarVelocidades(puntos){
+  const tramos=[];
+  for(let i=1;i<puntos.length;i++){
+    const a=puntos[i-1],b=puntos[i],t0=new Date(a.capturado_en).getTime(),t1=new Date(b.capturado_en).getTime();
+    const segundos=(t1-t0)/1000, metros=distanciaEntrePuntosMetros(a,b);
+    if(!Number.isFinite(segundos)||segundos<=0||segundos>600)continue;
+    if(Number(a.precision_m)>50||Number(b.precision_m)>50)continue;
+    const kmh=(metros/segundos)*3.6;
+    if(!Number.isFinite(kmh)||kmh>120)continue;
+    tramos.push({kmh,metros,segundos});
+  }
+  if(!tramos.length)return {cantidad:0,mediana:null,modo:'Sin datos suficientes',nota:'Se requieren puntos GPS con hora y precisión aceptables separados por hasta 10 minutos.'};
+  const orden=tramos.map(x=>x.kmh).sort((a,b)=>a-b);
+  const mediana=orden[Math.floor(orden.length/2)];
+  const modo=mediana<1.5?'Detenido o desplazamiento mínimo':mediana<7?'Compatible con caminata':mediana<12?'Movimiento lento; modo incierto':'Compatible con vehículo';
+  return {cantidad:tramos.length,mediana,modo,nota:'Estimación por distancia entre muestras y tiempo transcurrido; no identifica por sí sola el medio de transporte.'};
+}
 async function verRecorrido(id){
   estado('Cargando puntos GPS del recorrido…');
   const {data,error}=await clienteSupabase.from('puntos_recorrido_gps')
@@ -96,12 +120,13 @@ async function verRecorrido(id){
     .order('secuencia',{ascending:true}).limit(20000);
   if(error){estado('No se pudo leer el recorrido: '+error.message,true);return;}
   const puntos=data||[]; pintarPuntos(puntos);
+  const velocidad=analizarVelocidades(puntos);
   const eventos=calcularEventos(puntos);
   const tabla=document.getElementById('geo-admin-eventos');
   if(tabla) tabla.innerHTML=eventos.length
     ? '<div style="overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr><th style="text-align:left;padding:7px">Evento</th><th style="text-align:left;padding:7px">Zona</th><th style="text-align:left;padding:7px">Fecha/hora aproximada</th><th style="text-align:left;padding:7px">Precisión GPS</th></tr></thead><tbody>'+eventos.map(e=>'<tr><td style="padding:7px;border-top:1px solid #374151">'+esc(e.tipo)+'</td><td style="padding:7px;border-top:1px solid #374151">'+esc(e.territorio)+'</td><td style="padding:7px;border-top:1px solid #374151">'+esc(fecha(e.fecha))+'</td><td style="padding:7px;border-top:1px solid #374151">'+esc(e.nota)+'</td></tr>').join('')+'</tbody></table></div>'
     : '<p style="color:#9ca3af">No se detectaron cruces de zonas en los puntos disponibles, o el recorrido no contiene puntos.</p>';
-  estado('Recorrido cargado: '+puntos.length+' puntos · '+eventos.length+' eventos de entrada/salida inferidos. Los horarios corresponden al punto GPS que detecta el cambio, no a una marca exacta del cruce.');
+  estado('Recorrido cargado: '+puntos.length+' puntos · '+eventos.length+' entradas/salidas inferidas · movimiento: '+velocidad.modo+(velocidad.mediana===null?'':' · mediana '+velocidad.mediana.toLocaleString('es-AR',{maximumFractionDigits:1})+' km/h')+' · '+velocidad.cantidad+' tramos válidos. Estimación orientativa; no confirma el medio de transporte.');
 }
 function generarRecorridosControlin(){
   // Rutas demostrativas sobre zonas reales dibujadas en Centinela. No son coordenadas GPS históricas.
