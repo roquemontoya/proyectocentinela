@@ -13,7 +13,6 @@ let modoVertices = false;
 let capaVertices = null;
 let geometriaEditada = null;
 let encuadreInicialAplicado = false;
-let encuadreInicialAplicado = false;
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const colorDefault = '#2563eb';
