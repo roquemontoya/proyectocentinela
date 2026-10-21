@@ -67,15 +67,16 @@ export async function cargarModuloPulmon(contenedor) {
         html += `<tr><td colspan="5" style="padding: 30px; text-align: center; color: #888;">No hay extintores registrados en el pulmón o en recarga.</td></tr>`;
     } else {
         inventario.forEach(ext => {
-            const etiqueta = ext.Etiquetas || ext.etiquetas || ext.NombreEtiqueta || ext.NombreDeEtiqueta || `Ext #${ext.id}`;
-            const tipo = ext.TipoExtintor || ext['Tipo de Extintor'] || 'N/D';
+            const etiqueta = ext.ETIQUETA || ext.Etiquetas || ext.etiquetas || ext.NombreEtiqueta || ext.NombreDeEtiqueta || `Ext #${ext.id}`;
+            const tipo = ext.TIPO || ext.TipoExtintor || ext['Tipo de Extintor'] || 'N/D';
             const vencimiento = ext.Vencimiento || 'N/D';
             const prp = ext.PRP || 'N/D';
             
             let colorPrp = '#22c55e'; 
             if (prp.toLowerCase().includes('recarga')) colorPrp = '#eab308';
 
-            const textoBusqueda = `${etiqueta} ${tipo} ${vencimiento} ${prp}`.toLowerCase();
+            const esRegistroPrueba = String(ext.Novedades || '').toUpperCase().includes('SUEÑOS Y ESPERANZAS') || String(ext.Referencia || '').includes('TEST CENTINELA');
+            const textoBusqueda = `${etiqueta} ${tipo} ${vencimiento} ${prp} ${ext.Novedades || ''} ${ext.Referencia || ''}`.toLowerCase();
 
             // Botón dinámico según el estado PRP
             let botonAccion = '';
@@ -88,7 +89,7 @@ export async function cargarModuloPulmon(contenedor) {
 
             html += `
                 <tr class="fila-pulmon" data-texto="${textoBusqueda}" style="border-bottom: 1px solid #333; transition: background 0.2s;">
-                    <td style="padding: 14px; font-weight: bold;">${etiqueta}</td>
+                    <td style="padding: 14px; font-weight: bold;">${etiqueta}${esRegistroPrueba ? '<small style="display:block;color:#fbbf24;margin-top:5px;font-weight:normal;">🧪 DATOS FICTICIOS DE PRUEBA</small>' : ''}</td>
                     <td style="padding: 14px; color: #38bdf8;">${tipo}</td>
                     <td style="padding: 14px; color: #ccc;">${vencimiento}</td>
                     <td style="padding: 14px;">
