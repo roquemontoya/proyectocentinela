@@ -13,6 +13,7 @@ let modoVertices = false;
 let capaVertices = null;
 let geometriaEditada = null;
 let encuadreInicialAplicado = false;
+let encuadreInicialAplicado = false;
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const colorDefault = '#2563eb';
@@ -58,7 +59,8 @@ function pintar() {
  capa=L.featureGroup().addTo(mapa);
  const limites=[];
  territorios.filter(t=>t.activo&&t.geom).forEach(t=>{
-  if(modoVertices && seleccionado?.id===t.id)return;\n  const gj={type:'Feature',properties:{id:t.id},geometry:t.geom};
+  if(modoVertices && seleccionado?.id===t.id)return;
+  const gj={type:'Feature',properties:{id:t.id},geometry:t.geom};
   const layer=L.geoJSON(gj,{style:{color:t.color,weight:seleccionado?.id===t.id?4:2,fillColor:t.color,fillOpacity:.18}});
   layer.eachLayer(l=>{l.bindTooltip(esc(t.nombre),{sticky:true});l.on('click',()=>seleccionar(t.id));});
   layer.addTo(capa);
