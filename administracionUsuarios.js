@@ -15,7 +15,13 @@ async function llamar(action, payload = {}) {
   const { data: sessionData } = await clienteSupabase.auth.getSession();
   if (!sessionData.session) throw new Error("Tu sesión venció. Volvé a ingresar.");
   const { data, error } = await clienteSupabase.functions.invoke("administrar-usuarios", { body: { action, ...payload } });
-  if (error) throw new Error(data?.error || error.message || "No se pudo completar la operación.");
+  if (error) {
+    const detalle = String(error.message || "");
+    if (/Failed to send a request|fetch failed|FunctionsFetchError/i.test(detalle)) {
+      throw new Error("El panel está visible, pero el servicio seguro de usuarios todavía no está desplegado o no responde en Supabase. No se realizó ningún cambio. Hay que desplegar la función administrar-usuarios y aplicar su migración antes de gestionar cuentas.");
+    }
+    throw new Error(data?.error || detalle || "No se pudo completar la operación.");
+  }
   if (data?.error) throw new Error(data.error);
   return data;
 }
