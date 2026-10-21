@@ -79,7 +79,8 @@ async function cargar() {
 }
 function seleccionar(id) {
  const t=territorios.find(x=>x.id===id);if(!t)return;
- limpiarDibujo();cargarFormulario(t);pintar();
+ limpiarDibujo();geometriaEditada=null;cargarFormulario(t);pintar();
+ const resumen=document.getElementById('territorio-seleccionado-resumen');if(resumen)resumen.textContent=t.nombre;
  const c=geoCoords(t.geom);if(c?.length)mapa.fitBounds(L.latLngBounds(c),{padding:[40,40],maxZoom:19});
 }
 export async function cargarModuloEditorTerritorios(contenedor) {
@@ -88,27 +89,15 @@ export async function cargarModuloEditorTerritorios(contenedor) {
  <section style="padding:14px;color:#e5e7eb;max-width:1600px;margin:auto;font-family:Arial,sans-serif">
  <h2 style="margin:0 0 5px">Modelador territorial · etapa previa al Día D</h2>
  <p style="color:#9ca3af;margin:0 0 12px">Las zonas se guardan separadas de LEU. Podés crear, renombrar, clasificar, desactivar y redibujar territorios sin modificar activos ni historiales.</p>
- <div style="display:grid;grid-template-columns:minmax(190px,230px) minmax(0,1fr);gap:10px;align-items:start">
- <aside style="background:#0f172a;padding:10px;border:1px solid #374151;border-radius:8px;max-height:76vh;overflow:auto">
- <h3 style="margin:4px 0 8px">Territorios</h3><div id="territorio-lista">Cargando…</div>
- <hr style="border-color:#374151;margin:14px 0"><h3 style="margin:4px 0 8px">Ficha territorial</h3>
- <div id="territorio-estado" style="font-size:12px;color:#93c5fd;margin-bottom:8px">Nuevo territorio</div>
- <input id="territorio-id" type="hidden">
- <label style="display:block;margin:8px 0 4px">Nombre</label><input id="territorio-nombre" maxlength="160" placeholder="Ej. Montaje VP" style="box-sizing:border-box;width:100%;padding:9px;background:#111827;color:#fff;border:1px solid #4b5563;border-radius:5px">
- <label style="display:block;margin:8px 0 4px">Tipo</label><select id="territorio-tipo" style="width:100%;padding:9px;background:#111827;color:#fff;border:1px solid #4b5563;border-radius:5px"><option value="planta">Planta</option><option value="macrosector">Macrosector</option><option value="microsector">Microsector</option><option value="calle">Calle interna</option><option value="subzona">Subzona</option></select>
- <label style="display:block;margin:8px 0 4px">Territorio padre</label><select id="territorio-padre" style="width:100%;padding:9px;background:#111827;color:#fff;border:1px solid #4b5563;border-radius:5px"><option value="">Sin padre</option></select>
- <label style="display:block;margin:8px 0 4px">Color</label><input id="territorio-color" type="color" value="#2563eb" style="width:100%;height:38px;background:#111827;border:1px solid #4b5563;border-radius:5px">
- <button id="territorio-nuevo" type="button" style="width:100%;margin-top:10px;padding:10px;background:#334155;color:white;border:1px solid #64748b;border-radius:5px">Nuevo territorio</button>
- <button id="territorio-guardar" type="button" style="width:100%;margin-top:7px;padding:10px;background:#166534;color:white;border:0;border-radius:5px;font-weight:bold">Guardar ficha / geometría</button>
- <button id="territorio-modo-dibujo" type="button" style="width:100%;margin-top:7px;padding:10px;background:#1d4ed8;color:white;border:0;border-radius:5px">Dibujar / redibujar polígono</button>
- <button id="territorio-cerrar-poligono" type="button" style="width:100%;margin-top:7px;padding:10px;background:#334155;color:white;border:1px solid #64748b;border-radius:5px">Cerrar polígono</button>
- <button id="territorio-cancelar-dibujo" type="button" style="width:100%;margin-top:7px;padding:10px;background:#111827;color:white;border:1px solid #4b5563;border-radius:5px">Cancelar dibujo</button>
- <button id="territorio-desactivar" type="button" disabled style="width:100%;margin-top:7px;padding:10px;background:#7f1d1d;color:white;border:0;border-radius:5px">Desactivar (conservar)</button>
- <button id="territorio-activar" type="button" disabled style="width:100%;margin-top:7px;padding:10px;background:#166534;color:white;border:0;border-radius:5px">Reactivar</button>
- <p id="territorio-aviso" role="status" style="font-size:12px;line-height:1.5;min-height:32px;color:#9ca3af"></p>
- </aside>
- <div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px"><button id="territorio-editar-vertices" type="button" style="padding:8px 11px;background:#7c3aed;color:white;border:0;border-radius:5px;font-weight:bold">Editar vértices del sector</button><span style="font-size:12px;color:#9ca3af;align-self:center">Seleccioná una zona y activá esta herramienta; arrastrá los nodos blancos.</span></div><div id="territorio-mapa" style="height:76vh;min-height:480px;width:100%;border-radius:8px;background:#1f2937"></div></div>
- </div><p style="color:#9ca3af;font-size:12px">Uso inicial: seleccioná un macrosector importado desde IPP o creá uno nuevo; para cambiar su forma, redibujá el polígono y guardá. Los registros IPP de origen permanecen intactos. La detección automática de huecos/solapamientos y la congelación formal quedan para la siguiente etapa.</p>
+  <aside style="background:#0f172a;padding:7px;border:1px solid #374151;border-radius:8px;margin-bottom:7px"><details><summary style="cursor:pointer;color:#cbd5e1;font-size:13px;padding:4px">Zonas y propiedades · <span id="territorio-seleccionado-resumen">seleccioná un sector</span></summary>
+ <div style="display:grid;grid-template-columns:minmax(180px,240px) minmax(220px,1fr);gap:10px;max-height:42vh;overflow:auto;padding-top:8px">
+ <div><h3>Zonas</h3><div id="territorio-lista">Cargando…</div></div><div><h3>Ficha territorial</h3><div id="territorio-estado">Nuevo territorio</div><input id="territorio-id" type="hidden">
+ <label>Nombre</label><input id="territorio-nombre" maxlength="160" placeholder="Ej. Montaje VP" style="width:100%;box-sizing:border-box">
+ <label>Tipo</label><select id="territorio-tipo" style="width:100%"><option value="planta">Planta</option><option value="macrosector">Macrosector</option><option value="microsector">Microsector</option><option value="calle">Calle interna</option><option value="subzona">Subzona</option></select>
+ <label>Territorio padre</label><select id="territorio-padre" style="width:100%"><option value="">Sin padre</option></select><label>Color</label><input id="territorio-color" type="color" value="#2563eb">
+ <button id="territorio-nuevo">Nuevo territorio</button><button id="territorio-guardar">Guardar ficha / geometría</button><button id="territorio-modo-dibujo">Dibujar / redibujar polígono</button><button id="territorio-cerrar-poligono">Cerrar polígono</button><button id="territorio-cancelar-dibujo">Cancelar dibujo</button><button id="territorio-desactivar" disabled>Desactivar (conservar)</button><button id="territorio-activar" disabled>Reactivar</button></div></div></details><p id="territorio-aviso" role="status"></p></aside>
+ <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:6px"><button id="territorio-editar-vertices">Editar vértices</button><button id="territorio-guardar-mapa">Guardar cambios</button><button id="territorio-cancelar-edicion">Cancelar edición</button><span>Arrastrá nodos; clic cerca del borde para agregar uno.</span></div>
+ <div id="territorio-mapa" style="height:calc(100vh - 185px);min-height:520px;width:100%;border-radius:8px;background:#1f2937"></div>
  </section>`;
  mapa=L.map('territorio-mapa',{zoomControl:true}).setView([-31.47,-64.24],16);agregarCapasBase(mapa);
  mapa.on('click',e=>{
