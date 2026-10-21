@@ -92,7 +92,7 @@ export async function iniciarSesion(event) {
   const email = document.getElementById('login-email')?.value.trim() || '';
   const password = document.getElementById('login-password')?.value || '';
   if (!email || !password) {
-    mostrarError('Ingresa el correo y la contraseña de tu cuenta administrativa.');
+    mostrarError('Ingresá el correo y la contraseña de tu cuenta de Centinela.');
     return;
   }
 
@@ -106,7 +106,7 @@ export async function iniciarSesion(event) {
     const rol = await resolverRolAutenticado();
     if (!rol) {
       await clienteSupabase.auth.signOut();
-      throw new Error('La cuenta autenticó correctamente, pero no tiene el rol Administrador o Superadministrador asignado.');
+      throw new Error('La cuenta autenticó correctamente, pero no tiene un perfil autorizado asignado. Un administrador debe asignarle el perfil correspondiente en Administración de usuarios.');
     }
 
     document.getElementById('login-password').value = '';
