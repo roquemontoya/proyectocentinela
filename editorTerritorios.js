@@ -101,6 +101,16 @@ export async function cargarModuloEditorTerritorios(contenedor) {
  </section>`;
  mapa=L.map('territorio-mapa',{zoomControl:true}).setView([-31.47,-64.24],16);agregarCapasBase(mapa);
  mapa.on('click',e=>{
+  if(modoVertices && seleccionado){
+   const coords=geoCoords(geometriaEditada||seleccionado.geom);
+   if(!coords||coords.length<4)return;
+   let mejor=0,distancia=Infinity;
+   for(let i=0;i<coords.length-1;i++){const d=mapa.distance(e.latlng,L.latLng(coords[i]));if(d<distancia){distancia=d;mejor=i;}}
+   const nuevos=coords.slice(0,-1);nuevos.splice(mejor+1,0,[e.latlng.lat,e.latlng.lng]);
+   const cerrado=[...nuevos,nuevos[0]];
+   geometriaEditada={type:'Polygon',coordinates:[cerrado.map(p=>[Number(p[1].toFixed(8)),Number(p[0].toFixed(8))])]};
+   pintarVertices();aviso('Vértice agregado. Guardá los cambios para conservarlo.');return;
+  }
   if(!modoDibujo)return;
   puntosDibujo.push([e.latlng.lat,e.latlng.lng]);
   if(lineaDibujo)mapa.removeLayer(lineaDibujo);
@@ -112,6 +122,7 @@ export async function cargarModuloEditorTerritorios(contenedor) {
  function pintarVertices(){
   limpiarVertices(); if(!seleccionado || !seleccionado.geom){aviso('El territorio seleccionado no tiene polígono para editar.',true);return;}
   modoVertices=true; document.getElementById('territorio-editar-vertices').textContent='Edición activa · clic para agregar nodo';
+  const mapaEl=document.getElementById('territorio-mapa');if(mapaEl)mapaEl.classList.add('territorio-modo-vertices');
   pintar(); capaVertices=L.layerGroup().addTo(mapa); const coords=geoCoords(geometriaEditada||seleccionado.geom);
   if(!coords || coords.length<4){aviso('No se pudo leer el anillo del polígono.',true);limpiarVertices();return;}
   coords.slice(0,-1).forEach((ll,i)=>{const m=L.marker(ll,{draggable:true,keyboard:false,icon:L.divIcon({className:'',html:'<div style="width:12px;height:12px;background:#fff;border:2px solid #7c3aed;border-radius:50%;box-shadow:0 1px 5px #000;box-sizing:border-box"></div>',iconSize:[12,12],iconAnchor:[6,6]})}).addTo(capaVertices);m.on('drag',()=>{
