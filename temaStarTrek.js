@@ -117,6 +117,83 @@ body.tema-star-trek::before {
 .tema-star-trek #star-trek-status { color:var(--lcars-cream) !important; }
 .tema-star-trek .dynamic-container { border-top:5px solid var(--lcars-pink) !important; }
 
+/* LCARS 2.0 — diseño visual solamente; no altera el comportamiento de la aplicación */
+body.tema-star-trek { background:#05060b !important; color:#f5e8d8 !important; }
+body.tema-star-trek::before { opacity:.035; }
+.tema-star-trek .app-header {
+  min-height:72px !important; background:#05060b !important; border:0 !important;
+  border-bottom:8px solid #ff9b51 !important; border-radius:0 0 0 32px !important;
+  box-shadow:none !important; padding:12px 16px !important;
+}
+.tema-star-trek .app-header h1 { color:#ffca9a !important; text-shadow:none !important; letter-spacing:.04em; }
+.tema-star-trek #side-menu {
+  background:#080a12 !important; border:0 !important; border-right:9px solid #ff9b51 !important;
+  border-radius:0 0 0 36px !important; box-shadow:10px 0 28px #0009 !important;
+}
+.tema-star-trek #side-menu > * { border-radius:0 0 0 24px; }
+.tema-star-trek #side-menu .drawer-list { padding:10px 8px 16px !important; }
+.tema-star-trek #side-menu .drawer-list > li {
+  margin:6px 0 !important; padding:11px 13px !important; min-height:42px;
+  border:0 !important; border-left:7px solid #c9a5ff !important;
+  border-radius:0 20px 4px 0 !important; background:#111522 !important; color:#f8e9db !important;
+}
+.tema-star-trek #side-menu .drawer-list > li:nth-child(4n+1) { border-left-color:#ff9b51 !important; }
+.tema-star-trek #side-menu .drawer-list > li:nth-child(4n+2) { border-left-color:#c9a5ff !important; }
+.tema-star-trek #side-menu .drawer-list > li:nth-child(4n+3) { border-left-color:#ff8db7 !important; }
+.tema-star-trek #side-menu .drawer-list > li:nth-child(4n) { border-left-color:#82dfff !important; }
+.tema-star-trek #side-menu .menu-grupo { border:0 !important; background:transparent !important; padding:0 !important; }
+.tema-star-trek #side-menu .menu-grupo summary {
+  margin:8px 0 !important; padding:13px 12px !important; border:0 !important;
+  border-radius:0 24px 4px 0 !important; background:#ffca9a !important; color:#15111b !important;
+  font-weight:800 !important; letter-spacing:.02em; list-style:none;
+}
+.tema-star-trek #side-menu .menu-grupo:nth-of-type(3n) summary { background:#c9a5ff !important; }
+.tema-star-trek #side-menu .menu-grupo:nth-of-type(3n+1) summary { background:#ff9b51 !important; }
+.tema-star-trek #side-menu .menu-grupo ul { padding:2px 0 8px 10px !important; }
+.tema-star-trek #side-menu .menu-grupo ul li {
+  margin:5px 0 !important; padding:10px 12px !important; border:0 !important;
+  border-left:4px solid #82dfff !important; border-radius:0 13px 3px 0 !important;
+  background:#101724 !important; color:#d8f5ff !important;
+}
+.tema-star-trek #side-menu li:hover { filter:brightness(1.18); background:#202033 !important; }
+.tema-star-trek #btn-star-trek-toggle {
+  margin:14px 8px 0 !important; width:calc(100% - 16px) !important; padding:14px !important;
+  background:#ff9b51 !important; color:#17101b !important; border:0 !important;
+  border-radius:0 22px 4px 0 !important; text-align:left !important;
+}
+.tema-star-trek #star-trek-status { color:#ffe3a6 !important; letter-spacing:.2em; padding:10px 18px !important; }
+.tema-star-trek #main-content { background:transparent !important; }
+.tema-star-trek #main-content .card, .tema-star-trek .card {
+  border:0 !important; border-left:9px solid #ff9b51 !important;
+  border-radius:0 26px 5px 0 !important; background:#111522 !important;
+  box-shadow:none !important; overflow:hidden;
+}
+.tema-star-trek #main-content .card:nth-child(4n+2), .tema-star-trek .card:nth-child(4n+2) { border-left-color:#c9a5ff !important; }
+.tema-star-trek #main-content .card:nth-child(4n+3), .tema-star-trek .card:nth-child(4n+3) { border-left-color:#ff8db7 !important; }
+.tema-star-trek #main-content .card:nth-child(4n), .tema-star-trek .card:nth-child(4n) { border-left-color:#82dfff !important; }
+.tema-star-trek .card h2, .tema-star-trek .card h3, .tema-star-trek #vista-dinamica h2 { color:#ffca9a !important; text-shadow:none !important; }
+.tema-star-trek button, .tema-star-trek .menu-toggle, .tema-star-trek .btn-header-inicio {
+  background:#ff9b51 !important; color:#16101a !important; border:0 !important;
+  border-radius:0 18px 4px 0 !important; font-weight:800 !important; box-shadow:none !important;
+}
+.tema-star-trek input, .tema-star-trek select, .tema-star-trek textarea {
+  background:#090e18 !important; color:#fff0e5 !important; border:1px solid #7d6caa !important;
+  border-left:5px solid #c9a5ff !important; border-radius:0 13px 4px 0 !important;
+}
+.tema-star-trek table { border-collapse:separate !important; border-spacing:0 3px !important; }
+.tema-star-trek th { background:#c9a5ff !important; color:#17101b !important; border:0 !important; }
+.tema-star-trek td { background:#101522 !important; border-color:#303247 !important; }
+.tema-star-trek #vista-dinamica > section, .tema-star-trek #vista-dinamica > div {
+  border-color:#343047 !important;
+}
+@media(max-width:600px) {
+  .tema-star-trek .app-header { padding:8px 10px !important; border-bottom-width:6px !important; }
+  .tema-star-trek #side-menu { border-right-width:6px !important; }
+  .tema-star-trek #side-menu .drawer-list { padding:7px 5px 12px !important; }
+  .tema-star-trek #side-menu .menu-grupo summary { padding:11px 9px !important; margin:6px 0 !important; }
+  .tema-star-trek #side-menu .menu-grupo ul { padding-left:6px !important; }
+}
+
 `;
 
 
