@@ -196,8 +196,6 @@ body.tema-star-trek::before { opacity:.035; }
 
 `;
 
-
-
 export function alternarTemaStarTrek(force) {
   const enabled = typeof force === 'boolean' ? force : !document.body.classList.contains('tema-star-trek');
   let style = document.getElementById(STYLE_ID);
