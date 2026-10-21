@@ -146,21 +146,25 @@ function mostrarRecorridoControlin(id, indicePunto=null){
   const tabla=document.getElementById('geo-admin-controlin-player');
   if(tabla){
     const actual=r.puntos[puntoControlinSeleccionado];
-    tabla.innerHTML='<div style="padding:10px;background:#3b2f14;border:1px solid #8b6b22;border-radius:7px;color:#fde68a;margin-bottom:8px">Recorrido ficticio de demostración. Los puntos se ubican cerca de los centros de zonas reales; no representan un trayecto GPS histórico.</div>'+
+    tabla.innerHTML=
     '<div style="display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;background:#211626;border:1px solid #6b356f;border-radius:9px;padding:12px;margin-bottom:10px"><div><strong>'+esc(r.tipo)+' · '+esc(fecha(r.fecha))+'</strong><div style="font-size:12px;color:#d8b4fe;margin-top:4px">Punto '+(puntoControlinSeleccionado+1)+' de '+r.puntos.length+' · '+esc(actual.zona)+' · '+esc(fecha(actual.hora))+'</div></div><div style="font-size:22px;font-weight:bold;color:#f0abfc">'+Math.round((puntoControlinSeleccionado/(Math.max(1,r.puntos.length-1)))*100)+'%</div></div>'+
     '<label for="geo-controlin-tiempo" style="display:block;font-size:12px;color:#c4b5fd;margin-bottom:5px">Avanzar por el recorrido</label><input id="geo-controlin-tiempo" type="range" min="0" max="'+(r.puntos.length-1)+'" step="1" value="'+puntoControlinSeleccionado+'" style="width:100%;accent-color:#e879f9;cursor:pointer"/>'+
     '<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0 12px"><button id="geo-controlin-anterior" type="button" style="padding:8px 12px;background:#374151;color:white;border:0;border-radius:6px;cursor:pointer">◀ Anterior</button><div style="display:flex;gap:8px;align-items:center"><button id="geo-controlin-play" type="button" style="padding:8px 12px;background:#86198f;color:white;border:0;border-radius:6px;cursor:pointer">▶ Reproducir</button><button id="geo-controlin-siguiente" type="button" style="padding:8px 12px;background:#374151;color:white;border:0;border-radius:6px;cursor:pointer">Siguiente ▶</button></div></div>'+
-    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:7px">'+r.puntos.map((p,i)=>'<button type="button" data-controlin-punto="'+i+'" style="text-align:left;padding:8px;border-radius:6px;border:1px solid '+(i===puntoControlinSeleccionado?'#e879f9':'#374151')+';background:'+(i===puntoControlinSeleccionado?'#3b2140':'#111827')+';color:#e5e7eb;cursor:pointer"><div style="font-size:11px;color:#c4b5fd">'+esc(fecha(p.hora))+'</div><strong style="font-size:12px">'+esc(p.zona)+'</strong></button>').join('')+'</div>';
+    
     const slider=tabla.querySelector('#geo-controlin-tiempo');
     slider?.addEventListener('input',e=>mostrarRecorridoControlin(id,Number(e.target.value)));
     tabla.querySelector('#geo-controlin-anterior')?.addEventListener('click',()=>mostrarRecorridoControlin(id,puntoControlinSeleccionado-1));
     tabla.querySelector('#geo-controlin-siguiente')?.addEventListener('click',()=>mostrarRecorridoControlin(id,puntoControlinSeleccionado+1));
-    tabla.querySelectorAll('[data-controlin-punto]').forEach(b=>b.addEventListener('click',()=>mostrarRecorridoControlin(id,Number(b.dataset.controlinPunto))));
     tabla.querySelector('#geo-controlin-play')?.addEventListener('click',()=>{
       let i=puntoControlinSeleccionado;
       const avanzar=()=>{if(!document.getElementById('geo-controlin-tiempo'))return;if(i>=r.puntos.length-1){mostrarRecorridoControlin(id,0);return;}i++;mostrarRecorridoControlin(id,i);setTimeout(avanzar,900);};
       setTimeout(avanzar,250);
     });
+  }
+  const eventosEl=document.getElementById('geo-admin-eventos');
+  if(eventosEl){
+    const eventos=r.puntos.map((p,i)=>({p,i,tipo:i===0?'Inicio de ronda':p.zona!==r.puntos[i-1].zona?'Entrada a zona':'Control de recorrido'}));
+    eventosEl.innerHTML='<div style="padding:7px 9px;background:#3b2f14;border:1px solid #8b6b22;border-radius:7px;color:#fde68a;font-size:11px;margin-bottom:10px">Datos simulados para diseño; no son registros operativos.</div><div style="display:grid;gap:6px">'+eventos.map(e=>'<div style="display:grid;grid-template-columns:80px minmax(0,1fr) auto;gap:8px;align-items:center;padding:9px;border-radius:7px;background:'+(e.i===puntoControlinSeleccionado?'#24152d':'#111827')+';border:1px solid '+(e.i===puntoControlinSeleccionado?'#a855f7':'#334155')+'"><span style="font-size:12px;color:#c4b5fd">'+esc(new Date(e.p.hora).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}))+'</span><span><strong style="font-size:12px">'+esc(e.tipo)+'</strong><div style="font-size:12px;color:#9ca3af">'+esc(e.p.zona)+'</div></span><span style="font-size:10px;color:'+(e.i===puntoControlinSeleccionado?'#f0abfc':'#64748b')+'">'+(e.i===puntoControlinSeleccionado?'ACTUAL':'')+'</span></div>').join('')+'</div>';
   }
   estado('Controlin · '+r.tipo+' del '+esc(fecha(r.fecha))+' · punto '+(puntoControlinSeleccionado+1)+'/'+r.puntos.length+' · datos simulados.');
 }
