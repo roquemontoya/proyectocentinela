@@ -548,17 +548,9 @@ function crearIcono(color, esProvisorio = false, moduloKey = '') {
         '<span style="display:flex;align-items:center;justify-content:center;width:22px;height:22px;transform:rotate(45deg);font-size:16px;line-height:1;filter:drop-shadow(0 1px 1px #0005)">' + simbolo + '</span>' +
         (esProvisorio ? '<span style="position:absolute;right:-5px;top:-5px;width:10px;height:10px;background:#2dd4bf;border:2px solid #083344;border-radius:50%;transform:rotate(45deg)"></span>' : '') +
         '</div>';
-    if (esProvisorio && !document.getElementById('centinela-pin-animacion-css')) {
-        const estilo = document.createElement('style');
-        estilo.id = 'centinela-pin-animacion-css';
-        estilo.textContent = '@keyframes centinela-pulso-turquesa{0%,100%{filter:drop-shadow(0 0 0 rgba(45,212,191,0));transform:scale(1)}50%{filter:drop-shadow(0 0 7px rgba(45,212,191,.95));transform:scale(1.07)}}' +
-            '.centinela-pin-provisorio .centinela-pin-cuerpo{animation:centinela-pulso-turquesa 1.8s ease-in-out infinite;transform-origin:50% 85%}' +
-            '@media(prefers-reduced-motion:reduce){.centinela-pin-provisorio .centinela-pin-cuerpo{animation:none}}';
-        document.head.appendChild(estilo);
-    }
     return L.divIcon({
         className: pinClase,
-        html: esProvisorio ? '<div class="centinela-pin-cuerpo">' + htmlPin + '</div>' : htmlPin,
+        html: htmlPin,
         iconSize: [38, 42],
         iconAnchor: [19, 38],
         popupAnchor: [0, -35]
@@ -673,8 +665,10 @@ export async function cargarModuloMapa(moduloKey, contenedor) {
     }
     if (miSolicitud !== solicitudMapa) return;
 
-    const ultimasFotos = await consultarUltimasFotos(moduloKey);
-    if (miSolicitud !== solicitudMapa) return;
+    // No firmar preventivamente una URL por cada foto/activo al abrir el mapa.
+    // Esa operación masiva bloqueaba la interactividad en inventarios grandes.
+    // Las fotos se mantienen en el historial del control; el mapa prioriza fluidez.
+    const ultimasFotos = new Map();
     const ultimosEstadosControl = await consultarUltimosEstadosControl(moduloKey);
     if (miSolicitud !== solicitudMapa) return;
 
