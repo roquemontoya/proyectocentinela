@@ -3,6 +3,7 @@
 // ==========================================
 
 import { clienteSupabase } from './supabaseClient.js';
+import { renderizarAlveolosPulmon } from './pulmonAlveolos.js';
 
 export async function cargarModuloPulmon(contenedor) {
     contenedor.style.width = '100%';
@@ -112,6 +113,7 @@ export async function cargarModuloPulmon(contenedor) {
     `;
 
     contenedor.innerHTML = html;
+    await renderizarAlveolosPulmon(contenedor);
 
     // Reemplazos temporales activos: equipos fuera del stock hasta registrar devolución.
     const { data: activos, error: errorActivos } = await clienteSupabase
