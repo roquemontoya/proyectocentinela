@@ -167,9 +167,12 @@ const PALETA_SECTORES_IPP = [
 ];
 
 function obtenerSectorMapa(item) {
+    // En IPP, cada registro representa un sector y su nombre canónico está en etiqueta.
+    // Mantener los fallbacks permite reutilizar la función sin alterar otras categorías.
     return String(
+        item?.etiqueta ??
         item?.sector ??
-        buscarAtributo(item, 'Sector', 'Macro Sector', 'MacroSector', 'Ubicación', 'Ubicacion') ??
+        buscarAtributo(item, 'Etiqueta', 'Sector', 'Macro Sector', 'MacroSector', 'Ubicación', 'Ubicacion') ??
         'Sin sector'
     ).trim() || 'Sin sector';
 }
