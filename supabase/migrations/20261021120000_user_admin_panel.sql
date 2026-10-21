@@ -6,6 +6,35 @@ insert into public.app_roles (role_key, nombre, descripcion) values
  ('mantenimiento','Mantenimiento','Gestión de tareas y novedades de mantenimiento')
 on conflict (role_key) do update set nombre=excluded.nombre, descripcion=excluded.descripcion;
 
+insert into public.app_role_permissions (role_id, permission_id)
+select r.id, p.id
+from public.app_roles r
+join public.app_permissions p on p.permission_key in (
+  'activos.read','controles.read','controles.create','anomalias.read','anomalias.create','pulmon.read','personal.read'
+)
+where r.role_key in ('bombero_inspector','bomberos')
+on conflict do nothing;
+
+insert into public.app_role_permissions (role_id, permission_id)
+select r.id, p.id
+from public.app_roles r
+join public.app_permissions p on p.permission_key in (
+  'activos.read','activos.update','controles.read','controles.create','controles.update',
+  'anomalias.read','anomalias.create','anomalias.resolve','ubicaciones.update','personal.read','personal.manage','pulmon.read','pulmon.update'
+)
+where r.role_key='mantenimiento'
+on conflict do nothing;
+
+insert into public.app_role_permissions (role_id, permission_id)
+select r.id, p.id
+from public.app_roles r
+join public.app_permissions p on p.permission_key in (
+  'activos.read','controles.read','controles.create','controles.update','anomalias.read',
+  'anomalias.create','anomalias.resolve','ubicaciones.update','personal.read','pulmon.read'
+)
+where r.role_key='supervisor'
+on conflict do nothing;
+
 create table if not exists public.app_user_profiles (
   user_id uuid primary key references auth.users(id) on delete cascade,
   nombre_completo text not null,
