@@ -560,10 +560,16 @@ function parsearVencimiento(valor) {
 }
 
 function crearIcono(color, esProvisorio = false, moduloKey = '') {
-    const borde = esProvisorio ? '#2dd4bf' : '#ffffff';
+    // Prueba aislada: solo los extintores provisorios usan magenta.
+    // Los demás mapas conservan su borde turquesa hasta validar el rendimiento y la legibilidad.
+    const esProvisorioExtintor = esProvisorio && moduloKey === 'extintores';
+    const colorBordeProvisorio = esProvisorioExtintor ? '#FF00FF' : '#2dd4bf';
+    const borde = esProvisorio ? colorBordeProvisorio : '#ffffff';
     const anchoBorde = esProvisorio ? 4 : 2;
     const halo = esProvisorio
-        ? '0 0 0 4px rgba(45,212,191,.28),0 3px 10px #0009'
+        ? (esProvisorioExtintor
+            ? '0 0 0 4px rgba(255,0,255,.30),0 3px 10px #0009'
+            : '0 0 0 4px rgba(45,212,191,.28),0 3px 10px #0009')
         : '0 3px 8px #0009';
     const simbolos = {
         extintores: '🧯',
@@ -579,7 +585,7 @@ function crearIcono(color, esProvisorio = false, moduloKey = '') {
     const pinClase = 'centinela-map-pin' + (esProvisorio ? ' centinela-pin-provisorio' : '');
     const htmlPin = '<div title="' + titulo + '" style="box-sizing:border-box;position:relative;width:32px;height:32px;transform:rotate(-45deg);border-radius:50% 50% 50% 5px;background:' + color + ';border:' + anchoBorde + 'px solid ' + borde + ';box-shadow:' + halo + ';display:flex;align-items:center;justify-content:center;">' +
         '<span style="display:flex;align-items:center;justify-content:center;width:22px;height:22px;transform:rotate(45deg);font-size:16px;line-height:1;filter:drop-shadow(0 1px 1px #0005)">' + simbolo + '</span>' +
-        (esProvisorio ? '<span style="position:absolute;right:-5px;top:-5px;width:10px;height:10px;background:#2dd4bf;border:2px solid #083344;border-radius:50%;transform:rotate(45deg)"></span>' : '') +
+        (esProvisorio ? '<span style="position:absolute;right:-5px;top:-5px;width:10px;height:10px;background:' + colorBordeProvisorio + ';border:2px solid #ffffff;border-radius:50%;transform:rotate(45deg);box-shadow:0 0 0 1px #111827"></span>' : '') +
         '</div>';
     return L.divIcon({
         className: pinClase,
