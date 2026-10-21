@@ -526,15 +526,32 @@ function parsearVencimiento(valor) {
     return Number.isNaN(fecha.getTime()) ? null : fecha;
 }
 
-function crearIcono(color, esProvisorio = false) {
-    const borde = esProvisorio ? '#2dd4bf' : '#fff';
+function crearIcono(color, esProvisorio = false, moduloKey = '') {
+    const borde = esProvisorio ? '#2dd4bf' : '#ffffff';
     const anchoBorde = esProvisorio ? 4 : 2;
-    const halo = esProvisorio ? '0 0 0 3px rgba(45,212,191,.28),0 0 10px #000' : '0 0 8px #000';
+    const halo = esProvisorio
+        ? '0 0 0 4px rgba(45,212,191,.28),0 3px 10px #0009'
+        : '0 3px 8px #0009';
+    const simbolos = {
+        extintores: '🧯',
+        hidrantes: '🚒',
+        ecas: '🔔',
+        valvulas: '⚙️',
+        vecas: '📟',
+        pecas: '💧',
+        ipp: '🏭'
+    };
+    const simbolo = simbolos[moduloKey] || '•';
+    const titulo = esProvisorio ? 'Extintor vigente provisorio' : 'Activo';
     return L.divIcon({
         className: 'centinela-map-pin' + (esProvisorio ? ' centinela-pin-provisorio' : ''),
-        html: '<div title="' + (esProvisorio ? 'Extintor vigente provisorio' : 'Activo') + '" style="box-sizing:border-box;background:' + color + ';width:18px;height:18px;border-radius:50%;border:' + anchoBorde + 'px solid ' + borde + ';box-shadow:' + halo + '"></div>',
-        iconSize: [22, 22],
-        iconAnchor: [11, 11]
+        html: '<div title="' + titulo + '" style="box-sizing:border-box;position:relative;width:32px;height:32px;transform:rotate(-45deg);border-radius:50% 50% 50% 5px;background:' + color + ';border:' + anchoBorde + 'px solid ' + borde + ';box-shadow:' + halo + ';display:flex;align-items:center;justify-content:center;">' +
+            '<span style="display:flex;align-items:center;justify-content:center;width:22px;height:22px;transform:rotate(45deg);font-size:16px;line-height:1;filter:drop-shadow(0 1px 1px #0005)">' + simbolo + '</span>' +
+            (esProvisorio ? '<span style="position:absolute;right:-5px;top:-5px;width:10px;height:10px;background:#2dd4bf;border:2px solid #083344;border-radius:50%;transform:rotate(45deg)"></span>' : '') +
+            '</div>',
+        iconSize: [38, 42],
+        iconAnchor: [19, 38],
+        popupAnchor: [0, -35]
     });
 }
 
@@ -714,7 +731,7 @@ export async function cargarModuloMapa(moduloKey, contenedor) {
 
         if (geometria.tipo === 'punto') {
             const coords = geometria.coordenadas;
-            const marcador = L.marker(coords, { icon: crearIcono(estadoVisual.color, esTitularConProvisorio), title: nombre })
+            const marcador = L.marker(coords, { icon: crearIcono(estadoVisual.color, esTitularConProvisorio, moduloKey), title: nombre })
                 .addTo(mapaActivo).bindPopup(popup);
             marcador.on('popupopen', evento => {
                 inicializarMiniMapaPopup(evento.popup, item);
