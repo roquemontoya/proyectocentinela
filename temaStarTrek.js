@@ -51,9 +51,6 @@ body.tema-star-trek::before {
  .tema-star-trek .card { animation: st-boot .45s ease-out both; }
  @keyframes st-boot { from { opacity:.35; transform:translateY(4px) } to { opacity:1; transform:translateY(0) } }
 }
-`;
-
-
 /* LCARS personal edition: geometría y paleta inspiradas en interfaces de ciencia ficción */
 .tema-star-trek {
   --lcars-orange:#ff9b51; --lcars-peach:#ffca9a; --lcars-lilac:#c9a5ff;
@@ -119,6 +116,10 @@ body.tema-star-trek::before {
 }
 .tema-star-trek #star-trek-status { color:var(--lcars-cream) !important; }
 .tema-star-trek .dynamic-container { border-top:5px solid var(--lcars-pink) !important; }
+
+`;
+
+
 
 export function alternarTemaStarTrek(force) {
   const enabled = typeof force === 'boolean' ? force : !document.body.classList.contains('tema-star-trek');
