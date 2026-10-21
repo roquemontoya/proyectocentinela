@@ -97,6 +97,7 @@ export async function cargarModuloEditorTerritorios(contenedor) {
  <label>Territorio padre</label><select id="territorio-padre" style="width:100%"><option value="">Sin padre</option></select><label>Color</label><input id="territorio-color" type="color" value="#2563eb">
  <button id="territorio-nuevo">Nuevo territorio</button><button id="territorio-guardar">Guardar ficha / geometría</button><button id="territorio-modo-dibujo">Dibujar / redibujar polígono</button><button id="territorio-cerrar-poligono">Cerrar polígono</button><button id="territorio-cancelar-dibujo">Cancelar dibujo</button><button id="territorio-desactivar" disabled>Desactivar (conservar)</button><button id="territorio-activar" disabled>Reactivar</button></div></div></details><p id="territorio-aviso" role="status"></p></aside>
  <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:6px"><button id="territorio-editar-vertices">Editar vértices</button><button id="territorio-guardar-mapa">Guardar cambios</button><button id="territorio-cancelar-edicion">Cancelar edición</button><span>Arrastrá nodos; clic cerca del borde para agregar uno.</span></div>
+ <style>#territorio-mapa.territorio-modo-vertices, #territorio-mapa.territorio-modo-vertices .leaflet-interactive { cursor: crosshair !important; }</style>
  <div id="territorio-mapa" style="height:calc(100vh - 185px);min-height:520px;width:100%;border-radius:8px;background:#1f2937"></div>
  </section>`;
  mapa=L.map('territorio-mapa',{zoomControl:true}).setView([-31.47,-64.24],16);agregarCapasBase(mapa);
