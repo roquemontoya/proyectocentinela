@@ -180,12 +180,12 @@ function renderizarFormularioExtintorHTML(leu, attrs, estadoSugerido, reemplazoA
         .map(anio => `<option value="${anio}" ${anio === Math.max(anioActual, anioPrueba) ? 'selected' : ''}>${anio}</option>`).join('');
 
     const avisoProvisorio = reemplazoActivo ? `
-        <aside role="status" aria-live="polite" style="background:#332713;border:1px solid #f59e0b;border-left:6px solid #fbbf24;border-radius:8px;padding:13px 14px;margin-bottom:14px;color:#fff7d6;box-shadow:0 3px 12px #0004;">
+        <aside role="status" aria-live="polite" style="background:#103b3b;border:1px solid #2dd4bf;border-left:6px solid #2dd4bf;border-radius:8px;padding:13px 14px;margin-bottom:14px;color:#e6fffb;box-shadow:0 3px 12px #0004;">
             <div style="display:flex;align-items:center;gap:9px;margin-bottom:7px;">
-                <span style="font-size:22px" aria-hidden="true">⚠️</span>
-                <strong style="color:#fcd34d;font-size:15px;letter-spacing:.3px;">ATENCIÓN: UBICACIÓN CON EXTINTOR PROVISORIO</strong>
+                <span style="font-size:22px;color:#5eead4" aria-hidden="true">ⓘ</span>
+                <strong style="color:#5eead4;font-size:15px;letter-spacing:.3px;">ATENCIÓN: UBICACIÓN CON EXTINTOR PROVISORIO</strong>
             </div>
-            <div style="font-size:13px;line-height:1.55;">Estás controlando la ubicación del titular, pero actualmente hay un reemplazo temporal instalado: <strong style="color:#fde68a;">${String(reemplazoActivo.etiquetaProvisorio || 'Provisorio').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]))}</strong> (${String(reemplazoActivo.tipo_reemplazo || 'tipo no informado')}).</div>
+            <div style="font-size:13px;line-height:1.55;">Estás controlando la ubicación del titular, pero actualmente hay un reemplazo temporal instalado: <strong style="color:#99f6e4;">${String(reemplazoActivo.etiquetaProvisorio || 'Provisorio').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]))}</strong> (${String(reemplazoActivo.tipo_reemplazo || 'tipo no informado')}).</div>
             <div style="font-size:13px;line-height:1.55;margin-top:6px;">Antes de finalizar, verificá si el extintor titular ya puede volver a su ubicación. <strong>No cierres el reemplazo en el sistema hasta registrar la devolución real.</strong></div>
         </aside>` : '';
 
