@@ -47,6 +47,102 @@ body.tema-star-trek::before {
 .tema-star-trek td { border-color:rgba(80,221,255,.18) !important; }
 #btn-star-trek-toggle { width:100%; text-align:left; padding:12px; margin-top:8px; font-weight:700; cursor:pointer; }
 #star-trek-status { font-size:11px; letter-spacing:.15em; color:#8af5ff; padding:8px 12px; opacity:.85; }
+
+/* LCARS: consola de puente inspirada en Star Trek, solo visual */
+.tema-star-trek {
+  --lcars-orange: #ff9c5b;
+  --lcars-peach: #f6c5a7;
+  --lcars-lavender: #c7a0dc;
+  --lcars-gold: #f4d35e;
+  --lcars-cream: #ffedcf;
+}
+.tema-star-trek .app-header {
+  border-bottom: 5px solid var(--lcars-orange) !important;
+  border-radius: 0 0 0 26px !important;
+}
+.tema-star-trek .app-header::after {
+  content: 'STARFLEET  •  CENTINELA OPERATIONS';
+  display: block;
+  padding: 4px 14px 7px;
+  color: var(--lcars-peach);
+  font: 700 10px/1.2 'Trebuchet MS', Arial, sans-serif;
+  letter-spacing: .22em;
+}
+.tema-star-trek #side-menu {
+  border-right: 5px solid var(--lcars-orange) !important;
+  border-radius: 0 28px 0 0 !important;
+  box-shadow: 8px 0 24px rgba(0,0,0,.38), inset -2px 0 rgba(255,255,255,.06) !important;
+}
+.tema-star-trek #side-menu .drawer-list > li {
+  border-bottom: 1px solid rgba(199,160,220,.18) !important;
+}
+.tema-star-trek #side-menu .drawer-list > li:nth-child(4n+1) {
+  border-left: 5px solid var(--lcars-orange) !important;
+}
+.tema-star-trek #side-menu .drawer-list > li:nth-child(4n+2) {
+  border-left: 5px solid var(--lcars-lavender) !important;
+}
+.tema-star-trek #side-menu .drawer-list > li:nth-child(4n+3) {
+  border-left: 5px solid var(--lcars-peach) !important;
+}
+.tema-star-trek #side-menu .drawer-list > li:nth-child(4n) {
+  border-left: 5px solid var(--lcars-gold) !important;
+}
+.tema-star-trek #side-menu li:hover {
+  background: linear-gradient(90deg, rgba(255,156,91,.2), rgba(0,196,255,.08)) !important;
+}
+.tema-star-trek .card,
+.tema-star-trek #main-content .card,
+.tema-star-trek #vista-dinamica > section,
+.tema-star-trek #vista-dinamica > div {
+  position: relative;
+  overflow: hidden;
+}
+.tema-star-trek .card::before,
+.tema-star-trek #main-content .card::before {
+  content: '';
+  display: block;
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 6px;
+  background: var(--lcars-orange);
+  opacity: .95;
+}
+.tema-star-trek .card:nth-of-type(3n)::before { background: var(--lcars-lavender); }
+.tema-star-trek .card:nth-of-type(3n+1)::before { background: var(--lcars-peach); }
+.tema-star-trek button,
+.tema-star-trek .menu-toggle,
+.tema-star-trek .btn-header-inicio {
+  border-radius: 22px 5px 22px 5px !important;
+  border-width: 2px !important;
+  font-weight: 700 !important;
+  letter-spacing: .025em;
+}
+.tema-star-trek #btn-star-trek-toggle {
+  background: linear-gradient(100deg, #ff9c5b 0 12%, #c7a0dc 12% 24%, #0a3145 24%) !important;
+  border-color: var(--lcars-peach) !important;
+  color: var(--lcars-cream) !important;
+  border-radius: 24px 5px 24px 5px !important;
+}
+.tema-star-trek #star-trek-status {
+  color: var(--lcars-peach) !important;
+  text-transform: uppercase;
+}
+.tema-star-trek h1, .tema-star-trek h2, .tema-star-trek h3 {
+  text-transform: uppercase;
+  letter-spacing: .09em !important;
+}
+.tema-star-trek table th {
+  background: linear-gradient(90deg, #9b5c86, #c27c66) !important;
+  color: #fff2df !important;
+  border-color: rgba(255,237,207,.3) !important;
+}
+.tema-star-trek .modal-content {
+  background: linear-gradient(145deg, #09293a, #020b12) !important;
+  border-top: 5px solid var(--lcars-orange) !important;
+}
+.tema-star-trek ::selection { background: var(--lcars-lavender); color: #07111b; }
+
 @media (prefers-reduced-motion:no-preference) {
  .tema-star-trek .card { animation: st-boot .45s ease-out both; }
  @keyframes st-boot { from { opacity:.35; transform:translateY(4px) } to { opacity:1; transform:translateY(0) } }
