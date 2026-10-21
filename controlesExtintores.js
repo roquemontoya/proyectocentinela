@@ -99,7 +99,27 @@ export async function abrirControlExtintor(dbId, idElemento) {
     );
     if (errorPulmon) console.warn('No se pudo cargar el stock del pulmón:', errorPulmon.message);
 
-    renderizarFormularioExtintorHTML(activoLEU, attrs, estado);
+    // La marca visual se basa exclusivamente en un ciclo de reemplazo realmente activo.
+    let reemplazoActivo = null;
+    const { data: cicloActivo, error: errorCicloActivo } = await clienteSupabase
+        .from('reemplazos_temporales_extintores')
+        .select('id, inventario_reemplazo_id, tipo_reemplazo, fecha_hora_inicio, fecha_inicio')
+        .eq('activo_titular_id', activoLEU.id)
+        .eq('estado', 'Activo')
+        .maybeSingle();
+    if (errorCicloActivo) {
+        console.warn('No se pudo comprobar si el titular tiene un provisorio activo:', errorCicloActivo.message);
+    } else if (cicloActivo) {
+        let etiquetaProvisorio = 'Equipo provisorio registrado';
+        if (cicloActivo.inventario_reemplazo_id) {
+            const { data: stockProvisorio } = await clienteSupabase
+                .from('Extintores').select('ETIQUETA,TIPO').eq('id', cicloActivo.inventario_reemplazo_id).maybeSingle();
+            if (stockProvisorio?.ETIQUETA) etiquetaProvisorio = stockProvisorio.ETIQUETA;
+        }
+        reemplazoActivo = { ...cicloActivo, etiquetaProvisorio };
+    }
+
+    renderizarFormularioExtintorHTML(activoLEU, attrs, estado, reemplazoActivo);
     await cargarBomberosEnModal();
     if (modal) modal.style.display = 'flex';
 }
@@ -144,7 +164,7 @@ function crearOpcionesReemplazo(tipoOriginal) {
     }).join('');
 }
 
-function renderizarFormularioExtintorHTML(leu, attrs, estadoSugerido) {
+function renderizarFormularioExtintorHTML(leu, attrs, estadoSugerido, reemplazoActivo = null) {
     const c = document.getElementById('contenedor-componentes-dinamicos');
     if (!c) return;
 
@@ -159,7 +179,18 @@ function renderizarFormularioExtintorHTML(leu, attrs, estadoSugerido) {
     const opcionesAnios = Array.from({length: 31}, (_, i) => anioActual + i)
         .map(anio => `<option value="${anio}" ${anio === Math.max(anioActual, anioPrueba) ? 'selected' : ''}>${anio}</option>`).join('');
 
+    const avisoProvisorio = reemplazoActivo ? `
+        <aside role="status" aria-live="polite" style="background:#332713;border:1px solid #f59e0b;border-left:6px solid #fbbf24;border-radius:8px;padding:13px 14px;margin-bottom:14px;color:#fff7d6;box-shadow:0 3px 12px #0004;">
+            <div style="display:flex;align-items:center;gap:9px;margin-bottom:7px;">
+                <span style="font-size:22px" aria-hidden="true">⚠️</span>
+                <strong style="color:#fcd34d;font-size:15px;letter-spacing:.3px;">ATENCIÓN: UBICACIÓN CON EXTINTOR PROVISORIO</strong>
+            </div>
+            <div style="font-size:13px;line-height:1.55;">Estás controlando la ubicación del titular, pero actualmente hay un reemplazo temporal instalado: <strong style="color:#fde68a;">${String(reemplazoActivo.etiquetaProvisorio || 'Provisorio').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]))}</strong> (${String(reemplazoActivo.tipo_reemplazo || 'tipo no informado')}).</div>
+            <div style="font-size:13px;line-height:1.55;margin-top:6px;">Antes de finalizar, verificá si el extintor titular ya puede volver a su ubicación. <strong>No cierres el reemplazo en el sistema hasta registrar la devolución real.</strong></div>
+        </aside>` : '';
+
     c.innerHTML = `
+        ${avisoProvisorio}
         <div style="display:grid;grid-template-columns:minmax(0,1.25fr) minmax(150px,0.75fr);gap:12px;align-items:stretch;margin-bottom:12px;">
             <fieldset style="min-width:0;border:1px solid #38bdf8;border-radius:5px;padding:10px;background:#182830;margin:0;">
                 <legend style="font-size:13px;color:#38bdf8;padding:0 5px;font-weight:bold;">📌 Datos del elemento</legend>
