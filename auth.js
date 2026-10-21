@@ -247,5 +247,7 @@ function verificarPermisoModuloParaRol(rol, modulo) {
   return ['supervisor', 'mantenimiento'].includes(rol);
 }
 
-window.iniciarSesion = iniciarSesion;\nwindow.solicitarAccesoInicial = solicitarAccesoInicial;\nwindow.establecerContrasena = establecerContrasena;
+window.iniciarSesion = iniciarSesion;
+window.solicitarAccesoInicial = solicitarAccesoInicial;
+window.establecerContrasena = establecerContrasena;
 window.cerrarSesion = cerrarSesion;
