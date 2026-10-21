@@ -19,6 +19,7 @@ import { cargarModuloEditorTerritorios } from './editorTerritorios.js';
 import { cargarModuloPanelGeografico, detenerModuloPanelGeografico } from './panelGeograficoAdmin.js';
 import { cargarModuloSimulacionControlin } from './simulacionControlin.js';
 import { cargarModuloAdministracionUsuarios } from './administracionUsuarios.js';
+import { cargarModuloMiCuenta } from './miCuenta.js';
 import { abrirControlExtintor, guardarControlExtintor } from './controlesExtintores.js';
 import { abrirControlHidrante, guardarControlHidrante, cambiarTipoControl, verificarDetalleLlave } from './controlesHidrantes.js';
 import { cerrarFormularioControl, verificarEstadoControl } from './controlesBase.js';
@@ -112,7 +113,7 @@ window.cargarModulo = async function(modulo) {
     detenerModuloGPS();
     detenerModuloRecorridosGPS();
     detenerModuloMapa();
-    if (!verificarPermisoModulo(modulo)) {
+    if (modulo !== 'miCuenta' && !verificarPermisoModulo(modulo)) {
         alert('Tu rol actual no tiene permiso para acceder a este módulo.');
         return;
     }
@@ -177,6 +178,10 @@ window.cargarModulo = async function(modulo) {
 
             case 'administracionUsuarios':
                 await cargarModuloAdministracionUsuarios(vistaDinamica);
+                break;
+
+            case 'miCuenta':
+                await cargarModuloMiCuenta(vistaDinamica);
                 break;
 
             case 'correccionEcas':
