@@ -78,7 +78,7 @@ export async function inicializarAutenticacion() {
 
   const { data, error } = await clienteSupabase.auth.getSession();
   if (error) {
-    mostrarError('No se pudo verificar la sesión. Puedes continuar como Bomberos o volver a intentar.');
+    mostrarError('No se pudo verificar la sesión. Recargá la página e iniciá sesión nuevamente.');
     return;
   }
   if (!data?.session) return;
@@ -90,11 +90,6 @@ export async function inicializarAutenticacion() {
     await clienteSupabase.auth.signOut();
     mostrarError('La cuenta no tiene un rol administrativo asignado. Solicita al Superadministrador que habilite tu acceso.');
   }
-}
-
-export function continuarComoBombero() {
-  limpiarError();
-  mostrarAplicacion('bomberos');
 }
 
 export async function iniciarSesion(event) {
@@ -131,9 +126,8 @@ export async function iniciarSesion(event) {
 }
 
 export async function cerrarSesion() {
-  if (rolActual !== 'bomberos') {
-    await clienteSupabase.auth.signOut();
-  }
+  await clienteSupabase.auth.signOut();
+  rolActual = null;
   mostrarPantallaAcceso();
   limpiarError();
   const email = document.getElementById('login-email');
@@ -179,6 +173,5 @@ function verificarPermisoModuloParaRol(rol, modulo) {
   return ['supervisor', 'mantenimiento'].includes(rol);
 }
 
-window.continuarComoBombero = continuarComoBombero;
 window.iniciarSesion = iniciarSesion;
 window.cerrarSesion = cerrarSesion;
