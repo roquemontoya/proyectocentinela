@@ -179,5 +179,6 @@ function verificarPermisoModuloParaRol(rol, modulo) {
   return ['supervisor', 'mantenimiento'].includes(rol);
 }
 
-window.continuarComoBombero = continuarComoBombero;\nwindow.iniciarSesion = iniciarSesion;
+window.continuarComoBombero = continuarComoBombero;
+window.iniciarSesion = iniciarSesion;
 window.cerrarSesion = cerrarSesion;
