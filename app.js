@@ -113,7 +113,7 @@ window.cargarModulo = async function(modulo) {
     detenerModuloGPS();
     detenerModuloRecorridosGPS();
     detenerModuloMapa();
-    if (!verificarPermisoModulo(modulo)) {
+    if (modulo !== 'miCuenta' && !verificarPermisoModulo(modulo)) {
         alert('Tu rol actual no tiene permiso para acceder a este módulo.');
         return;
     }
