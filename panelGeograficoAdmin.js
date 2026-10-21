@@ -221,7 +221,12 @@ export async function cargarModuloPanelGeografico(contenedor){
     <h2 style="margin:0 0 5px">🗺️ Panel geográfico de supervisión</h2>
     <p style="color:#9ca3af;margin:0 0 12px">Mapa territorial y recorridos GPS sincronizados de Centinela. No representa ubicación en vivo: muestra recorridos registrados y calcula cruces usando los polígonos activos actuales.</p>
     <div id="geo-admin-estado" role="status" style="padding:9px;background:#111827;border-radius:6px;margin-bottom:9px">Cargando datos…</div>
-    <div id="geo-admin-mapa" style="height:55vh;min-height:380px;width:100%;border-radius:8px;background:#1f2937;margin-bottom:10px"></div>
+    <div id="geo-admin-mapa-marco" style="position:relative;width:100%;margin-bottom:12px;border-radius:10px;overflow:hidden;border:1px solid #334155;background:#111827">
+      <div id="geo-admin-mapa" style="height:62vh;min-height:420px;max-height:760px;width:100%;background:#1f2937"></div>
+      <div style="position:absolute;left:0;right:0;bottom:0;z-index:1000;padding:36px 14px 12px;background:linear-gradient(180deg,transparent 0%,rgba(5,8,16,.88) 28%,rgba(5,8,16,.97) 100%);pointer-events:none">
+        <div id="geo-admin-controlin-player" style="pointer-events:auto;max-width:1100px;margin:0 auto"></div>
+      </div>
+    </div>
     <section style="background:#0f172a;border:1px solid #6b356f;border-radius:8px;padding:10px;margin-bottom:10px"><h3 style="margin:0 0 5px">🧪 Controlin · recorridos por día</h3><p style="color:#d8b4fe;font-size:12px;margin:0 0 9px">Elegí una fecha y seleccioná la ronda en las pastillas. Los trazados son simulados, no GPS histórico real.</p><div id="geo-admin-controlin">Preparando recorridos…</div></section><section style="background:#0f172a;border:1px solid #374151;border-radius:8px;padding:10px;margin-bottom:10px"><h3 style="margin:0 0 7px">Recorridos GPS reales registrados</h3><div id="geo-admin-recorridos">Cargando…</div></section>
     <section style="background:#0f172a;border:1px solid #374151;border-radius:8px;padding:10px"><h3 style="margin:0 0 5px">Entradas y salidas inferidas</h3><p style="color:#9ca3af;font-size:12px">El cruce se estima entre muestras GPS consecutivas. Si el polígono cambió desde el recorrido, el resultado refleja la geometría actual, no necesariamente la histórica.</p><div id="geo-admin-eventos"><p style="color:#9ca3af">Elegí un recorrido para calcular los eventos.</p></div></section>
   </section>`;
