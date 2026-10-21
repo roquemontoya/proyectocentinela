@@ -199,7 +199,7 @@ window.marcarRecibidoPulmon = async function(dbId, etiqueta) {
     try {
         const { error } = await clienteSupabase
             .from('Extintores')
-            .update({ PRP: 'En Pulmon', EstadoReferencia: 'Operativo' })
+            .update({ PRP: 'En Pulmon' })
             .eq('id', dbId);
 
         if (error) throw new Error(error.message);
@@ -251,9 +251,8 @@ window.registrarDevolucionReemplazo = async function(id) {
         if (errorMovimiento) throw new Error('No se registró el movimiento de devolución: ' + errorMovimiento.message);
 
         const prpNuevo = estadoProvisorio === 'Operativo' ? 'En Pulmon' : 'En Recarga';
-        const estadoReferencia = estadoProvisorio === 'Operativo' ? 'Operativo' : estadoProvisorio === 'A recarga' ? 'En Recarga' : 'Fuera de servicio';
         const { error: errorStock } = await clienteSupabase
-            .from('Extintores').update({ PRP: prpNuevo, EstadoReferencia: estadoReferencia })
+            .from('Extintores').update({ PRP: prpNuevo })
             .eq('id', ciclo.inventario_reemplazo_id).eq('PRP','Instalado como provisorio');
         if (errorStock) throw new Error('Movimiento guardado, pero no se pudo actualizar el inventario: ' + errorStock.message);
 
