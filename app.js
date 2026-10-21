@@ -19,6 +19,7 @@ import { cargarModuloEditorTerritorios } from './editorTerritorios.js';
 import { cargarModuloPanelGeografico, detenerModuloPanelGeografico } from './panelGeograficoAdmin.js';
 import { cargarModuloSimulacionControlin } from './simulacionControlin.js';
 import { cargarModuloAdministracionUsuarios } from './administracionUsuarios.js';
+import { inicializarTemaStarTrek } from './temaStarTrek.js';
 import { abrirControlExtintor, guardarControlExtintor } from './controlesExtintores.js';
 import { abrirControlHidrante, guardarControlHidrante, cambiarTipoControl, verificarDetalleLlave } from './controlesHidrantes.js';
 import { cerrarFormularioControl, verificarEstadoControl } from './controlesBase.js';
@@ -264,6 +265,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (itemCmu) {
         itemCmu.id = 'nav-cmu';
     }
+
+    inicializarTemaStarTrek(listaMenu);
 
     console.log('🚀 Centinela 3.0: enrutador y navegación inicializados.');
     inicializarAutenticacion();
