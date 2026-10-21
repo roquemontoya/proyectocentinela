@@ -143,7 +143,7 @@ function mostrarRecorridoControlin(id, indicePunto=null){
   r.puntos.forEach((p,i)=>L.circleMarker([p.lat,p.lng],{radius:i===puntoControlinSeleccionado?9:6,color:'#fff',weight:2,fillColor:i===0?'#22c55e':i===r.puntos.length-1?'#ef4444':i===puntoControlinSeleccionado?'#facc15':'#e879f9',fillOpacity:1})
     .bindTooltip((i+1)+'. '+esc(p.zona)+' · '+esc(fecha(p.hora))).addTo(capaSimulada));
   mapa.fitBounds(L.latLngBounds(coords),{padding:[30,30],maxZoom:18});
-  const tabla=document.getElementById('geo-admin-eventos');
+  const tabla=document.getElementById('geo-admin-controlin-player');
   if(tabla){
     const actual=r.puntos[puntoControlinSeleccionado];
     tabla.innerHTML='<div style="padding:10px;background:#3b2f14;border:1px solid #8b6b22;border-radius:7px;color:#fde68a;margin-bottom:8px">Recorrido ficticio de demostración. Los puntos se ubican cerca de los centros de zonas reales; no representan un trayecto GPS histórico.</div>'+
@@ -227,8 +227,14 @@ export async function cargarModuloPanelGeografico(contenedor){
         <div id="geo-admin-controlin-player" style="pointer-events:auto;max-width:1100px;margin:0 auto"></div>
       </div>
     </div>
-    <section style="background:#0f172a;border:1px solid #6b356f;border-radius:8px;padding:10px;margin-bottom:10px"><h3 style="margin:0 0 5px">🧪 Controlin · recorridos por día</h3><p style="color:#d8b4fe;font-size:12px;margin:0 0 9px">Elegí una fecha y seleccioná la ronda en las pastillas. Los trazados son simulados, no GPS histórico real.</p><div id="geo-admin-controlin">Preparando recorridos…</div></section><section style="background:#0f172a;border:1px solid #374151;border-radius:8px;padding:10px;margin-bottom:10px"><h3 style="margin:0 0 7px">Recorridos GPS reales registrados</h3><div id="geo-admin-recorridos">Cargando…</div></section>
-    <section style="background:#0f172a;border:1px solid #374151;border-radius:8px;padding:10px"><h3 style="margin:0 0 5px">Entradas y salidas inferidas</h3><p style="color:#9ca3af;font-size:12px">El cruce se estima entre muestras GPS consecutivas. Si el polígono cambió desde el recorrido, el resultado refleja la geometría actual, no necesariamente la histórica.</p><div id="geo-admin-eventos"><p style="color:#9ca3af">Elegí un recorrido para calcular los eventos.</p></div></section>
+    <div id="geo-admin-paneles" style="display:grid;grid-template-columns:minmax(280px,.85fr) minmax(0,2fr);gap:12px;align-items:start">
+      <div style="display:grid;gap:12px;min-width:0">
+        <section style="background:#0f172a;border:1px solid #6b356f;border-radius:10px;padding:12px"><h3 style="margin:0 0 5px">🧪 Recorridos por día</h3><p style="color:#d8b4fe;font-size:12px;margin:0 0 9px">Elegí la jornada y seleccioná una ronda.</p><div id="geo-admin-controlin">Preparando recorridos…</div></section>
+        <details style="background:#0f172a;border:1px solid #374151;border-radius:10px;padding:10px"><summary style="cursor:pointer;color:#cbd5e1;font-weight:600">Otros recorridos GPS registrados</summary><div id="geo-admin-recorridos">Cargando…</div></details>
+      </div>
+      <section style="background:#0f172a;border:1px solid #374151;border-radius:10px;padding:12px;min-width:0"><h3 style="margin:0 0 5px">Entradas y salidas inferidas</h3><p style="color:#9ca3af;font-size:12px;margin:0 0 10px">Eventos estimados a partir de las posiciones y las zonas activas.</p><div id="geo-admin-eventos"><p style="color:#9ca3af">Elegí un recorrido para consultar los eventos de la jornada.</p></div></section>
+    </div>
+    <style>@media(max-width:800px){#geo-admin-paneles{grid-template-columns:1fr!important}}</style>
   </section>`;
   mapa=L.map('geo-admin-mapa').setView([-31.47,-64.24],15); agregarCapasBase(mapa); capas=L.layerGroup().addTo(mapa);
   try{await Promise.all([cargarTerritorios(),cargarRecorridos()]);pintarPuntos([]);renderLista();generarRecorridosControlin();renderListaControlin();estado(territorios.length+' zonas activas · '+recorridos.length+' recorridos GPS reales · '+recorridosControlin.length+' jornadas de Controlin simuladas.');}
