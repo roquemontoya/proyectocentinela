@@ -64,6 +64,7 @@ function abrirEdicion(contenedor, u) {
   form.elements.email.disabled = true;
   contenedor.querySelector("#usuario-form-title").textContent = "Editar usuario";
   contenedor.querySelector("#usuario-cancelar").style.display = "inline-flex";
+  form.style.display = "block";
   form.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
