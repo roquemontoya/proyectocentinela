@@ -1,0 +1,280 @@
+// Panel geográfico administrativo: territorios y recorridos GPS registrados.
+import { clienteSupabase } from './supabaseClient.js';
+import { obtenerRolActual } from './auth.js';
+import { agregarCapasBase } from './mapaBase.js';
+
+let mapa = null;
+let capas = null;
+let recorridos = [];
+let territorios = [];
+let puntosActuales = [];
+let recorridosControlin = [];
+let capaSimulada = null;
+let recorridoControlinSeleccionado = 0;
+let puntoControlinSeleccionado = 0;
+
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fecha = v => v ? new Date(v).toLocaleString('es-AR') : '—';
+const distancia = m => Number(m || 0) < 1000 ? Math.round(Number(m || 0)) + ' m' : (Number(m || 0) / 1000).toLocaleString('es-AR',{maximumFractionDigits:2}) + ' km';
+function estado(t, error=false) { const el=document.getElementById('geo-admin-estado'); if(el){el.textContent=t;el.style.color=error?'#fca5a5':'#cbd5e1';} }
+function dentro(lat,lng,coords) {
+  // Ray casting sobre anillo exterior; coordenadas del GeoJSON en [longitud, latitud].
+  let inside=false;
+  for(let i=0,j=coords.length-1;i<coords.length;j=i++){
+    const xi=coords[i][0], yi=coords[i][1], xj=coords[j][0], yj=coords[j][1];
+    const cruza=((yi>lat)!==(yj>lat)) && (lng < (xj-xi)*(lat-yi)/((yj-yi)||1e-12)+xi);
+    if(cruza) inside=!inside;
+  }
+  return inside;
+}
+function anillos(geom) {
+  if(!geom?.coordinates) return [];
+  if(geom.type==='Polygon') return geom.coordinates[0] ? [geom.coordinates[0]] : [];
+  if(geom.type==='MultiPolygon') return geom.coordinates.map(p=>p[0]).filter(Boolean);
+  return [];
+}
+function territorioDe(p) {
+  for(const t of territorios.filter(x=>x.activo && x.geom)){
+    if(anillos(t.geom).some(a=>dentro(Number(p.latitud),Number(p.longitud),a))) return t;
+  }
+  return null;
+}
+function calcularEventos(puntos) {
+  const ordenados=[...puntos].sort((a,b)=>a.secuencia-b.secuencia);
+  const eventos=[]; let anterior=null;
+  for(const p of ordenados){
+    const actual=territorioDe(p);
+    const aid=actual?.id ?? null, pid=anterior?.id ?? null;
+    if(aid!==pid){
+      if(anterior) eventos.push({tipo:'Salida',territorio:anterior.nombre,fecha:p.capturado_en,lat:Number(p.latitud),lng:Number(p.longitud),nota:'Salida inferida entre dos puntos GPS'});
+      if(actual) eventos.push({tipo:'Entrada',territorio:actual.nombre,fecha:p.capturado_en,lat:Number(p.latitud),lng:Number(p.longitud),nota:'Entrada inferida entre dos puntos GPS'});
+    }
+    anterior=actual;
+  }
+  return eventos;
+}
+async function cargarTerritorios(){
+  const {data,error}=await clienteSupabase.from('territorios_dinamicos')
+    .select('id,nombre,tipo,padre_id,geom,color,activo,estado_modelado').eq('activo',true);
+  if(error) throw error;
+  territorios=data||[];
+}
+async function cargarRecorridos(){
+  const {data,error}=await clienteSupabase.from('recorridos_gps')
+    .select('id,equipo_id,equipo_nombre,tipo,estado,iniciado_en,finalizado_en,distancia_m,cantidad_puntos')
+    .order('iniciado_en',{ascending:false}).limit(200);
+  if(error) throw error;
+  recorridos=data||[];
+}
+function pintarTerritorios(){
+  territorios.filter(t=>t.geom).forEach(t=>{
+    const layer=L.geoJSON({type:'Feature',properties:{nombre:t.nombre},geometry:t.geom},{
+      style:{color:t.color||'#64748b',weight:2,fillColor:t.color||'#64748b',fillOpacity:.13}
+    }).bindTooltip(esc(t.nombre)+' · '+esc(t.tipo));
+    layer.addTo(capas);
+  });
+}
+function pintarPuntos(puntos){
+  puntosActuales=puntos;
+  if(!mapa||!capas)return;
+  capas.clearLayers(); pintarTerritorios();
+  if(puntos.length){
+    const coords=puntos.map(p=>[Number(p.latitud),Number(p.longitud)]);
+    L.polyline(coords,{color:'#f97316',weight:4,opacity:.9}).addTo(capas);
+    coords.forEach((c,i)=>{ if(i===0||i===coords.length-1) L.circleMarker(c,{radius:6,color:'#fff',weight:2,fillColor:i===0?'#22c55e':'#ef4444',fillOpacity:1}).bindTooltip(i===0?'Inicio del recorrido':'Último punto registrado').addTo(capas); });
+    mapa.fitBounds(L.latLngBounds(coords),{padding:[25,25],maxZoom:19});
+  } else {
+    const bounds=[];
+    territorios.filter(t=>t.geom).forEach(t=>{const layer=L.geoJSON(t.geom);const b=layer.getBounds();if(b.isValid())bounds.push(b);});
+    if(bounds.length) mapa.fitBounds(bounds.reduce((a,b)=>a.extend(b),bounds[0]),{padding:[25,25],maxZoom:18});
+  }
+}
+function distanciaEntrePuntosMetros(a,b){
+  const rad=x=>x*Math.PI/180, R=6371000;
+  const dLat=rad(Number(b.latitud)-Number(a.latitud)), dLng=rad(Number(b.longitud)-Number(a.longitud));
+  const la1=rad(Number(a.latitud)), la2=rad(Number(b.latitud));
+  const h=Math.sin(dLat/2)**2+Math.cos(la1)*Math.cos(la2)*Math.sin(dLng/2)**2;
+  return 2*R*Math.asin(Math.min(1,Math.sqrt(h)));
+}
+function analizarVelocidades(puntos){
+  const tramos=[];
+  for(let i=1;i<puntos.length;i++){
+    const a=puntos[i-1],b=puntos[i],t0=new Date(a.capturado_en).getTime(),t1=new Date(b.capturado_en).getTime();
+    const segundos=(t1-t0)/1000, metros=distanciaEntrePuntosMetros(a,b);
+    if(!Number.isFinite(segundos)||segundos<=0||segundos>600)continue;
+    if(Number(a.precision_m)>50||Number(b.precision_m)>50)continue;
+    const kmh=(metros/segundos)*3.6;
+    if(!Number.isFinite(kmh)||kmh>120)continue;
+    tramos.push({kmh,metros,segundos});
+  }
+  if(!tramos.length)return {cantidad:0,mediana:null,modo:'Sin datos suficientes',nota:'Se requieren puntos GPS con hora y precisión aceptables separados por hasta 10 minutos.'};
+  const orden=tramos.map(x=>x.kmh).sort((a,b)=>a-b);
+  const mediana=orden[Math.floor(orden.length/2)];
+  const modo=mediana<1.5?'Detenido o desplazamiento mínimo':mediana<7?'Compatible con caminata':mediana<12?'Movimiento lento; modo incierto':'Compatible con vehículo';
+  return {cantidad:tramos.length,mediana,modo,nota:'Estimación por distancia entre muestras y tiempo transcurrido; no identifica por sí sola el medio de transporte.'};
+}
+async function verRecorrido(id){
+  estado('Cargando puntos GPS del recorrido…');
+  const {data,error}=await clienteSupabase.from('puntos_recorrido_gps')
+    .select('latitud,longitud,secuencia,capturado_en,precision_m').eq('recorrido_id',id)
+    .order('secuencia',{ascending:true}).limit(20000);
+  if(error){estado('No se pudo leer el recorrido: '+error.message,true);return;}
+  const puntos=data||[]; pintarPuntos(puntos);
+  const velocidad=analizarVelocidades(puntos);
+  const eventos=calcularEventos(puntos);
+  const tabla=document.getElementById('geo-admin-eventos');
+  if(tabla) tabla.innerHTML=eventos.length
+    ? '<div style="overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr><th style="text-align:left;padding:7px">Evento</th><th style="text-align:left;padding:7px">Zona</th><th style="text-align:left;padding:7px">Fecha/hora aproximada</th><th style="text-align:left;padding:7px">Precisión GPS</th></tr></thead><tbody>'+eventos.map(e=>'<tr><td style="padding:7px;border-top:1px solid #374151">'+esc(e.tipo)+'</td><td style="padding:7px;border-top:1px solid #374151">'+esc(e.territorio)+'</td><td style="padding:7px;border-top:1px solid #374151">'+esc(fecha(e.fecha))+'</td><td style="padding:7px;border-top:1px solid #374151">'+esc(e.nota)+'</td></tr>').join('')+'</tbody></table></div>'
+    : '<p style="color:#9ca3af">No se detectaron cruces de zonas en los puntos disponibles, o el recorrido no contiene puntos.</p>';
+  estado('Recorrido cargado: '+puntos.length+' puntos · '+eventos.length+' entradas/salidas inferidas · movimiento: '+velocidad.modo+(velocidad.mediana===null?'':' · mediana '+velocidad.mediana.toLocaleString('es-AR',{maximumFractionDigits:1})+' km/h')+' · '+velocidad.cantidad+' tramos válidos. Estimación orientativa; no confirma el medio de transporte.');
+}
+function generarRecorridosControlin(){
+  // Rutas demostrativas sobre zonas reales dibujadas en Centinela. No son coordenadas GPS históricas.
+  const zonas=territorios.filter(t=>t.activo&&t.geom).map(t=>{
+    const layer=L.geoJSON(t.geom), b=layer.getBounds();
+    return b.isValid()?{nombre:t.nombre,centro:b.getCenter()}:null;
+  }).filter(Boolean);
+  if(zonas.length<2){recorridosControlin=[];return;}
+  const salida=[];
+  for(let dia=1;dia<=31;dia++){
+    const ciclo=(dia-1)%12;
+    if(ciclo>=4&&ciclo<6 || ciclo>=10) continue;
+    const noche=ciclo>=6&&ciclo<10;
+    const inicio=new Date(2026,9,dia,noche?19:7,0,0);
+    const puntos=[];
+    const cantidad=Math.min(6,Math.max(3,zonas.length));
+    for(let i=0;i<cantidad;i++){
+      const z=zonas[(dia*3+i*2)%zonas.length];
+      // Pequeña variación visual reproducible alrededor del centro de cada zona.
+      const variacion=((dia+i)%3)*0.00006;
+      puntos.push({lat: z.centro.lat+variacion,lng:z.centro.lng-variacion, zona:z.nombre,
+        hora:new Date(inicio.getTime()+i*105*60*1000)});
+    }
+    const modo=(dia%2===0)?'vehiculo':'a_pie';
+    puntos.forEach((p,i)=>{p.estado=(i===0||i===puntos.length-1)?'detenido':((dia+i)%7===0?'incierto':'en_movimiento');p.modo=modo;});
+    salida.push({id:'controlin-demo-'+dia,fecha:inicio,tipo:noche?'Ronda nocturna':'Ronda diurna',
+      modo,distancia:modo==='vehiculo'?5.2+((dia*13)%47)/10:1.1+((dia*7)%18)/10,
+      puntos,zonas:new Set(puntos.map(p=>p.zona)).size});
+  }
+  recorridosControlin=salida;
+}
+function mostrarRecorridoControlin(id, indicePunto=null){
+  const r=recorridosControlin.find(x=>x.id===id);
+  if(!r||!mapa||!capas)return;
+  recorridoControlinSeleccionado=recorridosControlin.findIndex(x=>x.id===id);
+  if(indicePunto!==null) puntoControlinSeleccionado=Math.max(0,Math.min(indicePunto,r.puntos.length-1));
+  else puntoControlinSeleccionado=Math.max(0,Math.min(puntoControlinSeleccionado,r.puntos.length-1));
+  if(capaSimulada) capas.removeLayer(capaSimulada);
+  capaSimulada=L.layerGroup().addTo(capas);
+  const coords=r.puntos.map(p=>[p.lat,p.lng]);
+  L.polyline(coords,{color:'#e879f9',weight:5,opacity:.95,dashArray:'8 7'}).bindTooltip('Controlin · RECORRIDO SIMULADO').addTo(capaSimulada);
+  r.puntos.forEach((p,i)=>L.circleMarker([p.lat,p.lng],{radius:i===puntoControlinSeleccionado?7:4,color:'#fff',weight:1.5,fillColor:i===0?'#22c55e':i===r.puntos.length-1?'#ef4444':i===puntoControlinSeleccionado?'#facc15':'#e879f9',fillOpacity:1})
+    .bindTooltip((i+1)+'. '+esc(p.zona)+' · '+esc(fecha(p.hora))).addTo(capaSimulada));
+  const actual=r.puntos[puntoControlinSeleccionado];
+  const esDesconocido=actual.estado==='detenido'||actual.estado==='incierto';
+  const etiquetaModo=r.modo==='vehiculo'?'Recorrido en autobomba':'Recorrido a pie';
+  const glifo=esDesconocido
+    ? '<div style="position:relative;width:44px;height:38px;filter:drop-shadow(0 2px 3px #000)"><span style="font-size:39px;line-height:38px">☁️</span><span style="position:absolute;left:16px;top:8px;font:bold 17px Arial,sans-serif;color:#111827;text-shadow:0 0 2px white">?</span></div>'
+    : r.modo==='vehiculo'
+      ? '<div style="font-size:34px;line-height:42px;filter:drop-shadow(0 2px 3px #000)">🚒</div>'
+      : '<img alt="Bombero" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEIAAAA+CAYAAACftM1SAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAATSSURBVHhe5ZoxjxxFEIVnTw4IsI1FAJKRJe4uJyEwSMgSsQP/BovEIcSExBCSIDJyMjIkC8kQkCDSu0NCJA6ss+8Cky375votNbVVPdXdM3t79icVr2u8M1NTU13du8fi4OBguVgsuuVy2b3O7CEJANpi+hqe36JzssdKsJSmfcv0Zzy/RedkUBFaadqvMX0Nz2/RFl7bHoHnlQlcHB4eNmfg6OgojepYxbAOTCrZxosa9AjamC+tNQmA18D1pBLtz0FVRUzx8Dm8CpmzYvoekcYhjo+P02jI6aMH3eKPX5MXY/nBR92tb39M3pBVXGlUBxNGrERK7VeNiIFcEmrxzvXuFYUxE/quRivCCuz5x+/0ijcLZEWcfvU0jYbc+vLiHGCd99aT4XmtleGhK6aoIiRMwtRY17Xu34q+Zr9qREwyVxIsUIn6/hb6M/Sj6lYE4Lh1vpZSk2jGTOQzRNStCCDHVx39HPIZQahH1ICmKBsj0P420c9BnzraI1o3T0xISxKsPkG/RWlgXRFA67Z7Q46Tk5M0usCLuURpvZ/bR8hEbHOlkET3FXizfChAP6puj9iVaoi+AMQsoR/V7KpBLqsaLBhbjdIsf/DDjFTZJK1EfP/exbHPv7jZK1jc/SWNVjf67ZM02oSf05/55usX3cN/NrfmcnrMteXew3+YFa1Ez1OABMgkRJHJ0ljXs+4NdIzeM0S1T4SeL1CdeS+gOck1SsZKrGco0VBFEARGm4voPbyYS5QG1r9Q4QCyo9XbUOV6gOTfx9fTqOveuHeeRj7e1JmrN5D1qgEsRQBTBBFJgsX+/n5//1yMVJr2I+b2CAl8nYxc05MgAbVJwD292CylaT9ioR5Bf4rKyJFLrhdjidK0D8tWhKckF7jsDcQ65rFRgcHYckrTPixbEZaWVAUeXFoOnVTr3jTtT2GDiqjBqwqrN3i9Ql/D6w007U9iq5tepLgQ/aUsupxqdBKwSiAwvKVSJdqP4H7XGLuwTMTj79Igw539NDB4/9M0WFEy9aakaNUgNV/R/x7+ruLCa1sxzWl9IqIgyJoklIJ78BcpVCN1StPXDCeiJQGYFrmp4SETj7c2piWmzxn0CKJ9Kwl//ZwGAaLTAtz7LA0Uc/eO0VVDJ6EkAaQkEcRKCFaUuchOjSmSUIu1Esk5rU3/u+d76ibiMpNAdDIQk5zX0kDE9zTULC8jCUQnA2+vxvS52jcTYTXHXSFXFTkDOX+0IqauBi6l0saIVIU+Tj+qoakxJVhBtJUi3yRNH6cf1a0nYgqw68RbLDFg+dT1PgJZwQGo/IPr2dlZGnXds99vpFHXvfvDm2k0zp/PrqXROC/vP0+jIXpfMfWeYl0ROku7hrevaFEC39xZylXDq4i3P/z/+Bjn5/Efb49+up1Gm8iqmLoiqhOx7akBZCL0dw85tWt0PTVwQOqugzil8VithitCVkMpNUukhZ4akTctlWgfbKwaYJd3lmT2VeMqgZhp9Gu1/9sn0HoVQKw0+rVq9oht0N88vRFAv0WJ9iO4q0aNlpg+h36LEu1HcHeWNTql6WvSb1GifbBYdd+qP/C8avT/nyWwlKb9GtPXoN+iRPs1uKtGRGnat0x/hn6LEu3XkK2IMaVpv8b0Nei3KNH+Jl33H7jb4h5q8NB3AAAAAElFTkSuQmCC" style="width:44px;height:42px;object-fit:contain;image-rendering:pixelated;filter:drop-shadow(0 2px 2px #000)"/>';
+  L.marker([actual.lat,actual.lng],{icon:L.divIcon({className:'controlin-glyph',html:'<div style="display:flex;align-items:center;justify-content:center;width:46px;height:44px">'+glifo+'</div>',iconSize:[46,44],iconAnchor:[23,22]})})
+    .bindTooltip('Controlin · '+etiquetaModo+' · '+(actual.estado==='detenido'?'Detenido / en control':actual.estado==='incierto'?'Sin información suficiente':'En movimiento')).addTo(capaSimulada);
+  mapa.fitBounds(L.latLngBounds(coords),{padding:[30,30],maxZoom:18});
+  const tabla=document.getElementById('geo-admin-controlin-player');
+  const porcentaje=Math.round(puntoControlinSeleccionado/Math.max(1,r.puntos.length-1)*100);
+  const eventoTipo=actual.estado==='detenido'?'Pausa / control en zona':actual.estado==='incierto'?'Estado desconocido · datos insuficientes':puntoControlinSeleccionado===0?'Inicio de ronda':actual.zona!==r.puntos[puntoControlinSeleccionado-1].zona?'Entrada a zona':'Control de recorrido';
+  if(tabla){
+    tabla.innerHTML='<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(220px,1fr) auto;gap:12px;align-items:center;background:rgba(10,15,28,.88);border:1px solid #6b356f;border-radius:9px;padding:10px 12px;margin-bottom:7px;backdrop-filter:blur(5px)"><div style="min-width:0"><strong style="font-size:13px">'+esc(r.tipo)+' · '+esc(fecha(r.fecha))+'</strong><div style="font-size:11px;color:#d8b4fe;margin-top:3px">'+esc(fecha(actual.hora))+' · Punto '+(puntoControlinSeleccionado+1)+'/'+r.puntos.length+'</div></div><div id="geo-admin-evento-en-barra" style="min-width:0;padding-left:12px;border-left:1px solid #6b356f"><div style="font-size:10px;color:#c084fc;text-transform:uppercase;letter-spacing:.6px">Novedad / evento actual · SIMULADO</div><div style="font-size:13px;font-weight:600;color:#f3e8ff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(eventoTipo)+'</div><div style="font-size:11px;color:#d8b4fe;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(actual.zona)+' · '+new Date(actual.hora).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})+'</div></div><div style="font-size:18px;font-weight:700;color:#f0abfc">'+porcentaje+'%</div></div>'+
+    '<input id="geo-controlin-tiempo" aria-label="Posición temporal del recorrido" type="range" min="0" max="'+(r.puntos.length-1)+'" step="1" value="'+puntoControlinSeleccionado+'" style="display:block;width:100%;accent-color:#e879f9;cursor:pointer;margin:0 0 4px"/>'+
+    '<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap;color:#e5e7eb;font-size:11px"><span>'+new Date(r.puntos[0].hora).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})+'</span><div style="display:flex;gap:6px"><button id="geo-controlin-anterior" type="button" style="padding:6px 10px;background:#374151;color:white;border:1px solid #64748b;border-radius:6px;cursor:pointer">◀ Anterior</button><button id="geo-controlin-play" type="button" style="padding:6px 11px;background:#86198f;color:white;border:1px solid #d946ef;border-radius:6px;cursor:pointer">▶ Reproducir</button><button id="geo-controlin-siguiente" type="button" style="padding:6px 10px;background:#374151;color:white;border:1px solid #64748b;border-radius:6px;cursor:pointer">Siguiente ▶</button></div><span>'+new Date(r.puntos[r.puntos.length-1].hora).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})+'</span></div>';
+    tabla.querySelector('#geo-controlin-tiempo')?.addEventListener('input',e=>mostrarRecorridoControlin(id,Number(e.target.value)));
+    tabla.querySelector('#geo-controlin-anterior')?.addEventListener('click',()=>mostrarRecorridoControlin(id,puntoControlinSeleccionado-1));
+    tabla.querySelector('#geo-controlin-siguiente')?.addEventListener('click',()=>mostrarRecorridoControlin(id,puntoControlinSeleccionado+1));
+    tabla.querySelector('#geo-controlin-play')?.addEventListener('click',()=>{
+      let i=puntoControlinSeleccionado;
+      const avanzar=()=>{if(!document.getElementById('geo-controlin-tiempo'))return;if(i>=r.puntos.length-1){mostrarRecorridoControlin(id,0);return;}i++;mostrarRecorridoControlin(id,i);setTimeout(avanzar,900);};
+      setTimeout(avanzar,250);
+    });
+  }
+  estado('Controlin · '+r.tipo+' · '+(r.modo==='vehiculo'?'autobomba':'a pie')+' · '+esc(fecha(r.fecha))+' · punto '+(puntoControlinSeleccionado+1)+'/'+r.puntos.length+' · '+(actual.estado==='detenido'?'detenido':actual.estado==='incierto'?'sin información suficiente':'en movimiento')+' · datos simulados.');
+}
+function renderListaControlin(){
+  const el=document.getElementById('geo-admin-controlin'); if(!el)return;
+  if(!recorridosControlin.length){
+    el.innerHTML='<p style="color:#9ca3af">No hay suficientes zonas con geometría para dibujar recorridos de demostración. Dibujá/activá al menos dos zonas en el editor.</p>';
+    return;
+  }
+  el.innerHTML=`
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0 12px">
+      <label for="geo-controlin-dia" style="font-size:13px;color:#d8b4fe">Jornada:</label>
+      <input id="geo-controlin-dia" type="date" value="2026-10-01" min="2026-10-01" max="2026-10-31" style="padding:8px;border-radius:7px;background:#111827;color:white;border:1px solid #6b356f">
+      <button id="geo-controlin-ir" type="button" style="padding:8px 12px;background:#86198f;color:white;border:0;border-radius:7px;cursor:pointer">Ver día</button>
+      <span id="geo-controlin-turno" style="font-size:12px;color:#c4b5fd"></span>
+    </div>
+    <div id="geo-controlin-pastillas" style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:4px"></div>
+  `;
+  const fechaInput=el.querySelector('#geo-controlin-dia');
+  const pastillas=el.querySelector('#geo-controlin-pastillas');
+  const turno=el.querySelector('#geo-controlin-turno');
+  function renderDia(){
+    const valor=fechaInput.value;
+    const f=valor?new Date(valor+'T12:00:00'):null;
+    const jornada=recorridosControlin.filter(r=>f&&r.fecha.getFullYear()===f.getFullYear()&&r.fecha.getMonth()===f.getMonth()&&r.fecha.getDate()===f.getDate());
+    if(!jornada.length){
+      pastillas.innerHTML='<span style="padding:7px 10px;border-radius:8px;background:#292929;color:#9ca3af;font-size:12px">Franco o sin recorrido simulado para este día.</span>';
+      turno.textContent='Franco';
+      return;
+    }
+    turno.textContent=jornada.length+' recorrido(s) · '+jornada.map(r=>r.tipo).join(', ');
+    pastillas.innerHTML=jornada.map((r,i)=>'<button type="button" data-controlin="'+esc(r.id)+'" style="display:flex;align-items:center;gap:8px;padding:8px 11px;border-radius:9px;border:1px solid '+(i===0?'#a855f7':'#6b356f')+';background:'+(i===0?'#3b2140':'#211626')+';color:#f3e8ff;cursor:pointer;text-align:left;max-width:100%"><span style="font-size:17px">'+(r.tipo==='Ronda nocturna'?'🌙':'☀️')+'</span><span><strong style="display:block;font-size:12px">Controlin · '+(r.tipo==='Ronda nocturna'?'Noche':'Día')+' · '+(r.modo==='vehiculo'?'🚒 Autobomba':'🧑‍🚒 A pie')+'</strong><span style="font-size:11px;color:#d8b4fe">'+(r.tipo==='Ronda nocturna'?'19:00–07:00':'07:00–19:00')+' · '+r.puntos.length+' puntos · '+r.distancia.toFixed(1)+' km</span></span><span style="font-size:10px;color:#f0abfc">DEMO</span></button>').join('');
+    pastillas.querySelectorAll('[data-controlin]').forEach(btn=>btn.addEventListener('click',()=>{
+      pastillas.querySelectorAll('[data-controlin]').forEach(x=>{x.style.borderColor='#6b356f';x.style.background='#211626';});
+      btn.style.borderColor='#e879f9';btn.style.background='#3b2140';
+      mostrarRecorridoControlin(btn.dataset.controlin,0);
+
+    }));
+    // Selección inicial del día: mostrar la primera ronda disponible sin exigir desplazarse a una lista larga.
+    if(jornada.length===1) mostrarRecorridoControlin(jornada[0].id,0);
+  }
+  fechaInput.addEventListener('change',renderDia);
+  el.querySelector('#geo-controlin-ir')?.addEventListener('click',renderDia);
+  renderDia();
+}
+function renderLista(){
+  const el=document.getElementById('geo-admin-recorridos'); if(!el)return;
+  el.innerHTML=recorridos.length?recorridos.map(r=>'<article style="padding:10px;border:1px solid #374151;border-radius:7px;margin:6px 0;background:#111827"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><strong>'+esc(r.equipo_nombre||r.equipo_id)+'</strong><span style="color:#93c5fd">'+esc(r.estado)+'</span></div><div style="font-size:12px;color:#9ca3af;margin:5px 0">'+esc(r.tipo)+' · '+esc(fecha(r.iniciado_en))+' · '+esc(r.cantidad_puntos||0)+' puntos · '+esc(distancia(r.distancia_m))+'</div><button type="button" data-recorrido="'+esc(r.id)+'" style="padding:7px 10px;background:#1d4ed8;color:#fff;border:0;border-radius:5px;cursor:pointer">Ver recorrido y cruces de zonas</button></article>').join(''):'<p style="color:#9ca3af">No hay recorridos GPS registrados todavía.</p>';
+  el.querySelectorAll('[data-recorrido]').forEach(b=>b.addEventListener('click',()=>verRecorrido(b.dataset.recorrido)));
+}
+export async function detenerModuloPanelGeografico(){ if(mapa){mapa.remove();mapa=null;} capas=null; puntosActuales=[]; capaSimulada=null; }
+export async function cargarModuloPanelGeografico(contenedor){
+  await detenerModuloPanelGeografico();
+  if(!['administrador','superadministrador'].includes(obtenerRolActual())){contenedor.innerHTML='<p>Este panel es exclusivo de administración.</p>';return;}
+  contenedor.style.cssText+=';display:block;width:100%;max-width:100%;padding:0;margin:0';
+  contenedor.innerHTML=`<section style="padding:12px;color:#e5e7eb;font-family:Arial,sans-serif;max-width:1600px;margin:auto">
+    <h2 style="margin:0 0 5px">🗺️ Panel geográfico de supervisión</h2>
+    <p style="color:#9ca3af;margin:0 0 12px">Mapa territorial y recorridos GPS sincronizados de Centinela. No representa ubicación en vivo: muestra recorridos registrados y calcula cruces usando los polígonos activos actuales.</p>
+    <div id="geo-admin-estado" role="status" style="padding:9px;background:#111827;border-radius:6px;margin-bottom:9px">Cargando datos…</div>
+    <div id="geo-admin-mapa-marco" style="position:relative;width:100%;margin-bottom:12px;border-radius:10px;overflow:hidden;border:1px solid #334155;background:#111827">
+      <div id="geo-admin-mapa" style="height:70vh;min-height:480px;max-height:820px;width:100%;background:#1f2937"></div>
+      <div id="geo-admin-selector-marco" style="position:absolute;top:10px;left:72px;z-index:1100;max-width:min(420px,calc(100% - 84px));pointer-events:none">
+        <button id="geo-admin-selector-toggle" type="button" aria-expanded="false" style="pointer-events:auto;background:#111827ee;color:#f3e8ff;border:1px solid #a855f7;border-radius:7px;padding:9px 12px;box-shadow:0 2px 8px #0008;font-weight:600;cursor:pointer">🗓️ Recorridos por día ▾</button>
+        <div id="geo-admin-selector-panel" style="display:none;pointer-events:auto;margin-top:7px;padding:10px;background:#0f172af5;border:1px solid #6b356f;border-radius:9px;box-shadow:0 8px 24px #0009">
+          <div style="font-size:12px;color:#d8b4fe;margin-bottom:7px">Elegí la fecha y la ronda que querés reproducir.</div>
+          <div id="geo-admin-controlin">Preparando recorridos…</div>
+        </div>
+      </div>
+      <div style="position:absolute;left:0;right:0;bottom:0;z-index:1000;padding:36px 14px 12px;background:linear-gradient(180deg,transparent 0%,rgba(5,8,16,.88) 28%,rgba(5,8,16,.97) 100%);pointer-events:none">
+        <div id="geo-admin-controlin-player" style="pointer-events:auto;max-width:1400px;margin:0 auto"></div>
+      </div>
+    </div>
+    <details style="background:#0f172a;border:1px solid #374151;border-radius:10px;padding:10px;margin-top:10px"><summary style="cursor:pointer;color:#cbd5e1;font-weight:600">Otros recorridos GPS registrados</summary><div id="geo-admin-recorridos">Cargando…</div></details>
+  </section>`;
+  mapa=L.map('geo-admin-mapa').setView([-31.47,-64.24],15); agregarCapasBase(mapa); capas=L.layerGroup().addTo(mapa);
+  const selectorToggle=document.getElementById('geo-admin-selector-toggle');
+  const selectorPanel=document.getElementById('geo-admin-selector-panel');
+  selectorToggle?.addEventListener('click',()=>{const abierto=selectorPanel.style.display!=='none';selectorPanel.style.display=abierto?'none':'block';selectorToggle.setAttribute('aria-expanded',String(!abierto));selectorToggle.textContent=abierto?'🗓️ Recorridos por día ▾':'🗓️ Recorridos por día ▴';});
+  try{await Promise.all([cargarTerritorios(),cargarRecorridos()]);pintarPuntos([]);renderLista();generarRecorridosControlin();renderListaControlin();estado(territorios.length+' zonas activas · '+recorridos.length+' recorridos GPS reales · '+recorridosControlin.length+' jornadas de Controlin simuladas.');}
+  catch(e){estado('Error cargando el panel: '+(e.message||e),true);}
+  setTimeout(()=>mapa?.invalidateSize(),200);
+}

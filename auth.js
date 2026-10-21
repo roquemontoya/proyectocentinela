@@ -60,12 +60,14 @@ function mostrarAplicacion(rol) {
 }
 
 async function resolverRolAutenticado() {
-  const { data: esSuper, error: errorSuper } = await clienteSupabase
-    .rpc('current_user_has_role', { p_role: 'superadministrador' });
-  if (!errorSuper && esSuper === true) return 'superadministrador';
+  const { data, error } = await clienteSupabase.rpc('current_user_role');
+  const rolesAdmitidos = new Set(['administrador', 'superadministrador', 'supervisor', 'bombero_inspector', 'mantenimiento', 'bomberos']);
+  if (!error && typeof data === 'string' && rolesAdmitidos.has(data)) return data;
 
-  const { data: esAdmin, error: errorAdmin } = await clienteSupabase
-    .rpc('current_user_has_role', { p_role: 'administrador' });
+  // Compatibilidad temporal mientras la migración de roles se despliega en Supabase.
+  const { data: esSuper, error: errorSuper } = await clienteSupabase.rpc('current_user_has_role', { p_role: 'superadministrador' });
+  if (!errorSuper && esSuper === true) return 'superadministrador';
+  const { data: esAdmin, error: errorAdmin } = await clienteSupabase.rpc('current_user_has_role', { p_role: 'administrador' });
   if (!errorAdmin && esAdmin === true) return 'administrador';
   return null;
 }
@@ -145,26 +147,36 @@ export function obtenerRolActual() {
 }
 
 export function verificarPermisoModulo(modulo) {
+  const nombre = String(modulo || '').toLowerCase();
   if (rolActual === 'administrador' || rolActual === 'superadministrador') return true;
-  return rolActual === 'bomberos' && MODULOS_BOMBEROS.has(String(modulo || '').toLowerCase());
+  if (['administracionusuarios', 'admincsv', 'gestortablas'].includes(nombre)) return false;
+  if (rolActual === 'bomberos' || rolActual === 'bombero_inspector') return MODULOS_BOMBEROS.has(nombre);
+  return ['supervisor', 'mantenimiento'].includes(rolActual);
 }
 
 export function aplicarPermisosInterfaz(rol = rolActual) {
-  const esBombero = rol === 'bomberos';
+  const esAdmin = rol === 'administrador' || rol === 'superadministrador';
+  const esBombero = rol === 'bomberos' || rol === 'bombero_inspector';
   document.querySelectorAll('#side-menu .drawer-list li, #main-content .card').forEach(elemento => {
     const accion = elemento.getAttribute('onclick') || '';
-    const coincidencia = accion.match(/cargarModulo\(['"]([^'"]+)['"]\)/);
-    if (coincidencia) elemento.style.display = (!esBombero || MODULOS_BOMBEROS.has(coincidencia[1])) ? '' : 'none';
+    const coincidencia = accion.match(/cargarModulo\\(['"]([^'"]+)['"]\\)/);
+    if (coincidencia) elemento.style.display = verificarPermisoModuloParaRol(rol, coincidencia[1]) ? '' : 'none';
   });
-
-  // Estos módulos se agregan dinámicamente al menú principal.
-  for (const id of ['nav-gestor-tablas', 'nav-cmu', 'nav-historial-fotos']) {
+  document.querySelectorAll('.menu-solo-admin').forEach(el => { el.style.display = esAdmin ? '' : 'none'; });
+  for (const id of ['nav-gestor-tablas', 'nav-cmu', 'nav-historial-fotos', 'nav-administracion-usuarios']) {
     const elemento = document.getElementById(id);
-    if (elemento) elemento.style.display = esBombero ? 'none' : '';
+    if (elemento) elemento.style.display = id === 'nav-historial-fotos' ? (esBombero ? 'none' : '') : (esAdmin ? '' : 'none');
   }
-
   const botonSalir = document.getElementById('btn-logout');
-  if (botonSalir) botonSalir.textContent = esBombero ? 'Salir' : 'Cerrar sesión';
+  if (botonSalir) botonSalir.textContent = 'Cerrar sesión';
+}
+
+function verificarPermisoModuloParaRol(rol, modulo) {
+  const nombre = String(modulo || '').toLowerCase();
+  if (rol === 'administrador' || rol === 'superadministrador') return true;
+  if (['administracionusuarios', 'admincsv', 'gestortablas'].includes(nombre)) return false;
+  if (rol === 'bomberos' || rol === 'bombero_inspector') return MODULOS_BOMBEROS.has(nombre);
+  return ['supervisor', 'mantenimiento'].includes(rol);
 }
 
 window.continuarComoBombero = continuarComoBombero;
