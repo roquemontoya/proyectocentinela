@@ -73,6 +73,15 @@
                     <input id="login-password" type="password" autocomplete="current-password" required style="box-sizing:border-box;width:100%;padding:12px;margin-bottom:14px;background:#111827;border:1px solid #4b5563;border-radius:7px;color:#fff;">
                     <button id="btn-login" type="submit" style="width:100%;padding:12px;border:1px solid #38bdf8;border-radius:7px;background:#0c4a6e;color:#fff;font-weight:bold;cursor:pointer;">Ingresar</button>
                 </form>
+                <button id="btn-reset-password" type="button" onclick="solicitarAccesoInicial()" style="width:100%;margin-top:10px;padding:10px;background:transparent;border:1px solid #475569;border-radius:7px;color:#cbd5e1;cursor:pointer;">Primer ingreso / olvidé mi contraseña</button>
+                <form id="form-password-setup" onsubmit="establecerContrasena(event)" style="display:none;margin-top:18px;border-top:1px solid #374151;padding-top:18px;">
+                    <h2 id="password-setup-title" style="font-size:17px;margin:0 0 14px;">Activar cuenta</h2>
+                    <label for="setup-password" style="display:block;font-size:13px;margin-bottom:6px;">Nueva contraseña (mínimo 10 caracteres)</label>
+                    <input id="setup-password" type="password" autocomplete="new-password" minlength="10" required style="box-sizing:border-box;width:100%;padding:12px;margin-bottom:12px;background:#111827;border:1px solid #4b5563;border-radius:7px;color:#fff;">
+                    <label for="setup-password-confirm" style="display:block;font-size:13px;margin-bottom:6px;">Repetir contraseña</label>
+                    <input id="setup-password-confirm" type="password" autocomplete="new-password" minlength="10" required style="box-sizing:border-box;width:100%;padding:12px;margin-bottom:14px;background:#111827;border:1px solid #4b5563;border-radius:7px;color:#fff;">
+                    <button id="btn-set-password" type="submit" style="width:100%;padding:12px;border:1px solid #38bdf8;border-radius:7px;background:#0c4a6e;color:#fff;font-weight:bold;cursor:pointer;">Establecer contraseña</button>
+                </form>
             </div>
             <p id="auth-error" role="alert" style="display:none;color:#fca5a5;background:#451a1a;border:1px solid #7f1d1d;border-radius:7px;padding:10px;font-size:13px;line-height:1.45;margin:16px 0 0;"></p>
         </div>
