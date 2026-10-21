@@ -127,7 +127,7 @@ function crearOpcionesReemplazo(tipoOriginal) {
         if (tipo.includes('pqs') || tipo.includes('polvo')) {
             return tipoReserva.includes('pqs') || tipoReserva.includes('polvo') || tipoReserva.includes('co2') || tipoReserva.includes('carbono');
         }
-        if (tipo.includes('co2') || tipo.includes('carbono')) return tipoReserva.includes('co2') || tipoReserva.includes('carbono');
+        if (tipo.includes('co2') || tipo.includes('carbono')) return tipoReserva.includes('co2') || tipoReserva.includes('carbono') || tipoReserva.includes('pqs') || tipoReserva.includes('polvo');
         if (tipo.includes('halon') || tipo.includes('halón')) return tipoReserva.includes('halon') || tipoReserva.includes('halón');
         if (tipo === 'k' || tipo.includes('tipo k') || tipo.includes('acetato')) {
             return tipoReserva === 'k' || tipoReserva.includes('tipo k') || tipoReserva.includes('acetato');
@@ -184,18 +184,21 @@ function renderizarFormularioExtintorHTML(leu, attrs, estadoSugerido) {
                 <option value="Vencido" ${estadoSugerido === 'Vencido' ? 'selected' : ''}>Vencido</option>
             </select>
 
-            <div id="seccion-reemplazo-extintor" style="display:${estadoSugerido === 'Vencido' ? 'block' : 'none'};background:#2a1515;border:1px dashed #ef4444;border-radius:5px;padding:10px;margin-bottom:12px;">
-                <label for="input-nuevo-id-reemplazo" style="display:block;font-size:13px;color:#f87171;font-weight:bold;margin-bottom:6px;">🚨 Extintor de reemplazo del pulmón:</label>
-                <select id="input-nuevo-id-reemplazo" style="width:100%;padding:8px;background:#1e1e1e;border:1px solid #ef4444;color:#fff;border-radius:5px;">
+            <div id="seccion-reemplazo-extintor" style="display:${estadoSugerido === 'Vencido' ? 'block' : 'none'};background:#2a1515;border:1px solid #ef4444;border-radius:7px;padding:12px;margin-bottom:14px;">
+                <h3 style="margin:0 0 8px;color:#f87171;font-size:15px;">🔁 Recambio temporal desde Pulmón</h3>
+                <p style="margin:0 0 10px;color:#fecaca;font-size:12px;line-height:1.5;">1. Seleccioná el equipo que se instala como provisorio. 2. El bombero elegido en “Realizado por” quedará registrado como responsable de la instalación. 3. La devolución se completa luego desde el módulo Pulmón con el bombero que retira el provisorio y el estado de ambos equipos.</p>
+                <label for="input-nuevo-id-reemplazo" style="display:block;font-size:13px;color:#fff;font-weight:bold;margin-bottom:6px;">Equipo provisorio disponible:</label>
+                <select id="input-nuevo-id-reemplazo" style="width:100%;padding:10px;background:#1e1e1e;border:1px solid #ef4444;color:#fff;border-radius:5px;">
                     ${crearOpcionesReemplazo(tipo)}
                 </select>
-                <small style="display:block;color:#fca5a5;margin-top:5px;">Al marcar el extintor como vencido, seleccioná el equipo de reserva que lo reemplazará.</small>
+                <small style="display:block;color:#fca5a5;margin-top:7px;">El titular conserva su tipo y su historial. El provisorio queda bloqueado en el stock hasta registrar su devolución.</small>
             </div>
 
-            <label style="display:block;font-size:13px;margin-bottom:5px;">Tipo de extintor:</label>
-            <select id="input-tipo-extintor" required style="width:100%;padding:8px;margin-bottom:10px;background:#2a2a2a;border:1px solid #444;color:#fff;border-radius:5px;">
+            <label style="display:block;font-size:13px;margin-bottom:5px;">Tipo del extintor titular (no el provisorio):</label>
+            <select id="input-tipo-extintor" required disabled style="width:100%;padding:8px;margin-bottom:10px;background:#222;border:1px solid #444;color:#aaa;border-radius:5px;opacity:0.9;">
                 ${opcionesTipo.map(t => `<option value="${t}" ${t === tipoNormalizado ? 'selected' : ''}>${t}</option>`).join('')}
             </select>
+            <small style="display:block;color:#aaa;margin-top:-6px;margin-bottom:10px;">El tipo del titular no se modifica al instalar un reemplazo temporal.</small>
 
             <label style="display:block;font-size:13px;margin-bottom:5px;">Vencimiento:</label>
             <input type="date" id="input-vencimiento-extintor" value="${fechaVencimiento}" required style="width:100%;box-sizing:border-box;padding:8px;margin-bottom:10px;background:#2a2a2a;border:1px solid #444;color:#fff;border-radius:5px;">
@@ -313,11 +316,11 @@ export async function guardarControlExtintor(event) {
             ronda: document.getElementById('input-ronda-control')?.value || activoLEU.ronda || null,
             controlmensual: document.getElementById('input-control-mensual')?.value || mesActual(),
             controlrealizadopor: realizo,
-            tipoextintor: tipoExtintor || valorAtributo(attrs, 'Tipo de Extintor', 'TipoExtintor') || null,
+            tipoextintor: valorAtributo(attrs, 'Tipo de Extintor', 'TipoExtintor') || tipoExtintor || null,
             vencimiento: vencimientoControl || null,
             pruebahidraulica: pruebaHidraulicaControl || null,
             observacion: (condicion === 'Vencido'
-                ? `[REEMPLAZO DE PULMÓN SELECCIONADO: ${etiquetaReemplazo}]${observacion ? ' ' + observacion : ''}`
+                ? `[REEMPLAZO TEMPORAL PROPUESTO: ${etiquetaReemplazo}]${observacion ? ' ' + observacion : ''}`
                 : observacion) || null,
             foto: fotoUrl,
             fechafoto: hoy
@@ -340,7 +343,67 @@ export async function guardarControlExtintor(event) {
         });
         if (error) throw new Error(error.message);
 
-        alert('Control de extintor guardado correctamente.');
+        // Registrar el reemplazo como una entidad transversal, separada del control histórico.
+        // El control original conserva su tipo; el provisorio conserva su propio tipo e inventario.
+        if (condicion === 'Vencido' && itemReemplazo) {
+            const tipoTitular = valorAtributo(attrs, 'Tipo de Extintor', 'TipoExtintor') || tipoExtintor;
+            const tipoProvisorio = itemReemplazo.TIPO || itemReemplazo.TipoExtintor || itemReemplazo['Tipo de Extintor'] || 'Sin especificar';
+            const resultadoControl = Array.isArray(resultado) ? resultado[0] : resultado;
+            const idControlInicio = resultadoControl?.id_control || null;
+            const { data: ciclo, error: errorCiclo } = await clienteSupabase
+                .from('reemplazos_temporales_extintores')
+                .insert({
+                    activo_titular_id: idActivo,
+                    inventario_reemplazo_id: Number(itemReemplazo.id),
+                    control_inicio_id: idControlInicio,
+                    tipo_titular: String(tipoTitular),
+                    tipo_reemplazo: String(tipoProvisorio),
+                    fecha_inicio: hoy,
+                    fecha_hora_inicio: new Date().toISOString(),
+                    motivo: 'Reemplazo temporal por extintor vencido',
+                    responsable_inicio: realizo,
+                    bombero_entrega_reemplazo_id: realizo,
+                    estado: 'Activo',
+                    observaciones: observacion || null,
+                    creado_por: realizo
+                })
+                .select('id')
+                .single();
+            if (errorCiclo) {
+                throw new Error('El control se guardó, pero no se pudo registrar el ciclo de reemplazo. No retires físicamente el equipo hasta resolverlo. Detalle: ' + errorCiclo.message);
+            }
+
+            const { error: errorMovimiento } = await clienteSupabase
+                .from('movimientos_reemplazos_extintores')
+                .insert({
+                    reemplazo_id: ciclo.id,
+                    tipo_movimiento: 'Instalacion',
+                    activo_titular_id: idActivo,
+                    inventario_reemplazo_id: Number(itemReemplazo.id),
+                    bombero: realizo,
+                    fecha_hora: new Date().toISOString(),
+                    estado_titular: 'Vencido',
+                    estado_reemplazo: 'Instalado como provisorio',
+                    observaciones: observacion || null
+                });
+            if (errorMovimiento) {
+                await clienteSupabase.from('reemplazos_temporales_extintores').delete().eq('id', ciclo.id);
+                throw new Error('El control se guardó, pero falló la bitácora de instalación. El ciclo fue revertido; revisá antes de mover el equipo. Detalle: ' + errorMovimiento.message);
+            }
+
+            const { error: errorStock } = await clienteSupabase
+                .from('Extintores')
+                .update({ PRP: 'Instalado como provisorio' })
+                .eq('id', itemReemplazo.id)
+                .in('PRP', ['En Pulmon', 'En Pulmón']);
+            if (errorStock) {
+                throw new Error('Se registró el reemplazo, pero no se pudo bloquear el stock del Pulmón. No uses ese equipo para otro reemplazo hasta corregir el estado de inventario. Detalle: ' + errorStock.message);
+            }
+        }
+
+        alert(condicion === 'Vencido'
+            ? 'Control guardado y reemplazo temporal registrado. El provisorio quedó bloqueado en el Pulmón.'
+            : 'Control de extintor guardado correctamente.');
         localStorage.setItem('centinela_inspector', realizo);
         cerrarFormularioControl();
         window.cargarModulo('extintores');
