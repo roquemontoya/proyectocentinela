@@ -18,6 +18,7 @@ import { cargarModuloEditorUbicaciones } from './editorUbicaciones.js';
 import { cargarModuloEditorTerritorios } from './editorTerritorios.js';
 import { cargarModuloPanelGeografico, detenerModuloPanelGeografico } from './panelGeograficoAdmin.js';
 import { cargarModuloSimulacionControlin } from './simulacionControlin.js';
+import { cargarModuloAdministracionUsuarios } from './administracionUsuarios.js';
 import { abrirControlExtintor, guardarControlExtintor } from './controlesExtintores.js';
 import { abrirControlHidrante, guardarControlHidrante, cambiarTipoControl, verificarDetalleLlave } from './controlesHidrantes.js';
 import { cerrarFormularioControl, verificarEstadoControl } from './controlesBase.js';
@@ -172,6 +173,10 @@ window.cargarModulo = async function(modulo) {
 
             case 'simulacionControlin':
                 await cargarModuloSimulacionControlin(vistaDinamica);
+                break;
+
+            case 'administracionUsuarios':
+                await cargarModuloAdministracionUsuarios(vistaDinamica);
                 break;
 
             case 'correccionEcas':
