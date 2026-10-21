@@ -16,6 +16,7 @@ import { cargarModuloAnomalias } from './anomalias.js';
 import { cargarModuloHistorialFotos } from './historialFotos.js';
 import { cargarModuloEditorUbicaciones } from './editorUbicaciones.js';
 import { cargarModuloEditorTerritorios } from './editorTerritorios.js';
+import { cargarModuloPanelGeografico, detenerModuloPanelGeografico } from './panelGeograficoAdmin.js';
 import { abrirControlExtintor, guardarControlExtintor } from './controlesExtintores.js';
 import { abrirControlHidrante, guardarControlHidrante, cambiarTipoControl, verificarDetalleLlave } from './controlesHidrantes.js';
 import { cerrarFormularioControl, verificarEstadoControl } from './controlesBase.js';
@@ -39,6 +40,7 @@ window.toggleMenu = function() {
 window.irInicio = function() {
     detenerModuloGPS();
     detenerModuloRecorridosGPS();
+    detenerModuloPanelGeografico();
     detenerModuloMapa();
     const pantallaInicio = document.getElementById('main-content');
     const vistaDinamica = document.getElementById('vista-dinamica');
@@ -107,6 +109,7 @@ window.guardarControl = async function(event) {
 window.cargarModulo = async function(modulo) {
     detenerModuloGPS();
     detenerModuloRecorridosGPS();
+    detenerModuloPanelGeografico();
     detenerModuloMapa();
     if (!verificarPermisoModulo(modulo)) {
         alert('Tu rol actual no tiene permiso para acceder a este módulo.');
@@ -161,6 +164,10 @@ window.cargarModulo = async function(modulo) {
 
             case 'recorridosGps':
                 await cargarModuloRecorridosGPS(vistaDinamica);
+                break;
+
+            case 'panelGeografico':
+                await cargarModuloPanelGeografico(vistaDinamica);
                 break;
 
             case 'correccionEcas':
