@@ -17,7 +17,7 @@ let encuadreInicialAplicado = false;
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const colorDefault = '#2563eb';
 function aviso(t, error=false) { const e=document.getElementById('territorio-aviso'); if(e){e.textContent=t;e.style.color=error?'#fca5a5':'#86efac';} }
-function limpiarVertices(){ if(capaVertices && mapa) mapa.removeLayer(capaVertices); capaVertices=null; modoVertices=false; const b=document.getElementById('territorio-editar-vertices'); if(b)b.textContent='Editar vértices del sector'; }
+function limpiarVertices(){ if(capaVertices && mapa) mapa.removeLayer(capaVertices); capaVertices=null; modoVertices=false; const b=document.getElementById('territorio-editar-vertices'); if(b)b.textContent='Editar vértices'; const el=document.getElementById('territorio-mapa'); if(el)el.classList.remove('territorio-modo-vertices'); }
 function limpiarDibujo() {
   limpiarVertices();
   puntosDibujo=[]; modoDibujo=false;
@@ -114,7 +114,15 @@ export async function cargarModuloEditorTerritorios(contenedor) {
   modoVertices=true; document.getElementById('territorio-editar-vertices').textContent='Edición activa · clic para agregar nodo';
   pintar(); capaVertices=L.layerGroup().addTo(mapa); const coords=geoCoords(geometriaEditada||seleccionado.geom);
   if(!coords || coords.length<4){aviso('No se pudo leer el anillo del polígono.',true);limpiarVertices();return;}
-  coords.slice(0,-1).forEach((ll,i)=>{const m=L.marker(ll,{draggable:true,keyboard:false,icon:L.divIcon({className:'',html:'<div style="width:12px;height:12px;background:#fff;border:2px solid #7c3aed;border-radius:50%;box-shadow:0 1px 5px #000;box-sizing:border-box"></div>',iconSize:[12,12],iconAnchor:[6,6]})}).addTo(capaVertices);m.on('drag',()=>{const updated=coords.slice(0,-1);updated[i]=[m.getLatLng().lat,m.getLatLng().lng];const closed=[...updated,updated[0]];geometriaEditada={type:'Polygon',coordinates:[closed.map(p=>[Number(p[1].toFixed(8)),Number(p[0].toFixed(8))])]};if(poligonoTemporal)mapa.removeLayer(poligonoTemporal);poligonoTemporal=L.polygon(closed,{color:document.getElementById('territorio-color').value,fillOpacity:.18}).addTo(mapa);});m.on('dragend',()=>aviso('Vértice movido. Guardá la geometría para conservar el cambio.'));});
+  coords.slice(0,-1).forEach((ll,i)=>{const m=L.marker(ll,{draggable:true,keyboard:false,icon:L.divIcon({className:'',html:'<div style="width:12px;height:12px;background:#fff;border:2px solid #7c3aed;border-radius:50%;box-shadow:0 1px 5px #000;box-sizing:border-box"></div>',iconSize:[12,12],iconAnchor:[6,6]})}).addTo(capaVertices);m.on('drag',()=>{
+    const base=geoCoords(geometriaEditada||seleccionado.geom);
+    const updated=(base||coords).slice(0,-1);
+    updated[i]=[m.getLatLng().lat,m.getLatLng().lng];
+    const closed=[...updated,updated[0]];
+    geometriaEditada={type:'Polygon',coordinates:[closed.map(p=>[Number(p[1].toFixed(8)),Number(p[0].toFixed(8))])]};
+    if(poligonoTemporal)mapa.removeLayer(poligonoTemporal);
+    poligonoTemporal=L.polygon(closed,{color:document.getElementById('territorio-color').value,fillOpacity:.18}).addTo(mapa);
+   });m.on('dragend',()=>aviso('Vértice movido. Guardá la geometría para conservar el cambio.'));});
   aviso('Modo de edición: arrastrá los nodos blancos para mover vértices; hacé clic cerca de un borde para agregar uno. Guardá para persistir.');
  }
  document.getElementById('territorio-editar-vertices').onclick=()=>{if(!seleccionado){aviso('Primero seleccioná un sector desde Zonas y propiedades o tocá su polígono.',true);return;}if(modoVertices){limpiarVertices();pintar();aviso('Edición de vértices desactivada.');}else pintarVertices();};
