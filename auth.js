@@ -61,9 +61,15 @@ function mostrarAplicacion(rol) {
 
 async function resolverRolAutenticado() {
   const { data, error } = await clienteSupabase.rpc('current_user_role');
-  if (error || typeof data !== 'string') return null;
   const rolesAdmitidos = new Set(['administrador', 'superadministrador', 'supervisor', 'bombero_inspector', 'mantenimiento', 'bomberos']);
-  return rolesAdmitidos.has(data) ? data : null;
+  if (!error && typeof data === 'string' && rolesAdmitidos.has(data)) return data;
+
+  // Compatibilidad temporal mientras la migración de roles se despliega en Supabase.
+  const { data: esSuper, error: errorSuper } = await clienteSupabase.rpc('current_user_has_role', { p_role: 'superadministrador' });
+  if (!errorSuper && esSuper === true) return 'superadministrador';
+  const { data: esAdmin, error: errorAdmin } = await clienteSupabase.rpc('current_user_has_role', { p_role: 'administrador' });
+  if (!errorAdmin && esAdmin === true) return 'administrador';
+  return null;
 }
 
 export async function inicializarAutenticacion() {
