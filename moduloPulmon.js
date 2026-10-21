@@ -112,6 +112,64 @@ export async function cargarModuloPulmon(contenedor) {
 
     contenedor.innerHTML = html;
 
+    // Reemplazos temporales activos: equipos fuera del stock hasta registrar devolución.
+    const { data: activos, error: errorActivos } = await clienteSupabase
+        .from('reemplazos_temporales_extintores')
+        .select('*')
+        .eq('estado', 'Activo')
+        .order('fecha_hora_inicio', { ascending: true });
+    if (errorActivos) {
+        contenedor.insertAdjacentHTML('beforeend', `<p style="color:#f87171;margin:16px auto;max-width:1100px;">No se pudieron cargar los reemplazos activos: ${errorActivos.message}</p>`);
+    } else if (activos?.length) {
+        const idsTitulares = [...new Set(activos.map(x => x.activo_titular_id))];
+        const idsStock = [...new Set(activos.map(x => x.inventario_reemplazo_id).filter(Boolean))];
+        const [{ data: titulares }, { data: stock }, { data: bomberos }] = await Promise.all([
+            clienteSupabase.from('leu').select('id,etiqueta,sector,ronda').in('id', idsTitulares),
+            clienteSupabase.from('Extintores').select('id,ETIQUETA,TIPO,PRP').in('id', idsStock),
+            clienteSupabase.from('Bomberos').select('Bombero').eq('Estado','Activo').order('Bombero')
+        ]);
+        const mapaTitulares = new Map((titulares || []).map(x => [String(x.id), x]));
+        const mapaStock = new Map((stock || []).map(x => [String(x.id), x]));
+        const opcionesBomberos = (bomberos || []).map(b => `<option value="${escHtmlPulmon(b.Bombero)}">${escHtmlPulmon(b.Bombero)}</option>`).join('');
+        const filas = activos.map(x => {
+            const titular = mapaTitulares.get(String(x.activo_titular_id));
+            const provisorio = mapaStock.get(String(x.inventario_reemplazo_id));
+            return `<tr style="border-bottom:1px solid #444">
+                <td style="padding:10px">${escHtmlPulmon(titular?.etiqueta || ('LEU '+x.activo_titular_id))}<small style="display:block;color:#aaa">${escHtmlPulmon(titular?.sector || '')}</small></td>
+                <td style="padding:10px">${escHtmlPulmon(provisorio?.ETIQUETA || ('Inventario '+x.inventario_reemplazo_id))} — ${escHtmlPulmon(x.tipo_reemplazo)}</td>
+                <td style="padding:10px">${escHtmlPulmon(x.fecha_hora_inicio ? new Date(x.fecha_hora_inicio).toLocaleString('es-AR') : x.fecha_inicio)}</td>
+                <td style="padding:10px;min-width:280px">
+                    <select id="bombero-devolucion-${x.id}" style="width:100%;padding:8px;margin-bottom:6px;background:#222;color:#fff;border:1px solid #555;border-radius:4px">
+                        <option value="">Bombero que devuelve...</option>${opcionesBomberos}
+                    </select>
+                    <select id="estado-titular-${x.id}" style="width:100%;padding:8px;margin-bottom:6px;background:#222;color:#fff;border:1px solid #555;border-radius:4px">
+                        <option value="Reinstalado operativo">Titular: reinstalado operativo</option>
+                        <option value="Retirado para mantenimiento">Titular: retirado para mantenimiento</option>
+                        <option value="Fuera de servicio">Titular: fuera de servicio</option>
+                    </select>
+                    <select id="estado-provisorio-${x.id}" style="width:100%;padding:8px;margin-bottom:6px;background:#222;color:#fff;border:1px solid #555;border-radius:4px">
+                        <option value="Operativo">Provisorio: operativo</option>
+                        <option value="A recarga">Provisorio: requiere recarga</option>
+                        <option value="Fuera de servicio">Provisorio: fuera de servicio</option>
+                    </select>
+                    <input id="obs-devolucion-${x.id}" placeholder="Observaciones (opcional)" style="width:100%;box-sizing:border-box;padding:8px;margin-bottom:6px;background:#222;color:#fff;border:1px solid #555;border-radius:4px">
+                    <button onclick="window.registrarDevolucionReemplazo('${x.id}')" style="width:100%;background:#22c55e;color:#052e16;border:0;padding:9px;border-radius:4px;font-weight:bold;cursor:pointer">Registrar devolución y liberar stock</button>
+                </td>
+            </tr>`;
+        }).join('');
+        contenedor.insertAdjacentHTML('beforeend', `
+            <section style="max-width:1100px;margin:24px auto;color:#fff;font-family:Arial,sans-serif">
+                <h2 style="color:#fbbf24">🔁 Reemplazos temporales activos</h2>
+                <p style="color:#bbb">Cada devolución queda como un movimiento independiente, con su propio bombero y hora. El equipo vuelve al stock solo después de confirmar este registro.</p>
+                <div style="overflow-x:auto;background:#1e1e1e;border:1px solid #333;border-radius:8px">
+                    <table style="width:100%;border-collapse:collapse;min-width:850px">
+                        <thead><tr style="background:#2a2a2a"><th style="padding:10px;text-align:left">Titular</th><th style="padding:10px;text-align:left">Provisorio</th><th style="padding:10px;text-align:left">Instalado</th><th style="padding:10px;text-align:left">Registrar devolución</th></tr></thead>
+                        <tbody>${filas}</tbody>
+                    </table>
+                </div>
+            </section>`);
+    }
+
     // Buscador en tiempo real
     const buscador = document.getElementById('buscador-pulmon');
     if (buscador) {
@@ -153,5 +211,69 @@ window.marcarRecibidoPulmon = async function(dbId, etiqueta) {
 
     } catch (err) {
         alert('Error al actualizar el estado: ' + err.message);
+    }
+};
+
+function escHtmlPulmon(valor) {
+    return String(valor ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// Cierra el ciclo temporal, registra el movimiento de devolución y recién entonces libera el stock.
+window.registrarDevolucionReemplazo = async function(id) {
+    const bombero = document.getElementById(`bombero-devolucion-${id}`)?.value || '';
+    const estadoTitular = document.getElementById(`estado-titular-${id}`)?.value || '';
+    const estadoProvisorio = document.getElementById(`estado-provisorio-${id}`)?.value || '';
+    const observaciones = document.getElementById(`obs-devolucion-${id}`)?.value || '';
+    if (!bombero) { alert('Seleccioná el bombero que devuelve el provisorio.'); return; }
+    if (!confirm('¿Confirmás la devolución del provisorio al Pulmón? Se registrará el movimiento y se actualizará su estado de inventario.')) return;
+
+    try {
+        const { data: ciclo, error: errorCiclo } = await clienteSupabase
+            .from('reemplazos_temporales_extintores')
+            .select('*').eq('id', id).eq('estado','Activo').single();
+        if (errorCiclo || !ciclo) throw new Error(errorCiclo?.message || 'El reemplazo ya no está activo.');
+        if (!ciclo.inventario_reemplazo_id) throw new Error('Este ciclo no tiene asociado un ID de inventario Pulmón; no se puede liberar automáticamente.');
+
+        const ahora = new Date().toISOString();
+        const { error: errorMovimiento } = await clienteSupabase
+            .from('movimientos_reemplazos_extintores')
+            .insert({
+                reemplazo_id: ciclo.id,
+                tipo_movimiento: 'Devolucion',
+                activo_titular_id: ciclo.activo_titular_id,
+                inventario_reemplazo_id: ciclo.inventario_reemplazo_id,
+                bombero,
+                fecha_hora: ahora,
+                estado_titular: estadoTitular,
+                estado_reemplazo: estadoProvisorio,
+                observaciones: observaciones || null
+            });
+        if (errorMovimiento) throw new Error('No se registró el movimiento de devolución: ' + errorMovimiento.message);
+
+        const prpNuevo = estadoProvisorio === 'Operativo' ? 'En Pulmon' : 'En Recarga';
+        const estadoReferencia = estadoProvisorio === 'Operativo' ? 'Operativo' : estadoProvisorio === 'A recarga' ? 'En Recarga' : 'Fuera de servicio';
+        const { error: errorStock } = await clienteSupabase
+            .from('Extintores').update({ PRP: prpNuevo, EstadoReferencia: estadoReferencia })
+            .eq('id', ciclo.inventario_reemplazo_id).eq('PRP','Instalado como provisorio');
+        if (errorStock) throw new Error('Movimiento guardado, pero no se pudo actualizar el inventario: ' + errorStock.message);
+
+        const { error: errorCerrar } = await clienteSupabase
+            .from('reemplazos_temporales_extintores')
+            .update({
+                estado: 'Finalizado',
+                fecha_fin: ahora.slice(0,10),
+                fecha_hora_fin: ahora,
+                responsable_fin: bombero,
+                bombero_devuelve_reemplazo_id: bombero,
+                actualizado_en: ahora,
+                observaciones: [ciclo.observaciones, observaciones].filter(Boolean).join(' | ') || null
+            })
+            .eq('id', ciclo.id).eq('estado','Activo');
+        if (errorCerrar) throw new Error('El stock fue actualizado, pero no se pudo cerrar el ciclo: ' + errorCerrar.message);
+
+        alert('Devolución registrada. El provisorio volvió al estado de inventario correspondiente.');
+        window.cargarModulo('pulmon');
+    } catch (err) {
+        alert('No se pudo completar la devolución: ' + err.message + '. Verificá el ciclo y el inventario antes de repetir la operación.');
     }
 };
