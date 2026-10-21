@@ -73,15 +73,36 @@ async function resolverRolAutenticado() {
 }
 
 export async function inicializarAutenticacion() {
-  // En equipos compartidos no restaurar una sesión anterior automáticamente:
-  // exigir que quien abre Centinela introduzca sus propias credenciales.
   mostrarPantallaAcceso();
   limpiarError();
   rolActual = null;
 
+  // Los enlaces de invitación/restablecimiento deben conservar la sesión temporal
+  // creada por Supabase para permitir que la persona establezca su contraseña.
+  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  const query = new URLSearchParams(window.location.search);
+  const tipoEnlace = hash.get('type');
+  const flujoCredencial = ['invite', 'recovery', 'signup', 'magiclink'].includes(tipoEnlace) || query.has('code');
+
+  if (flujoCredencial) {
+    const { data, error } = await clienteSupabase.auth.getSession();
+    if (error || !data?.session) {
+      mostrarError('El enlace de invitación o contraseña venció o ya fue utilizado. Solicitá un nuevo correo de acceso.');
+      return;
+    }
+    const login = document.getElementById('form-login');
+    const setup = document.getElementById('form-password-setup');
+    if (login) login.style.display = 'none';
+    if (setup) setup.style.display = 'block';
+    const titulo = document.getElementById('password-setup-title');
+    if (titulo) titulo.textContent = tipoEnlace === 'recovery' ? 'Establecer nueva contraseña' : 'Activar cuenta';
+    return;
+  }
+
+  // Para uso normal en equipos compartidos, no restaurar una sesión anterior.
   const { error } = await clienteSupabase.auth.signOut();
   if (error) {
-    mostrarError('No se pudo cerrar la sesión anterior. Cerrá esta pestaña y volvé a abrir Centinela; si persiste, limpiá los datos del sitio.');
+    mostrarError('No se pudo cerrar la sesión anterior. Cerrá esta pestaña y volvé a abrir Centinela.');
   }
 }
 
@@ -115,6 +136,66 @@ export async function iniciarSesion(event) {
     mostrarError(error?.message || 'No se pudo iniciar sesión.');
   } finally {
     if (boton) { boton.disabled = false; boton.textContent = 'Ingresar'; }
+  }
+}
+
+export async function solicitarAccesoInicial() {
+  limpiarError();
+  const email = document.getElementById('login-email')?.value.trim() || '';
+  if (!email) {
+    mostrarError('Ingresá primero el correo de la cuenta para enviarte el enlace de activación o recuperación.');
+    return;
+  }
+  const boton = document.getElementById('btn-reset-password');
+  if (boton) { boton.disabled = true; boton.textContent = 'Enviando…'; }
+  try {
+    const { error } = await clienteSupabase.auth.resetPasswordForEmail(email, {
+      redirectTo: 'https://proyectocentinela.vercel.app/'
+    });
+    if (error) throw error;
+    mostrarError('Si el correo corresponde a una cuenta registrada, Supabase enviará un enlace para establecer la contraseña. Revisá también Spam.');
+    const el = document.getElementById('auth-error');
+    if (el) { el.style.display = 'block'; el.style.background = '#12351f'; el.style.borderColor = '#166534'; el.style.color = '#bbf7d0'; }
+  } catch (error) {
+    mostrarError(error?.message || 'No se pudo solicitar el enlace. Intentá nuevamente.');
+  } finally {
+    if (boton) { boton.disabled = false; boton.textContent = 'Primer ingreso / olvidé mi contraseña'; }
+  }
+}
+
+export async function establecerContrasena(event) {
+  if (event) event.preventDefault();
+  limpiarError();
+  const password = document.getElementById('setup-password')?.value || '';
+  const confirm = document.getElementById('setup-password-confirm')?.value || '';
+  if (password.length < 10) {
+    mostrarError('La contraseña debe tener al menos 10 caracteres.');
+    return;
+  }
+  if (password !== confirm) {
+    mostrarError('Las contraseñas no coinciden.');
+    return;
+  }
+  const boton = document.getElementById('btn-set-password');
+  if (boton) { boton.disabled = true; boton.textContent = 'Guardando…'; }
+  try {
+    const { error } = await clienteSupabase.auth.updateUser({ password });
+    if (error) throw error;
+    const rol = await resolverRolAutenticado();
+    if (!rol) {
+      await clienteSupabase.auth.signOut();
+      throw new Error('La contraseña quedó establecida, pero la cuenta no tiene un perfil autorizado. Pedí al administrador que revise el perfil asignado.');
+    }
+    const form = document.getElementById('setup-password');
+    if (form) form.value = '';
+    const confirmInput = document.getElementById('setup-password-confirm');
+    if (confirmInput) confirmInput.value = '';
+    window.history.replaceState({}, document.title, window.location.pathname);
+    mostrarAplicacion(rol);
+  } catch (error) {
+    mostrarError(error?.message || 'No se pudo establecer la contraseña. Solicitá un enlace nuevo si este venció.');
+  } finally {
+    if (boton) { boton.disabled = false; boton.textContent = 'Establecer contraseña'; }
   }
 }
 
@@ -166,5 +247,5 @@ function verificarPermisoModuloParaRol(rol, modulo) {
   return ['supervisor', 'mantenimiento'].includes(rol);
 }
 
-window.iniciarSesion = iniciarSesion;
+window.iniciarSesion = iniciarSesion;\nwindow.solicitarAccesoInicial = solicitarAccesoInicial;\nwindow.establecerContrasena = establecerContrasena;
 window.cerrarSesion = cerrarSesion;
