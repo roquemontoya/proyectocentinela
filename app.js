@@ -15,6 +15,7 @@ import { cargarModuloBomberos } from './bomberos.js';
 import { cargarModuloAnomalias } from './anomalias.js';
 import { cargarModuloHistorialFotos } from './historialFotos.js';
 import { cargarModuloEditorUbicaciones } from './editorUbicaciones.js';
+import { cargarModuloEditorTerritorios } from './editorTerritorios.js';
 import { abrirControlExtintor, guardarControlExtintor } from './controlesExtintores.js';
 import { abrirControlHidrante, guardarControlHidrante, cambiarTipoControl, verificarDetalleLlave } from './controlesHidrantes.js';
 import { cerrarFormularioControl, verificarEstadoControl } from './controlesBase.js';
@@ -148,6 +149,10 @@ window.cargarModulo = async function(modulo) {
 
             case 'editorUbicaciones':
                 await cargarModuloEditorUbicaciones(vistaDinamica);
+                break;
+
+            case 'editorTerritorios':
+                await cargarModuloEditorTerritorios(vistaDinamica);
                 break;
 
             case 'gps':
