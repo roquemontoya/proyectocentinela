@@ -8,7 +8,8 @@ export async function cargarModuloMiCuenta(root) {
     if (authError) throw authError;
     const user = auth?.user;
     if (!user) throw new Error('La sesión no está activa. Ingresá nuevamente.');
-    const { data: p, error } = await clienteSupabase.from('app_user_profiles').select('nombre_completo,legajo,telefono').eq('user_id', user.id).maybeSingle();
+    const { data: perfilData, error } = await clienteSupabase.rpc('obtener_mi_perfil_personal');
+    const p = Array.isArray(perfilData) ? perfilData[0] : perfilData;
     if (error) throw error;
     if (!p) throw new Error('No se encontró el perfil o la política de acceso impide consultarlo. Contactá al administrador.');
     root.querySelector('#cuenta-email').value = user.email || '';
@@ -23,7 +24,8 @@ export async function cargarModuloMiCuenta(root) {
         const nombre = root.querySelector('#cuenta-nombre').value.trim();
         const telefono = root.querySelector('#cuenta-telefono').value.trim();
         if (nombre.length < 2) throw new Error('El nombre debe tener al menos 2 caracteres.');
-        const { data, error: saveError } = await clienteSupabase.from('app_user_profiles').update({nombre_completo:nombre,telefono:telefono || null,actualizado_por:user.id,updated_at:new Date().toISOString()}).eq('user_id',user.id).select('nombre_completo').maybeSingle();
+        const { data: savedData, error: saveError } = await clienteSupabase.rpc('actualizar_mi_perfil_personal', { p_nombre: nombre, p_telefono: telefono || null });
+        const data = Array.isArray(savedData) ? savedData[0] : savedData;
         if (saveError) throw saveError;
         if (!data) throw new Error('No se guardaron cambios. Revisar la política de acceso de app_user_profiles.');
         msg.textContent = 'Datos personales guardados correctamente.';
