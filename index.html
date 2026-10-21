@@ -6,6 +6,37 @@
     <title>Centinela 2.0</title>
     <link rel="stylesheet" href="style.css">
     <style>
+        .app-header { position: sticky; top: 0; min-height: 58px; box-sizing: border-box; padding: 9px 16px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; background: rgba(25,25,25,.97); backdrop-filter: blur(12px); border-bottom: 1px solid #343434; }
+        .header-actions-left { display:flex; align-items:center; justify-content:flex-start; }
+        .header-actions-right { display:flex; align-items:center; justify-content:flex-end; gap:10px; }
+        .header-title { display:flex; align-items:center; justify-content:center; gap:9px; min-width:0; }
+        .header-title h1 { font-size:18px; letter-spacing:.2px; margin:0; white-space:nowrap; }
+        .menu-toggle { display:flex; align-items:center; justify-content:center; width:40px; height:40px; border:1px solid #3b3b3b; border-radius:9px; background:#242424; color:#fff; font-size:23px; cursor:pointer; transition:background .18s,border-color .18s; }
+        .menu-toggle:hover { background:#303030; border-color:#5b9cf5; }
+        .btn-header-inicio { width:40px; height:40px; border-radius:9px; background:#242424; border:1px solid #3b3b3b; color:#fff; font-size:19px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+        .btn-header-inicio:hover { background:#173b2a; border-color:#22c55e; }
+        #btn-logout { min-height:40px; }
+        #main-content.dashboard-grid { max-width:1180px; width:100%; box-sizing:border-box; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:16px; padding:24px clamp(14px,3vw,32px) 36px; margin:0 auto; align-content:start; }
+        #main-content .card { min-width:0; border-radius:12px; border-color:#353535; box-shadow:0 4px 14px rgba(0,0,0,.14); transition:transform .18s,border-color .18s,box-shadow .18s; }
+        #main-content .card:hover { transform:translateY(-3px); border-color:#4b6b8e; box-shadow:0 9px 22px rgba(0,0,0,.25); }
+        #main-content .card-img { height:112px; background:linear-gradient(145deg,#262626,#202020); }
+        #main-content .card-title { padding:13px 10px; min-height:18px; }
+        @media (max-width:600px) {
+            .app-header { min-height:54px; padding:7px 9px; gap:6px; }
+            .header-title { gap:5px; }
+            .header-title h1 { font-size:15px; }
+            .logo-icon { font-size:14px; }
+            .header-actions-right { gap:6px; }
+            .btn-header-inicio,.menu-toggle { width:36px; height:36px; }
+            #btn-logout { padding:8px 9px !important; min-height:36px; font-size:12px; }
+            #main-content.dashboard-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; padding:14px 10px 24px; }
+            #main-content .card-img { height:92px; }
+            #main-content .card-title { padding:10px 7px; font-size:12px; }
+        }
+        @media (min-width:1000px) { #main-content.dashboard-grid { grid-template-columns:repeat(3,minmax(0,1fr)); } }
+    </style>
+
+    <style>
         .menu-organizado { padding-bottom: 18px; }
         .menu-organizado > .menu-grupo { padding: 0; display: block; border-bottom: 1px solid rgba(255,255,255,.07); }
         .menu-organizado .menu-grupo details > summary { list-style: none; cursor: pointer; padding: 14px 12px; font-weight: 600; color: #e5e7eb; user-select: none; }
@@ -49,16 +80,19 @@
         </div>
     </section>
 
-    <!-- Barra Superior -->
+    <!-- Barra superior: navegación izquierda, marca centrada y acciones a la derecha -->
     <header class="app-header" style="display:none;">
-        <div class="header-left-group">
-            <button class="btn-header-inicio" onclick="irInicio()" title="Volver al Inicio">🏠</button>
-            <div class="header-title">
-                <span class="logo-icon">🛡️</span>
-                <h1>Centinela 2.0</h1>
-            </div>
+        <div class="header-actions-left">
+            <button class="menu-toggle" onclick="toggleMenu()" aria-label="Abrir menú" title="Menú">☰</button>
         </div>
-        <div style="display:flex;gap:8px;align-items:center;"><button id="btn-logout" onclick="cerrarSesion()" style="background:#374151;color:#fff;border:1px solid #4b5563;border-radius:6px;padding:8px 10px;cursor:pointer;">Salir</button><button class="menu-toggle" onclick="toggleMenu()">☰</button></div>
+        <div class="header-title">
+            <span class="logo-icon">🛡️</span>
+            <h1>Centinela 2.0</h1>
+        </div>
+        <div class="header-actions-right">
+            <button class="btn-header-inicio" onclick="irInicio()" title="Volver al Inicio" aria-label="Inicio">🏠</button>
+            <button id="btn-logout" onclick="cerrarSesion()" style="background:#292929;color:#fff;border:1px solid #444;border-radius:7px;padding:9px 12px;cursor:pointer;">Salir</button>
+        </div>
     </header>
 
     <!-- Menú Desplegable -->
