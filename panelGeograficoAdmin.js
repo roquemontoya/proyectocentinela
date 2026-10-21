@@ -10,6 +10,8 @@ let territorios = [];
 let puntosActuales = [];
 let recorridosControlin = [];
 let capaSimulada = null;
+let recorridoControlinSeleccionado = 0;
+let puntoControlinSeleccionado = 0;
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fecha = v => v ? new Date(v).toLocaleString('es-AR') : '—';
@@ -128,26 +130,50 @@ function generarRecorridosControlin(){
   }
   recorridosControlin=salida;
 }
-function mostrarRecorridoControlin(id){
+function mostrarRecorridoControlin(id, indicePunto=null){
   const r=recorridosControlin.find(x=>x.id===id);
   if(!r||!mapa||!capas)return;
+  recorridoControlinSeleccionado=recorridosControlin.findIndex(x=>x.id===id);
+  if(indicePunto!==null) puntoControlinSeleccionado=Math.max(0,Math.min(indicePunto,r.puntos.length-1));
+  else puntoControlinSeleccionado=Math.max(0,Math.min(puntoControlinSeleccionado,r.puntos.length-1));
   if(capaSimulada) capas.removeLayer(capaSimulada);
   capaSimulada=L.layerGroup().addTo(capas);
   const coords=r.puntos.map(p=>[p.lat,p.lng]);
   L.polyline(coords,{color:'#e879f9',weight:5,opacity:.95,dashArray:'8 7'}).bindTooltip('Controlin · RECORRIDO SIMULADO').addTo(capaSimulada);
-  r.puntos.forEach((p,i)=>L.circleMarker([p.lat,p.lng],{radius:6,color:'#fff',weight:2,fillColor:i===0?'#22c55e':i===r.puntos.length-1?'#ef4444':'#e879f9',fillOpacity:1})
+  r.puntos.forEach((p,i)=>L.circleMarker([p.lat,p.lng],{radius:i===puntoControlinSeleccionado?9:6,color:'#fff',weight:2,fillColor:i===0?'#22c55e':i===r.puntos.length-1?'#ef4444':i===puntoControlinSeleccionado?'#facc15':'#e879f9',fillOpacity:1})
     .bindTooltip((i+1)+'. '+esc(p.zona)+' · '+esc(fecha(p.hora))).addTo(capaSimulada));
   mapa.fitBounds(L.latLngBounds(coords),{padding:[30,30],maxZoom:18});
   const tabla=document.getElementById('geo-admin-eventos');
-  if(tabla)tabla.innerHTML='<div style="padding:10px;background:#3b2f14;border:1px solid #8b6b22;border-radius:7px;color:#fde68a;margin-bottom:8px">Recorrido ficticio de demostración. Se dibuja usando centros aproximados de zonas reales; no representa el trayecto GPS verdadero de una persona.</div>'+
-    '<div style="overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr><th style="text-align:left;padding:7px">Hora simulada</th><th style="text-align:left;padding:7px">Zona visitada (simulada)</th></tr></thead><tbody>'+
-    r.puntos.map(p=>'<tr><td style="padding:7px;border-top:1px solid #374151">'+esc(fecha(p.hora))+'</td><td style="padding:7px;border-top:1px solid #374151">'+esc(p.zona)+'</td></tr>').join('')+'</tbody></table></div>';
-  estado('Controlin · '+r.tipo+' del '+esc(fecha(r.fecha))+' · '+r.puntos.length+' puntos de demostración · '+r.distancia.toFixed(1)+' km estimados. No son datos reales.');
+  if(tabla){
+    const actual=r.puntos[puntoControlinSeleccionado];
+    tabla.innerHTML='<div style="padding:10px;background:#3b2f14;border:1px solid #8b6b22;border-radius:7px;color:#fde68a;margin-bottom:8px">Recorrido ficticio de demostración. Los puntos se ubican cerca de los centros de zonas reales; no representan un trayecto GPS histórico.</div>'+
+    '<div style="display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;background:#211626;border:1px solid #6b356f;border-radius:9px;padding:12px;margin-bottom:10px"><div><strong>'+esc(r.tipo)+' · '+esc(fecha(r.fecha))+'</strong><div style="font-size:12px;color:#d8b4fe;margin-top:4px">Punto '+(puntoControlinSeleccionado+1)+' de '+r.puntos.length+' · '+esc(actual.zona)+' · '+esc(fecha(actual.hora))+'</div></div><div style="font-size:22px;font-weight:bold;color:#f0abfc">'+Math.round((puntoControlinSeleccionado/(Math.max(1,r.puntos.length-1)))*100)+'%</div></div>'+
+    '<label for="geo-controlin-tiempo" style="display:block;font-size:12px;color:#c4b5fd;margin-bottom:5px">Avanzar por el recorrido</label><input id="geo-controlin-tiempo" type="range" min="0" max="'+(r.puntos.length-1)+'" step="1" value="'+puntoControlinSeleccionado+'" style="width:100%;accent-color:#e879f9;cursor:pointer"/>'+
+    '<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0 12px"><button id="geo-controlin-anterior" type="button" style="padding:8px 12px;background:#374151;color:white;border:0;border-radius:6px;cursor:pointer">◀ Anterior</button><div style="display:flex;gap:8px;align-items:center"><button id="geo-controlin-play" type="button" style="padding:8px 12px;background:#86198f;color:white;border:0;border-radius:6px;cursor:pointer">▶ Reproducir</button><button id="geo-controlin-siguiente" type="button" style="padding:8px 12px;background:#374151;color:white;border:0;border-radius:6px;cursor:pointer">Siguiente ▶</button></div></div>'+
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:7px">'+r.puntos.map((p,i)=>'<button type="button" data-controlin-punto="'+i+'" style="text-align:left;padding:8px;border-radius:6px;border:1px solid '+(i===puntoControlinSeleccionado?'#e879f9':'#374151')+';background:'+(i===puntoControlinSeleccionado?'#3b2140':'#111827')+';color:#e5e7eb;cursor:pointer"><div style="font-size:11px;color:#c4b5fd">'+esc(fecha(p.hora))+'</div><strong style="font-size:12px">'+esc(p.zona)+'</strong></button>').join('')+'</div>';
+    const slider=tabla.querySelector('#geo-controlin-tiempo');
+    slider?.addEventListener('input',e=>mostrarRecorridoControlin(id,Number(e.target.value)));
+    tabla.querySelector('#geo-controlin-anterior')?.addEventListener('click',()=>mostrarRecorridoControlin(id,puntoControlinSeleccionado-1));
+    tabla.querySelector('#geo-controlin-siguiente')?.addEventListener('click',()=>mostrarRecorridoControlin(id,puntoControlinSeleccionado+1));
+    tabla.querySelectorAll('[data-controlin-punto]').forEach(b=>b.addEventListener('click',()=>mostrarRecorridoControlin(id,Number(b.dataset.controlinPunto))));
+    tabla.querySelector('#geo-controlin-play')?.addEventListener('click',()=>{
+      let i=puntoControlinSeleccionado;
+      const avanzar=()=>{if(!document.getElementById('geo-controlin-tiempo'))return;if(i>=r.puntos.length-1){mostrarRecorridoControlin(id,0);return;}i++;mostrarRecorridoControlin(id,i);setTimeout(avanzar,900);};
+      setTimeout(avanzar,250);
+    });
+  }
+  estado('Controlin · '+r.tipo+' del '+esc(fecha(r.fecha))+' · punto '+(puntoControlinSeleccionado+1)+'/'+r.puntos.length+' · datos simulados.');
 }
 function renderListaControlin(){
   const el=document.getElementById('geo-admin-controlin'); if(!el)return;
-  el.innerHTML=recorridosControlin.length?recorridosControlin.map(r=>'<article style="padding:10px;border:1px solid #6b356f;border-radius:7px;margin:6px 0;background:#211626"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><strong>🧪 Controlin · '+esc(r.tipo)+'</strong><span style="color:#f0abfc">SIMULADO</span></div><div style="font-size:12px;color:#c4b5fd;margin:5px 0">'+esc(fecha(r.fecha))+' · '+r.puntos.length+' puntos de muestra · '+r.zonas+' zonas · '+r.distancia.toFixed(1)+' km estimados</div><button type="button" data-controlin="'+esc(r.id)+'" style="padding:7px 10px;background:#86198f;color:#fff;border:0;border-radius:5px;cursor:pointer">Ver recorrido en el mapa</button></article>').join(''):'<p style="color:#9ca3af">No hay suficientes zonas con geometría para dibujar recorridos de demostración. Dibujá/activá al menos dos zonas en el editor.</p>';
+  el.innerHTML=recorridosControlin.length?'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0"><label for="geo-controlin-dia">Elegir jornada</label><input id="geo-controlin-dia" type="date" value="2026-10-01" min="2026-10-01" max="2026-10-31" style="padding:8px;border-radius:6px;background:#111827;color:white;border:1px solid #6b356f"><button id="geo-controlin-ir" type="button" style="padding:8px 12px;background:#86198f;color:white;border:0;border-radius:6px">Ir al día</button></div>'+recorridosControlin.map(r=>'<article style="padding:10px;border:1px solid #6b356f;border-radius:7px;margin:6px 0;background:#211626"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><strong>🧪 Controlin · '+esc(r.tipo)+'</strong><span style="color:#f0abfc">SIMULADO</span></div><div style="font-size:12px;color:#c4b5fd;margin:5px 0">'+esc(fecha(r.fecha))+' · '+r.puntos.length+' puntos de muestra · '+r.zonas+' zonas · '+r.distancia.toFixed(1)+' km estimados</div><button type="button" data-controlin="'+esc(r.id)+'" style="padding:7px 10px;background:#86198f;color:#fff;border:0;border-radius:5px;cursor:pointer">Ver recorrido en el mapa</button></article>').join(''):'<p style="color:#9ca3af">No hay suficientes zonas con geometría para dibujar recorridos de demostración. Dibujá/activá al menos dos zonas en el editor.</p>';
   el.querySelectorAll('[data-controlin]').forEach(b=>b.addEventListener('click',()=>mostrarRecorridoControlin(b.dataset.controlin)));
+  el.querySelector('#geo-controlin-ir')?.addEventListener('click',()=>{
+    const valor=el.querySelector('#geo-controlin-dia')?.value;
+    const fechaBuscada=valor?new Date(valor+'T12:00:00'):null;
+    const r=recorridosControlin.find(x=>fechaBuscada&&x.fecha.getFullYear()===fechaBuscada.getFullYear()&&x.fecha.getMonth()===fechaBuscada.getMonth()&&x.fecha.getDate()===fechaBuscada.getDate());
+    if(r)mostrarRecorridoControlin(r.id,0);else estado('Ese día es franco o no tiene recorrido simulado.',true);
+  });
 }
 function renderLista(){
   const el=document.getElementById('geo-admin-recorridos'); if(!el)return;
