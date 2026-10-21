@@ -114,7 +114,7 @@ export function cargarModuloGestorTablas(contenedor) {
                 }
                 const esId = col === 'id';
                 html += `<td style="padding: 6px; border: 1px solid #444;">
-                    <input type="text" data-col="${col}" value="${valor !== null ? encodeURI(String(valor)) : ''}" ${esId ? 'disabled' : ''} 
+                    <input type="text" data-col="${col}" value="${valor !== null ? String(valor).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : ''}" ${esId ? 'disabled' : ''} 
                     style="background: ${esId ? '#151515' : '#252525'}; border: 1px solid #444; color: ${esId ? '#38bdf8' : '#fff'}; padding: 4px; border-radius: 3px; width: 150px;">
                 </td>`;
             });
@@ -139,8 +139,8 @@ export function cargarModuloGestorTablas(contenedor) {
                 inputs.forEach(input => {
                     const col = input.getAttribute('data-col');
                     if (col !== 'id') {
-                        let valDecodificado = decodeURI(input.value);
-                        objetoActualizacion[col] = valDecodificado === '' ? null : valDecodificado;
+                        const valorIngresado = input.value;
+                        objetoActualizacion[col] = valorIngresado === '' ? null : valorIngresado;
                     }
                 });
 
