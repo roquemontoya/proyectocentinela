@@ -298,11 +298,11 @@ window.marcarRecibidoPulmon = async function(dbId, etiqueta) {
         if (errorReserva || !reserva) throw new Error(errorReserva?.message || 'Otro movimiento ocupó el alvéolo elegido. Volvé a intentar.');
 
         alveoloReservado = libre;
-        const { error: errorEstado } = await clienteSupabase
+        const { data: equipoActualizado, error: errorEstado } = await clienteSupabase
             .from('Extintores')
             .update({ PRP:'En Pulmon', UBICACION:libre.codigo, alveolo_id:libre.id })
-            .eq('id', dbId).ilike('PRP','%recarga%');
-        if (errorEstado) throw new Error('No se pudo actualizar el inventario: ' + errorEstado.message);
+            .eq('id', dbId).ilike('PRP','%recarga%').select('id').maybeSingle();
+        if (errorEstado || !equipoActualizado) throw new Error(errorEstado?.message || 'El equipo ya no estaba En Recarga; se canceló la recepción.');
 
         alert(`Recepción registrada: ${etiqueta} volvió de Vertoles y quedó asignado al alvéolo ${libre.codigo} del Pulmón.`);
         window.cargarModulo('pulmon');
