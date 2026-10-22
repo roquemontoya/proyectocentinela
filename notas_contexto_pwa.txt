@@ -1,0 +1,25 @@
+Este archivo contendrá información clave para continuar charlas o transferir contexto a otra IA.
+
+- PWA (Aplicación Web Progresiva):
+  - Cómo funciona: Es una aplicación web que se comporta como una app nativa, puede funcionar offline, permite instalación en dispositivos, y es accesible vía navegador.
+  - Relaciones: Integra frontend (HTML/CSS/JS), backend (en este caso Supabase), y servicios (Vercel para despliegues).
+  - Estado actual: Centinela es una PWA con módulos de inspección, mapas, reportes, y autenticación vía Supabase.
+
+- Contexto del Proyecto Centinela:
+  - Objetivo: Gestión de inspecciones y control de seguridad industrial (extintores, hidrantes, etc.).
+  - Datos clave: CSV inicial de extintores (1400+ registros), integrados en Supabase.
+  - Dos ramas: `main` (producción) y `easter-egg-startrek` (tema visual LCARS).
+  - Importante: Mantener siempre integridad de permisos (RLS) y seguridad en Supabase.
+
+- Transición a otra IA:
+  - Debe conocer el estado actual (último commit en `main`, qué módulo se está desarrollando).
+  - Qué problema estamos resolviendo o qué funcionalidad estamos ampliando.
+  - Si hay pruebas o despliegues en Vercel, saber cuál es la versión activa.
+  - Recordar que el diseño LCARS es un cambio visual y no afecta la lógica del proyecto.
+
+- Pendiente en este momento:
+  - Ajustes al módulo Pulmón.
+  - Revisión de permisos RLS tras ajustes en `main`.
+  - Posible migración de alguna funcionalidad a entorno corporativo Microsoft.
+
+Este archivo debe ser actualizado conforme avancemos.
