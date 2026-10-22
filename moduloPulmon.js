@@ -79,8 +79,21 @@ export async function cargarModuloPulmon(contenedor) {
             const esRegistroPrueba = String(ext.Novedades || '').toUpperCase().includes('SUEÑOS Y ESPERANZAS') || String(ext.Referencia || '').includes('TEST CENTINELA');
             const textoBusqueda = `${etiqueta} ${tipo} ${vencimiento} ${prp} ${ext.Novedades || ''} ${ext.Referencia || ''}`.toLowerCase();
 
-            // Botón dinámico según el estado PRP
+            // Vigencia calculada para decidir si el equipo debe rotar a línea o ir directamente a recarga.
+            const diasRestantes = diasHastaVencimientoPulmon(vencimiento);
+            const estaEnPulmon = /pulm[oó]n/i.test(prp);
+            const requiereRecarga = diasRestantes !== null && diasRestantes <= 30;
+
+            // Botón dinámico según estado y vencimiento.
             let botonAccion = '';
+            if (estaEnPulmon && requiereRecarga) {
+                botonAccion += `
+                    <button onclick="window.enviarPulmonARecarga('${ext.id}', '${String(etiqueta).replace(/'/g, "\\'")}')" style="background: #f59e0b; color: #111; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px; margin-right: 5px;">📤 Enviar a recarga</button>
+                `;
+            }
+            if (estaEnPulmon && diasRestantes === null) {
+                botonAccion += `<span title="No se pudo interpretar el vencimiento; revisar antes de asignar" style="display:inline-block;background:#7f1d1d;color:#fee2e2;padding:5px 7px;border-radius:4px;font-size:11px;margin-right:5px;">⚠️ Revisar fecha</span>`;
+            }
             if (prp.toLowerCase().includes('recarga')) {
                 // Si está en recarga, el botón permite registrar que el proveedor lo devolvió al pulmón
                 botonAccion = `
@@ -92,7 +105,9 @@ export async function cargarModuloPulmon(contenedor) {
                 <tr class="fila-pulmon" data-texto="${textoBusqueda}" style="border-bottom: 1px solid #333; transition: background 0.2s;">
                     <td style="padding: 14px; font-weight: bold;">${etiqueta}${esRegistroPrueba ? '<small style="display:block;color:#fbbf24;margin-top:5px;font-weight:normal;">🧪 DATOS FICTICIOS DE PRUEBA</small>' : ''}</td>
                     <td style="padding: 14px; color: #38bdf8;">${tipo}</td>
-                    <td style="padding: 14px; color: #ccc;">${vencimiento}</td>
+                    <td style="padding: 14px; color: #ccc;">${vencimiento}
+                        ${estaEnPulmon && diasRestantes !== null ? `<small style="display:block;margin-top:4px;color:${diasRestantes <= 30 ? '#fbbf24' : '#86efac'}">${diasRestantes < 0 ? 'Vencido' : diasRestantes === 0 ? 'Vence hoy' : diasRestantes + ' días restantes'}${requiereRecarga ? ' · Prioridad de recarga' : ''}</small>` : ''}
+                    </td>
                     <td style="padding: 14px;">
                         <span style="background: ${colorPrp}; color: #000; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold;">${prp.toUpperCase()}</span>
                     </td>
@@ -190,6 +205,66 @@ export async function cargarModuloPulmon(contenedor) {
         });
     }
 }
+
+// Devuelve días hasta el vencimiento; MM/AA y AAAA-MM se interpretan como fin de mes.
+function diasHastaVencimientoPulmon(valor) {
+    if (!valor) return null;
+    const s = String(valor).trim();
+    let fecha = null;
+    let m = s.match(/^(\\d{4})-(\\d{1,2})(?:-(\\d{1,2}))?$/);
+    if (m) {
+        const anio = Number(m[1]), mes = Number(m[2]);
+        const dia = m[3] ? Number(m[3]) : new Date(anio, mes, 0).getDate();
+        fecha = new Date(anio, mes - 1, dia);
+    } else if ((m = s.match(/^(\\d{1,2})[\\/\\-](\\d{2,4})$/))) {
+        const mes = Number(m[1]); let anio = Number(m[2]);
+        if (anio < 100) anio += 2000;
+        if (mes < 1 || mes > 12) return null;
+        fecha = new Date(anio, mes, 0);
+    } else if ((m = s.match(/^([a-záéíóú]{3})[\\s\\-/]+(\\d{2,4})$/i))) {
+        const meses = {ene:0,feb:1,mar:2,abr:3,may:4,jun:5,jul:6,ago:7,sep:8,oct:9,nov:10,dic:11};
+        const nombre = m[1].normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase();
+        let anio = Number(m[2]); if (anio < 100) anio += 2000;
+        if (meses[nombre] === undefined) return null;
+        fecha = new Date(anio, meses[nombre] + 1, 0);
+    } else {
+        const parsed = new Date(s);
+        if (!Number.isNaN(parsed.getTime())) fecha = parsed;
+    }
+    if (!fecha || Number.isNaN(fecha.getTime())) return null;
+    fecha.setHours(0,0,0,0);
+    const hoy = new Date(); hoy.setHours(0,0,0,0);
+    return Math.floor((fecha.getTime() - hoy.getTime()) / 86400000);
+}
+
+window.enviarPulmonARecarga = async function(dbId, etiqueta) {
+    if (!confirm(`El extintor "${etiqueta}" está vencido o le quedan 30 días o menos. ¿Confirmás enviarlo a recarga y retirarlo del stock disponible?`)) return;
+    try {
+        const { data: equipo, error: errorEquipo } = await clienteSupabase
+            .from('Extintores').select('id,PRP,alveolo_id').eq('id', dbId).maybeSingle();
+        if (errorEquipo || !equipo) throw new Error(errorEquipo?.message || 'No se encontró el extintor.');
+        if (!/pulm[oó]n/i.test(String(equipo.PRP || ''))) throw new Error('El equipo ya no figura en el Pulmón; actualizá la vista antes de continuar.');
+
+        const ahora = new Date().toISOString();
+        const { error: errorEstado } = await clienteSupabase.from('Extintores')
+            .update({ PRP: 'En Recarga', UBICACION: 'EN RECARGA', alveolo_id: null })
+            .eq('id', dbId).in('PRP', ['En Pulmon', 'En Pulmón']);
+        if (errorEstado) throw new Error(errorEstado.message);
+
+        if (equipo.alveolo_id) {
+            const { error: errorAlveolo } = await clienteSupabase.from('pulmon_alveolos')
+                .update({ estado: 'Libre', activo_extintor_id: null, actualizado_en: ahora })
+                .eq('id', equipo.alveolo_id).eq('activo_extintor_id', Number(dbId));
+            if (errorAlveolo) {
+                throw new Error('El equipo quedó marcado En Recarga, pero no se pudo liberar su alvéolo. Revisá el inventario antes de repetir la operación: ' + errorAlveolo.message);
+            }
+        }
+        alert(`Se registró ${etiqueta} como En Recarga y dejó de estar disponible para reemplazos. Registrá el envío físico a Vertoles según el procedimiento de planta.`);
+        window.cargarModulo('pulmon');
+    } catch (err) {
+        alert('No se pudo registrar el envío a recarga: ' + err.message);
+    }
+};
 
 // ==========================================
 // FUNCIÓN INVERSA: El proveedor trae el extintor recargado
