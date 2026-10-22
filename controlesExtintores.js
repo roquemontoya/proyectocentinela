@@ -138,14 +138,13 @@ function fechaISOParaInput(valor) {
 }
 
 function normalizarTipoRecambio(valor) {
-    const t = String(valor || '').normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase().trim();
+    const t = String(valor || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
     if (t.includes('pqs') || t.includes('polvo')) return 'PQS';
     if (t.includes('halon')) return 'HALON';
     if (t.includes('co2') || t.includes('carbono')) return 'CO2';
     if (t === 'k' || t.includes('tipo k') || t.includes('acetato')) return 'K';
     return 'DESCONOCIDO';
 }
-
 function fechaVencimientoRecambio(valor) {
     if (!valor) return null;
     const s = String(valor).trim();
