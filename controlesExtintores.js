@@ -137,30 +137,75 @@ function fechaISOParaInput(valor) {
     return Number.isNaN(d.getTime()) ? '' : `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
+function normalizarTipoRecambio(valor) {
+    const t = String(valor || '').normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase().trim();
+    if (t.includes('pqs') || t.includes('polvo')) return 'PQS';
+    if (t.includes('halon')) return 'HALON';
+    if (t.includes('co2') || t.includes('carbono')) return 'CO2';
+    if (t === 'k' || t.includes('tipo k') || t.includes('acetato')) return 'K';
+    return 'DESCONOCIDO';
+}
+
+function fechaVencimientoRecambio(valor) {
+    if (!valor) return null;
+    const s = String(valor).trim();
+    let m = s.match(/^(\\d{4})-(\\d{1,2})(?:-\\d{1,2})?$/);
+    if (m) return new Date(Number(m[1]), Number(m[2]) - 1, 1).getTime();
+    m = s.match(/^(\\d{1,2})[\\/\\-](\\d{2,4})$/);
+    if (m) {
+        let y = Number(m[2]); if (y < 100) y += 2000;
+        return new Date(y, Number(m[1]) - 1, 1).getTime();
+    }
+    m = s.match(/^([a-záéíóú]{3})[\\s\\-/]+(\\d{2,4})$/i);
+    if (m) {
+        const meses = {ene:0,feb:1,mar:2,abr:3,may:4,jun:5,jul:6,ago:7,sep:8,oct:9,nov:10,dic:11};
+        const mes = m[1].normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase();
+        let y = Number(m[2]); if (y < 100) y += 2000;
+        if (meses[mes] !== undefined) return new Date(y, meses[mes], 1).getTime();
+    }
+    const d = new Date(s);
+    return Number.isNaN(d.getTime()) ? null : new Date(d.getFullYear(), d.getMonth(), 1).getTime();
+}
+
 function crearOpcionesReemplazo(tipoOriginal) {
     const escapar = valor => String(valor ?? '').replace(/[&<>"']/g, c => ({
         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
     }[c]));
-    const tipo = String(tipoOriginal || '').toLowerCase();
-    const compatibles = inventarioPulmon.filter(item => {
-        const tipoReserva = String(item.TIPO || item.TipoExtintor || item['Tipo de Extintor'] || '').toLowerCase();
-        if (tipo.includes('pqs') || tipo.includes('polvo')) {
-            return tipoReserva.includes('pqs') || tipoReserva.includes('polvo') || tipoReserva.includes('co2') || tipoReserva.includes('carbono');
-        }
-        if (tipo.includes('co2') || tipo.includes('carbono')) return tipoReserva.includes('co2') || tipoReserva.includes('carbono') || tipoReserva.includes('pqs') || tipoReserva.includes('polvo');
-        if (tipo.includes('halon') || tipo.includes('halón')) return tipoReserva.includes('halon') || tipoReserva.includes('halón');
-        if (tipo === 'k' || tipo.includes('tipo k') || tipo.includes('acetato')) {
-            return tipoReserva === 'k' || tipoReserva.includes('tipo k') || tipoReserva.includes('acetato');
-        }
-        return true;
-    });
+    const tipoTitular = normalizarTipoRecambio(tipoOriginal);
+    // Matriz autorizada por operación:
+    // PQS -> PQS / HALON / CO2; HALON -> HALON; CO2 -> CO2 / HALON; K -> K.
+    const permitidos = {
+        PQS: new Set(['PQS', 'HALON', 'CO2']),
+        HALON: new Set(['HALON']),
+        CO2: new Set(['CO2', 'HALON']),
+        K: new Set(['K'])
+    }[tipoTitular] || new Set();
+
+    const compatibles = inventarioPulmon
+        .filter(item => {
+            const prp = String(item.PRP || '').toLowerCase();
+            const tipoReserva = normalizarTipoRecambio(item.TIPO || item.TipoExtintor || item['Tipo de Extintor']);
+            return (prp.includes('pulmon') || prp.includes('pulmón'))
+                && permitidos.has(tipoReserva);
+        })
+        .map(item => ({ item, vencimiento: fechaVencimientoRecambio(item.Vencimiento || item.vencimiento) }))
+        // Primero los que vencen antes para favorecer rotación; sin fecha válida van al final.
+        .sort((a, b) => {
+            if (a.vencimiento === null && b.vencimiento === null) return String(a.item.ETIQUETA || a.item.id).localeCompare(String(b.item.ETIQUETA || b.item.id), 'es');
+            if (a.vencimiento === null) return 1;
+            if (b.vencimiento === null) return -1;
+            return a.vencimiento - b.vencimiento;
+        })
+        .slice(0, 10);
+
     if (!compatibles.length) {
-        return '<option value="">No hay extintores compatibles disponibles en el pulmón</option>';
+        return '<option value="">No hay reemplazos compatibles disponibles en Pulmón</option>';
     }
-    return '<option value="">Seleccione un extintor de reserva...</option>' + compatibles.map(item => {
+    return '<option value="">Elegí entre hasta 10 reemplazos compatibles (ordenados por vencimiento)…</option>' + compatibles.map(({item}) => {
         const etiqueta = item.ETIQUETA || item.Etiquetas || item.etiquetas || item.NombreEtiqueta || item.NombreDeEtiqueta || `ID ${item.id}`;
         const tipoReserva = item.TIPO || item.TipoExtintor || item['Tipo de Extintor'] || 'Tipo sin especificar';
-        return `<option value="${escapar(item.id)}">${escapar(etiqueta)} — ${escapar(tipoReserva)} (Venc.: ${escapar(item.Vencimiento || 'N/D')})</option>`;
+        const vencimiento = item.Vencimiento || item.vencimiento || 'Sin fecha';
+        return `<option value="${escapar(item.id)}">${escapar(etiqueta)} — ${escapar(tipoReserva)} · Vence: ${escapar(vencimiento)}</option>`;
     }).join('');
 }
 
