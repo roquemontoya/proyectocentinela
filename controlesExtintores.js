@@ -149,22 +149,41 @@ function normalizarTipoRecambio(valor) {
 function fechaVencimientoRecambio(valor) {
     if (!valor) return null;
     const s = String(valor).trim();
-    let m = s.match(/^(\\d{4})-(\\d{1,2})(?:-\\d{1,2})?$/);
-    if (m) return new Date(Number(m[1]), Number(m[2]) - 1, 1).getTime();
+    let anio, mes, dia;
+    // Los vencimientos expresados como MM/AA o AAAA-MM representan el mes completo:
+    // se toma el último día de ese mes para calcular la vigencia real.
+    let m = s.match(/^(\\d{4})-(\\d{1,2})(?:-(\\d{1,2}))?$/);
+    if (m) {
+        anio = Number(m[1]); mes = Number(m[2]);
+        dia = m[3] ? Number(m[3]) : new Date(anio, mes, 0).getDate();
+        const d = new Date(anio, mes - 1, dia);
+        return Number.isNaN(d.getTime()) ? null : d.getTime();
+    }
     m = s.match(/^(\\d{1,2})[\\/\\-](\\d{2,4})$/);
     if (m) {
-        let y = Number(m[2]); if (y < 100) y += 2000;
-        return new Date(y, Number(m[1]) - 1, 1).getTime();
+        mes = Number(m[1]); anio = Number(m[2]);
+        if (anio < 100) anio += 2000;
+        if (mes < 1 || mes > 12) return null;
+        return new Date(anio, mes, 0).getTime();
     }
     m = s.match(/^([a-záéíóú]{3})[\\s\\-/]+(\\d{2,4})$/i);
     if (m) {
         const meses = {ene:0,feb:1,mar:2,abr:3,may:4,jun:5,jul:6,ago:7,sep:8,oct:9,nov:10,dic:11};
-        const mes = m[1].normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase();
-        let y = Number(m[2]); if (y < 100) y += 2000;
-        if (meses[mes] !== undefined) return new Date(y, meses[mes], 1).getTime();
+        const nombreMes = m[1].normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase();
+        anio = Number(m[2]); if (anio < 100) anio += 2000;
+        if (meses[nombreMes] === undefined) return null;
+        return new Date(anio, meses[nombreMes] + 1, 0).getTime();
     }
     const d = new Date(s);
-    return Number.isNaN(d.getTime()) ? null : new Date(d.getFullYear(), d.getMonth(), 1).getTime();
+    return Number.isNaN(d.getTime()) ? null : new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+}
+
+function diasHastaVencimientoRecambio(valor) {
+    const fecha = fechaVencimientoRecambio(valor);
+    if (fecha === null) return null;
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    return Math.floor((fecha - hoy.getTime()) / 86400000);
 }
 
 function crearOpcionesReemplazo(tipoOriginal) {
@@ -185,21 +204,22 @@ function crearOpcionesReemplazo(tipoOriginal) {
         .filter(item => {
             const prp = String(item.PRP || '').toLowerCase();
             const tipoReserva = normalizarTipoRecambio(item.TIPO || item.TipoExtintor || item['Tipo de Extintor']);
+            const vencimiento = item.Vencimiento || item.vencimiento;
+            const diasRestantes = diasHastaVencimientoRecambio(vencimiento);
+            // Seguridad operativa: no asignar a la línea equipos vencidos, con 30 días o menos,
+            // ni equipos cuya fecha de vencimiento no pueda verificarse.
             return (prp.includes('pulmon') || prp.includes('pulmón'))
-                && permitidos.has(tipoReserva);
+                && permitidos.has(tipoReserva)
+                && diasRestantes !== null
+                && diasRestantes > 30;
         })
         .map(item => ({ item, vencimiento: fechaVencimientoRecambio(item.Vencimiento || item.vencimiento) }))
-        // Primero los que vencen antes para favorecer rotación; sin fecha válida van al final.
-        .sort((a, b) => {
-            if (a.vencimiento === null && b.vencimiento === null) return String(a.item.ETIQUETA || a.item.id).localeCompare(String(b.item.ETIQUETA || b.item.id), 'es');
-            if (a.vencimiento === null) return 1;
-            if (b.vencimiento === null) return -1;
-            return a.vencimiento - b.vencimiento;
-        })
+        // Rotación FIFO por vencimiento: el más próximo a vencer que aún tenga más de 30 días primero.
+        .sort((a, b) => a.vencimiento - b.vencimiento)
         .slice(0, 10);
 
     if (!compatibles.length) {
-        return '<option value="">No hay reemplazos compatibles disponibles en Pulmón</option>';
+        return '<option value="">No hay reemplazos compatibles con más de 30 días de vigencia</option>';
     }
     return '<option value="">Elegí entre hasta 10 reemplazos compatibles (ordenados por vencimiento)…</option>' + compatibles.map(({item}) => {
         const etiqueta = item.ETIQUETA || item.Etiquetas || item.etiquetas || item.NombreEtiqueta || item.NombreDeEtiqueta || `ID ${item.id}`;
@@ -268,6 +288,7 @@ function renderizarFormularioExtintorHTML(leu, attrs, estadoSugerido, reemplazoA
                     ${crearOpcionesReemplazo(tipo)}
                 </select>
                 <small style="display:block;color:#fca5a5;margin-top:7px;">El titular conserva su tipo y su historial. El provisorio queda bloqueado en el stock hasta registrar su devolución.</small>
+                <small style="display:block;color:#fde68a;margin-top:6px;">Regla de rotación: solo se ofrecen equipos compatibles con fecha válida y más de 30 días hasta el vencimiento. Los vencidos, los que vencen dentro de 30 días y los que no tienen fecha interpretable quedan excluidos para enviarlos directamente a recarga o revisar sus datos.</small>
             </div>
 
             <label style="display:block;font-size:13px;margin-bottom:5px;">Tipo del extintor titular (no el provisorio):</label>
