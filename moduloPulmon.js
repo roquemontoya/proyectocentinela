@@ -211,19 +211,20 @@ function diasHastaVencimientoPulmon(valor) {
     if (!valor) return null;
     const s = String(valor).trim();
     let fecha = null;
-    let m = s.match(/^(\\d{4})-(\\d{1,2})(?:-(\\d{1,2}))?$/);
+    let m = s.match(/^(\d{4})-(\d{1,2})(?:-(\d{1,2}))?$/);
     if (m) {
         const anio = Number(m[1]), mes = Number(m[2]);
+        if (mes < 1 || mes > 12) return null;
         const dia = m[3] ? Number(m[3]) : new Date(anio, mes, 0).getDate();
         fecha = new Date(anio, mes - 1, dia);
-    } else if ((m = s.match(/^(\\d{1,2})[\\/\\-](\\d{2,4})$/))) {
+    } else if ((m = s.match(/^(\d{1,2})[\/\-](\d{2,4})$/))) {
         const mes = Number(m[1]); let anio = Number(m[2]);
         if (anio < 100) anio += 2000;
         if (mes < 1 || mes > 12) return null;
         fecha = new Date(anio, mes, 0);
-    } else if ((m = s.match(/^([a-záéíóú]{3})[\\s\\-/]+(\\d{2,4})$/i))) {
+    } else if ((m = s.match(/^([a-z]{3})[\s\-\/]+(\d{2,4})$/i))) {
         const meses = {ene:0,feb:1,mar:2,abr:3,may:4,jun:5,jul:6,ago:7,sep:8,oct:9,nov:10,dic:11};
-        const nombre = m[1].normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase();
+        const nombre = m[1].toLowerCase();
         let anio = Number(m[2]); if (anio < 100) anio += 2000;
         if (meses[nombre] === undefined) return null;
         fecha = new Date(anio, meses[nombre] + 1, 0);
@@ -236,7 +237,6 @@ function diasHastaVencimientoPulmon(valor) {
     const hoy = new Date(); hoy.setHours(0,0,0,0);
     return Math.floor((fecha.getTime() - hoy.getTime()) / 86400000);
 }
-
 window.enviarPulmonARecarga = async function(dbId, etiqueta) {
     if (!confirm(`El extintor "${etiqueta}" está vencido o le quedan 30 días o menos. ¿Confirmás enviarlo a recarga y retirarlo del stock disponible?`)) return;
     try {
