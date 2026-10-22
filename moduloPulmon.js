@@ -326,74 +326,32 @@ window.registrarDevolucionReemplazo = async function(id) {
     const estadoTitular = document.getElementById(`estado-titular-${id}`)?.value || '';
     const estadoProvisorio = document.getElementById(`estado-provisorio-${id}`)?.value || '';
     const observaciones = document.getElementById(`obs-devolucion-${id}`)?.value || '';
-    if (!bombero) { alert('Seleccioná el bombero que devuelve el provisorio.'); return; }
+
+    if (!bombero) {
+        alert('Seleccioná el bombero que devuelve el provisorio.');
+        return;
+    }
     if (!confirm('¿Confirmás la devolución del provisorio al Pulmón? Se registrará el movimiento y se actualizará su estado de inventario.')) return;
 
     try {
-        const { data: ciclo, error: errorCiclo } = await clienteSupabase
-            .from('reemplazos_temporales_extintores')
-            .select('*').eq('id', id).eq('estado','Activo').single();
-        if (errorCiclo || !ciclo) throw new Error(errorCiclo?.message || 'El reemplazo ya no está activo.');
-        if (!ciclo.inventario_reemplazo_id) throw new Error('Este ciclo no tiene asociado un ID de inventario Pulmón; no se puede liberar automáticamente.');
+        // Una sola RPC de base de datos hace toda la devolución en una transacción:
+        // reserva el alvéolo, actualiza el stock, registra el movimiento y cierra el ciclo.
+        const { data, error } = await clienteSupabase.rpc('registrar_devolucion_reemplazo_pulmon', {
+            p_ciclo_id: Number(id),
+            p_bombero: bombero,
+            p_estado_titular: estadoTitular,
+            p_estado_reemplazo: estadoProvisorio,
+            p_observaciones: observaciones || null
+        });
+        if (error) throw new Error(error.message || 'La base de datos rechazó la devolución.');
+        if (!data?.ok) throw new Error('La base de datos no confirmó la devolución.');
 
-        const ahora = new Date().toISOString();
-        const { error: errorMovimiento } = await clienteSupabase
-            .from('movimientos_reemplazos_extintores')
-            .insert({
-                reemplazo_id: ciclo.id,
-                tipo_movimiento: 'Devolucion',
-                activo_titular_id: ciclo.activo_titular_id,
-                inventario_reemplazo_id: ciclo.inventario_reemplazo_id,
-                bombero,
-                fecha_hora: ahora,
-                estado_titular: estadoTitular,
-                estado_reemplazo: estadoProvisorio,
-                observaciones: observaciones || null
-            });
-        if (errorMovimiento) throw new Error('No se registró el movimiento de devolución: ' + errorMovimiento.message);
-
-        const prpNuevo = estadoProvisorio === 'Operativo' ? 'En Pulmon' : estadoProvisorio === 'A recarga' ? 'En Recarga' : 'Fuera de servicio';
-        const { error: errorStock } = await clienteSupabase
-            .from('Extintores').update({ PRP: prpNuevo })
-            .eq('id', ciclo.inventario_reemplazo_id).eq('PRP','Instalado como provisorio');
-        if (errorStock) throw new Error('Movimiento guardado, pero no se pudo actualizar el inventario: ' + errorStock.message);
-
-        // Si el extintor vuelve operativo, asignarlo al primer alvéolo libre.
-        if (prpNuevo === 'En Pulmon') {
-            const { data: libre, error: errorLibre } = await clienteSupabase
-                .from('pulmon_alveolos').select('id,codigo').eq('estado','Libre').is('activo_extintor_id',null).order('id').limit(1).maybeSingle();
-            if (errorLibre) throw new Error('El extintor volvió al stock, pero no se pudo buscar un alvéolo libre: ' + errorLibre.message);
-            if (!libre) throw new Error('El extintor volvió al stock, pero no quedan alvéolos libres. Hay que asignar una ubicación antes de continuar.');
-            const { error: errorAsignacion } = await clienteSupabase.from('Extintores')
-                .update({ alveolo_id: libre.id, UBICACION: libre.codigo })
-                .eq('id', ciclo.inventario_reemplazo_id);
-            if (errorAsignacion) throw new Error('No se pudo asignar ubicación al extintor devuelto: ' + errorAsignacion.message);
-            const { error: errorOcupar } = await clienteSupabase.from('pulmon_alveolos')
-                .update({ estado:'Ocupado', activo_extintor_id:Number(ciclo.inventario_reemplazo_id), actualizado_en:ahora })
-                .eq('id',libre.id).eq('estado','Libre');
-            if (errorOcupar) throw new Error('El extintor fue asignado pero no se pudo marcar el alvéolo como ocupado: ' + errorOcupar.message);
-        } else {
-            // En recarga o fuera de servicio no ocupa un alvéolo de stock disponible.
-            await clienteSupabase.from('Extintores').update({ alveolo_id:null, UBICACION: prpNuevo === 'En Recarga' ? 'EN RECARGA' : 'FUERA DE SERVICIO' }).eq('id', ciclo.inventario_reemplazo_id);
-        }
-
-        const { error: errorCerrar } = await clienteSupabase
-            .from('reemplazos_temporales_extintores')
-            .update({
-                estado: 'Finalizado',
-                fecha_fin: ahora.slice(0,10),
-                fecha_hora_fin: ahora,
-                responsable_fin: bombero,
-                bombero_devuelve_reemplazo_id: bombero,
-                actualizado_en: ahora,
-                observaciones: [ciclo.observaciones, observaciones].filter(Boolean).join(' | ') || null
-            })
-            .eq('id', ciclo.id).eq('estado','Activo');
-        if (errorCerrar) throw new Error('El stock fue actualizado, pero no se pudo cerrar el ciclo: ' + errorCerrar.message);
-
-        alert('Devolución registrada. El provisorio volvió al estado de inventario correspondiente.');
+        const destino = data.estado === 'En Pulmon'
+            ? `Pulmón, alvéolo ${data.alveolo_codigo || data.alveolo_id}`
+            : data.estado;
+        alert(`Devolución registrada correctamente. El provisorio quedó en: ${destino}. El movimiento y el cierre del ciclo se guardaron juntos.`);
         window.cargarModulo('pulmon');
     } catch (err) {
-        alert('No se pudo completar la devolución: ' + err.message + '. Verificá el ciclo y el inventario antes de repetir la operación.');
+        alert('No se completó la devolución. La operación se revirtió y no debe repetirse sin revisar el mensaje: ' + (err.message || err));
     }
 };
