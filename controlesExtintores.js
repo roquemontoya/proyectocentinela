@@ -150,26 +150,26 @@ function fechaVencimientoRecambio(valor) {
     if (!valor) return null;
     const s = String(valor).trim();
     let anio, mes, dia;
-    // Los vencimientos expresados como MM/AA o AAAA-MM representan el mes completo:
-    // se toma el último día de ese mes para calcular la vigencia real.
-    let m = s.match(/^(\\d{4})-(\\d{1,2})(?:-(\\d{1,2}))?$/);
+    // MM/AA y AAAA-MM representan el mes completo: usamos el último día del mes.
+    let m = s.match(/^(\d{4})-(\d{1,2})(?:-(\d{1,2}))?$/);
     if (m) {
         anio = Number(m[1]); mes = Number(m[2]);
+        if (mes < 1 || mes > 12) return null;
         dia = m[3] ? Number(m[3]) : new Date(anio, mes, 0).getDate();
         const d = new Date(anio, mes - 1, dia);
         return Number.isNaN(d.getTime()) ? null : d.getTime();
     }
-    m = s.match(/^(\\d{1,2})[\\/\\-](\\d{2,4})$/);
+    m = s.match(/^(\d{1,2})[\/\-](\d{2,4})$/);
     if (m) {
         mes = Number(m[1]); anio = Number(m[2]);
         if (anio < 100) anio += 2000;
         if (mes < 1 || mes > 12) return null;
         return new Date(anio, mes, 0).getTime();
     }
-    m = s.match(/^([a-záéíóú]{3})[\\s\\-/]+(\\d{2,4})$/i);
+    m = s.match(/^([a-záéíóú]{3})[\s\-\/]+(\d{2,4})$/i);
     if (m) {
         const meses = {ene:0,feb:1,mar:2,abr:3,may:4,jun:5,jul:6,ago:7,sep:8,oct:9,nov:10,dic:11};
-        const nombreMes = m[1].normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase();
+        const nombreMes = m[1].normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
         anio = Number(m[2]); if (anio < 100) anio += 2000;
         if (meses[nombreMes] === undefined) return null;
         return new Date(anio, meses[nombreMes] + 1, 0).getTime();
@@ -177,7 +177,6 @@ function fechaVencimientoRecambio(valor) {
     const d = new Date(s);
     return Number.isNaN(d.getTime()) ? null : new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
 }
-
 function diasHastaVencimientoRecambio(valor) {
     const fecha = fechaVencimientoRecambio(valor);
     if (fecha === null) return null;
