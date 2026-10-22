@@ -22,4 +22,10 @@ Este archivo contendrá información clave para continuar charlas o transferir c
   - Revisión de permisos RLS tras ajustes en `main`.
   - Posible migración de alguna funcionalidad a entorno corporativo Microsoft.
 
+- Reglas de recambio de extintores en Pulmón:
+  - PQS: reemplazable por PQS, Halon o CO2.
+  - Halon: solo se reemplaza por Halon.
+  - CO2: reemplazable por CO2 o Halon.
+  - K: solo se reemplaza entre extintores K.
+
 Este archivo debe ser actualizado conforme avancemos.
