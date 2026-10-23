@@ -116,7 +116,7 @@ export async function cargarModuloMiCuenta(root) {
     avatarPreview.style.visibility = src ? 'visible' : 'hidden';
     avatarPreview.alt = src ? 'Foto de perfil' : 'Sin foto de perfil';
   }
-  function imageToSmallDataUrl(file) {
+  function imageToSmallBlob(file) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onerror = () => reject(new Error('No se pudo leer la imagen.'));
@@ -129,14 +129,22 @@ export async function cargarModuloMiCuenta(root) {
           canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
           canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
           canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
-          const dataUrl = canvas.toDataURL('image/webp', 0.78);
-          if (dataUrl.length > 48000) return reject(new Error('La imagen comprimida sigue siendo demasiado grande. Elegí otra foto.'));
-          resolve(dataUrl);
+          canvas.toBlob(blob => {
+            if (!blob) return reject(new Error('No se pudo comprimir la imagen.'));
+            if (blob.size > 40000) return reject(new Error('La imagen comprimida sigue siendo grande. Elegí otra foto.'));
+            resolve(blob);
+          }, 'image/webp', 0.76);
         };
         image.src = reader.result;
       };
       reader.readAsDataURL(file);
     });
+  }
+  async function cargarAvatarGuardado(path) {
+    if (!path) { renderAvatar(''); return; }
+    const { data, error } = await clienteSupabase.storage.from('avatars').createSignedUrl(path, 3600);
+    if (error) throw error;
+    renderAvatar(data.signedUrl);
   }
   avatarInput.addEventListener('change', async () => {
     avatarMsg.textContent = '';
@@ -151,23 +159,37 @@ export async function cargarModuloMiCuenta(root) {
       avatarMsg.textContent = 'La foto supera los 5 MB.'; return;
     }
     try {
-      avatarPending = await imageToSmallDataUrl(file);
-      renderAvatar(avatarPending);
+      avatarPending = await imageToSmallBlob(file);
+      renderAvatar(URL.createObjectURL(avatarPending));
       avatarMsg.textContent = 'Vista previa lista. Presioná “Guardar foto” para confirmar.';
     } catch (error) {
       avatarPending = null; avatarMsg.textContent = error.message || 'No se pudo procesar la foto.';
     }
   });
-  async function guardarAvatar(dataUrl) {
+  async function guardarAvatar(blob) {
     const { data: { user } = {}, error: userError } = await clienteSupabase.auth.getUser();
     if (userError) throw userError;
     if (!user) throw new Error('Iniciá sesión nuevamente.');
+    const path = `${user.id}/profile.webp`;
     const metadata = { ...(user.user_metadata || {}) };
-    if (dataUrl) metadata.centinela_avatar = dataUrl;
-    else delete metadata.centinela_avatar;
+    if (blob) {
+      const { error: uploadError } = await clienteSupabase.storage.from('avatars').upload(path, blob, {
+        contentType: 'image/webp', cacheControl: '3600', upsert: true
+      });
+      if (uploadError) throw uploadError;
+      metadata.centinela_avatar_path = path;
+    } else {
+      const oldPath = metadata.centinela_avatar_path;
+      delete metadata.centinela_avatar_path;
+      if (oldPath) {
+        const { error: removeError } = await clienteSupabase.storage.from('avatars').remove([oldPath]);
+        if (removeError) throw removeError;
+      }
+    }
+    // Se guarda solo la ruta, no los bytes de la foto dentro del JWT.
     const { error } = await clienteSupabase.auth.updateUser({ data: metadata });
     if (error) throw error;
-    renderAvatar(dataUrl);
+    await cargarAvatarGuardado(blob ? path : '');
   }
   avatarSave.addEventListener('click', async () => {
     if (!avatarPending) { avatarMsg.textContent = 'Primero elegí una foto.'; return; }
@@ -176,7 +198,7 @@ export async function cargarModuloMiCuenta(root) {
       await guardarAvatar(avatarPending);
       avatarMsg.textContent = 'Foto de perfil guardada.';
       avatarPending = null; avatarInput.value = '';
-    } catch (error) { avatarMsg.textContent = error.message || 'No se pudo guardar la foto.'; }
+    } catch (error) { avatarMsg.textContent = error.message || 'No se pudo guardar la foto. Verificá permisos del almacenamiento.'; }
     finally { avatarSave.disabled = false; }
   });
   avatarRemove.addEventListener('click', async () => {
@@ -319,7 +341,8 @@ export async function cargarModuloMiCuenta(root) {
     if (authError) throw authError;
     const user = auth?.user;
     if (!user) throw new Error('La sesión no está activa. Ingresá nuevamente.');
-    renderAvatar(user.user_metadata?.centinela_avatar || '');
+    try { await cargarAvatarGuardado(user.user_metadata?.centinela_avatar_path || ''); }
+    catch (avatarError) { renderAvatar(''); avatarMsg.textContent = 'No se pudo cargar la foto guardada.'; }
     const { data: perfilData, error } = await clienteSupabase.rpc('obtener_mi_perfil_personal');
     const p = Array.isArray(perfilData) ? perfilData[0] : perfilData;
     if (error) throw error;
