@@ -130,7 +130,7 @@ export async function cargarModuloMiCuenta(root) {
           canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
           canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
           const dataUrl = canvas.toDataURL('image/webp', 0.78);
-          if (dataUrl.length > 180000) return reject(new Error('La imagen comprimida sigue siendo demasiado grande. Elegí otra foto.'));
+          if (dataUrl.length > 48000) return reject(new Error('La imagen comprimida sigue siendo demasiado grande. Elegí otra foto.'));
           resolve(dataUrl);
         };
         image.src = reader.result;
@@ -319,6 +319,7 @@ export async function cargarModuloMiCuenta(root) {
     if (authError) throw authError;
     const user = auth?.user;
     if (!user) throw new Error('La sesión no está activa. Ingresá nuevamente.');
+    renderAvatar(user.user_metadata?.centinela_avatar || '');
     const { data: perfilData, error } = await clienteSupabase.rpc('obtener_mi_perfil_personal');
     const p = Array.isArray(perfilData) ? perfilData[0] : perfilData;
     if (error) throw error;
