@@ -1,0 +1,69 @@
+/* Preferencias visuales personales de Centinela 3.0 */
+:root {
+  --centinela-accent: #38bdf8;
+  --centinela-accent-rgb: 56, 189, 248;
+  --centinela-font: Arial, Helvetica, sans-serif;
+  --centinela-font-size: 16px;
+}
+html, body, button, input, select, textarea {
+  font-family: var(--centinela-font);
+}
+body { font-size: var(--centinela-font-size); }
+:root[data-centinela-density="compact"] .drawer-list li { padding-top: 8px; padding-bottom: 8px; }
+:root[data-centinela-density="comfortable"] .drawer-list li { padding-top: 14px; padding-bottom: 14px; }
+:root[data-centinela-resolved-theme="light"] body {
+  background: #f1f5f9 !important; color: #172033 !important;
+}
+:root[data-centinela-resolved-theme="light"] .app-header,
+:root[data-centinela-resolved-theme="light"] .side-drawer,
+:root[data-centinela-resolved-theme="light"] .drawer-header,
+:root[data-centinela-resolved-theme="light"] #main-content .card,
+:root[data-centinela-resolved-theme="light"] #vista-dinamica > section,
+:root[data-centinela-resolved-theme="light"] #vista-dinamica > div,
+:root[data-centinela-resolved-theme="light"] .dynamic-container {
+  background-color: #ffffff !important; color: #172033 !important; border-color: #cbd5e1 !important;
+}
+:root[data-centinela-resolved-theme="light"] .header-title h1,
+:root[data-centinela-resolved-theme="light"] .drawer-header,
+:root[data-centinela-resolved-theme="light"] .menu-organizado .menu-grupo details > summary,
+:root[data-centinela-resolved-theme="light"] #main-content .card-title {
+  color: #172033 !important;
+}
+:root[data-centinela-resolved-theme="light"] .menu-toggle,
+:root[data-centinela-resolved-theme="light"] .btn-header-inicio,
+:root[data-centinela-resolved-theme="light"] #btn-logout {
+  background: #e2e8f0 !important; color: #172033 !important; border-color: #cbd5e1 !important;
+}
+:root[data-centinela-resolved-theme="light"] .drawer-list li { color: #334155 !important; border-color: #e2e8f0 !important; }
+:root[data-centinela-resolved-theme="light"] .drawer-list li:hover { background: #e2e8f0 !important; color: #0f172a !important; }
+:root[data-centinela-resolved-theme="light"] input:not([type="checkbox"]):not([type="radio"]):not([type="color"]),
+:root[data-centinela-resolved-theme="light"] select,
+:root[data-centinela-resolved-theme="light"] textarea {
+  background: #fff !important; color: #172033 !important; border-color: #cbd5e1 !important;
+}
+:root[data-centinela-resolved-theme="light"] #auth-screen { background: #f1f5f9 !important; color: #172033 !important; }
+:root[data-centinela-resolved-theme="light"] #auth-screen > div { background: #fff !important; color: #172033 !important; border-color: #cbd5e1 !important; }
+:root[data-centinela-resolved-theme="light"] #auth-screen p { color: #475569 !important; }
+:root[data-centinela-resolved-theme="light"] #main-content .card-img { background: linear-gradient(145deg,#e2e8f0,#f8fafc) !important; }
+:root[data-centinela-resolved-theme="light"] #main-content .card-title { background: #f8fafc !important; border-color: #e2e8f0 !important; }
+:root[data-centinela-resolved-theme="light"] .menu-organizado .menu-grupo,
+:root[data-centinela-resolved-theme="light"] .menu-organizado .menu-inicio { border-color: #e2e8f0 !important; }
+:root[data-centinela-contrast="high"] body { color: #fff !important; }
+:root[data-centinela-contrast="high"][data-centinela-resolved-theme="light"] body { color: #000 !important; }
+:root[data-centinela-contrast="high"] button,
+:root[data-centinela-contrast="high"] input,
+:root[data-centinela-contrast="high"] select,
+:root[data-centinela-contrast="high"] textarea,
+:root[data-centinela-contrast="high"] .card { border-width: 2px !important; }
+:root[data-centinela-resolved-theme="light"] [style*="background:#111827"],
+:root[data-centinela-resolved-theme="light"] [style*="background: #111827"],
+:root[data-centinela-resolved-theme="light"] [style*="background:#1e1e1e"],
+:root[data-centinela-resolved-theme="light"] [style*="background: #1e1e1e"] {
+  background: #fff !important; color: #172033 !important; border-color: #cbd5e1 !important;
+}
+:root [style*="background:#0c4a6e"],
+:root [style*="background: #0c4a6e"] {
+  background: var(--centinela-accent) !important; border-color: var(--centinela-accent) !important; color: #07111c !important;
+}
+:root [style*="border:1px solid #38bdf8"],
+:root [style*="border: 1px solid #38bdf8"] { border-color: var(--centinela-accent) !important; }
