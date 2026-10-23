@@ -21,6 +21,7 @@ import { cargarModuloSimulacionControlin } from './simulacionControlin.js';
 import { cargarModuloAdministracionUsuarios } from './administracionUsuarios.js';
 import { abrirSeguridadCuenta } from './seguridadCuenta.js';
 import { cargarModuloMiCuenta } from './miCuenta.js';
+import { inicializarPreferenciasVisuales } from './preferenciasVisuales.js';
 import { abrirControlExtintor, guardarControlExtintor } from './controlesExtintores.js';
 import { abrirControlHidrante, guardarControlHidrante, cambiarTipoControl, verificarDetalleLlave } from './controlesHidrantes.js';
 import { cerrarFormularioControl, verificarEstadoControl } from './controlesBase.js';
@@ -226,6 +227,7 @@ window.cargarModulo = async function(modulo) {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
+    inicializarPreferenciasVisuales().catch(error => console.warn('No se pudieron cargar las preferencias visuales:', error));
     const menu = document.getElementById('side-menu');
     const listaMenu = menu ? menu.querySelector('.drawer-list') : null;
 

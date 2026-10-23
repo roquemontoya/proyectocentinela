@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Centinela 3.0</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="preferenciasVisuales.css">
     <style>
         .app-header { position: sticky; top: 0; min-height: 58px; box-sizing: border-box; padding: 9px 16px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; background: rgba(25,25,25,.97); backdrop-filter: blur(12px); border-bottom: 1px solid #343434; }
         .header-actions-left { display:flex; align-items:center; justify-content:flex-start; }
@@ -54,7 +55,7 @@
     <!-- Estilos de Leaflet para los mapas -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <!-- Motor de Supabase -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.105.0"></script>
 </head>
 <body>
 
@@ -73,6 +74,8 @@
                     <input id="login-password" type="password" autocomplete="current-password" required style="box-sizing:border-box;width:100%;padding:12px;margin-bottom:14px;background:#111827;border:1px solid #4b5563;border-radius:7px;color:#fff;">
                     <button id="btn-login" type="submit" style="width:100%;padding:12px;border:1px solid #38bdf8;border-radius:7px;background:#0c4a6e;color:#fff;font-weight:bold;cursor:pointer;">Ingresar</button>
                 </form>
+                <button id="btn-login-passkey" type="button" onclick="iniciarSesionPasskey()" style="width:100%;margin-top:10px;padding:11px;background:#111827;border:1px solid #38bdf8;border-radius:7px;color:#e0f2fe;font-weight:bold;cursor:pointer;">Ingresar con huella / llave de acceso</button>
+                <p style="font-size:12px;color:#94a3b8;margin:6px 0 0;">Disponible si registraste una passkey en este dispositivo. Si tu cuenta tiene 2FA TOTP, también se solicitará ese código.</p>
                 <button id="btn-reset-password" type="button" onclick="solicitarAccesoInicial()" style="width:100%;margin-top:10px;padding:10px;background:transparent;border:1px solid #475569;border-radius:7px;color:#cbd5e1;cursor:pointer;">Primer ingreso / olvidé mi contraseña</button>
                 <form id="form-password-setup" onsubmit="establecerContrasena(event)" style="display:none;margin-top:18px;border-top:1px solid #374151;padding-top:18px;">
                     <h2 id="password-setup-title" style="font-size:17px;margin:0 0 14px;">Activar cuenta</h2>
@@ -98,7 +101,6 @@
         </div>
         <div class="header-actions-right">
             <button class="btn-header-inicio" onclick="irInicio()" title="Volver al Inicio" aria-label="Inicio">🏠</button>
-            <button id="btn-seguridad-cuenta" onclick="abrirSeguridadCuenta()" title="Configurar verificación en dos pasos" style="background:#0c4a6e;color:#fff;border:1px solid #38bdf8;border-radius:7px;padding:9px 12px;cursor:pointer;">🔐 Seguridad</button>
             <button id="btn-logout" onclick="cerrarSesion()" style="background:#292929;color:#fff;border:1px solid #444;border-radius:7px;padding:9px 12px;cursor:pointer;">Salir</button>
         </div>
     </header>
