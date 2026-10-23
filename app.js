@@ -20,6 +20,7 @@ import { cargarModuloPanelGeografico, detenerModuloPanelGeografico } from './pan
 import { cargarModuloSimulacionControlin } from './simulacionControlin.js';
 import { cargarModuloAdministracionUsuarios } from './administracionUsuarios.js';
 import { abrirSeguridadCuenta } from './seguridadCuenta.js';
+import { cargarModuloMiCuenta } from './miCuenta.js';
 import { abrirControlExtintor, guardarControlExtintor } from './controlesExtintores.js';
 import { abrirControlHidrante, guardarControlHidrante, cambiarTipoControl, verificarDetalleLlave } from './controlesHidrantes.js';
 import { cerrarFormularioControl, verificarEstadoControl } from './controlesBase.js';
@@ -113,7 +114,7 @@ window.cargarModulo = async function(modulo) {
     detenerModuloGPS();
     detenerModuloRecorridosGPS();
     detenerModuloMapa();
-    if (!verificarPermisoModulo(modulo)) {
+    if (modulo !== 'miCuenta' && !verificarPermisoModulo(modulo)) {
         alert('Tu rol actual no tiene permiso para acceder a este módulo.');
         return;
     }
@@ -180,6 +181,10 @@ window.cargarModulo = async function(modulo) {
                 await cargarModuloAdministracionUsuarios(vistaDinamica);
                 break;
 
+            case 'miCuenta':
+                await cargarModuloMiCuenta(vistaDinamica);
+                break;
+
             case 'correccionEcas':
                 await cargarFormularioCorreccionEcas(vistaDinamica);
                 break;
@@ -228,6 +233,19 @@ document.addEventListener('DOMContentLoaded', () => {
         console.error('❌ No se encontró .drawer-list dentro de #side-menu.');
         return;
     }
+
+    // Mi cuenta es una opción personal disponible para cualquier usuario autenticado.
+    let btnMiCuenta = document.getElementById('nav-mi-cuenta');
+    if (!btnMiCuenta) {
+        btnMiCuenta = document.createElement('li');
+        btnMiCuenta.id = 'nav-mi-cuenta';
+        btnMiCuenta.textContent = '👤 Mi cuenta';
+        listaMenu.insertBefore(btnMiCuenta, listaMenu.firstChild?.nextSibling || null);
+    }
+    btnMiCuenta.onclick = (e) => {
+        e.preventDefault();
+        window.cargarModulo('miCuenta');
+    };
 
     // El Gestor de Tablas pertenece al menú real, no al body ni a un sidebar inexistente.
     let btnGestor = document.getElementById('nav-gestor-tablas');
