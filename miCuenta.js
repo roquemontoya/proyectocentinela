@@ -33,7 +33,7 @@ export async function cargarModuloMiCuenta(root) {
             <p id="cuenta-avatar-msg" role="status" aria-live="polite" style="font-size:13px;margin-bottom:0"></p>
           </div>
         </div>
-        <p style="font-size:12px;color:#9ca3af">La imagen se reduce en el navegador antes de guardarse en la metadata de tu cuenta; no se guarda información biométrica.</p>
+        <p style="font-size:12px;color:#9ca3af">La imagen se reduce en el navegador y se guarda en almacenamiento privado, aislada por usuario; no se guarda información biométrica.</p>
       </section>
       <section style="margin:18px 0;padding:16px;background:#111827;border:1px solid #374151;border-radius:10px">
         <h3 style="margin:0 0 8px">🎨 Apariencia y accesibilidad</h3>
