@@ -152,6 +152,42 @@ export async function iniciarSesion(event) {
   }
 }
 
+export async function iniciarSesionPasskey() {
+  limpiarError();
+  const boton = document.getElementById('btn-login-passkey');
+  if (boton) { boton.disabled = true; boton.textContent = 'Esperando huella / PIN…'; }
+  try {
+    if (!clienteSupabase.auth.signInWithPasskey) {
+      throw new Error('Esta versión de Supabase no admite llaves de acceso. Actualizá la aplicación.');
+    }
+    const { error } = await clienteSupabase.auth.signInWithPasskey();
+    if (error) throw error;
+
+    let segundoFactorCorrecto = false;
+    try {
+      segundoFactorCorrecto = await verificarSegundoFactor();
+    } catch {
+      await clienteSupabase.auth.signOut();
+      throw new Error('No se pudo completar el segundo factor. Intentá nuevamente.');
+    }
+    if (!segundoFactorCorrecto) {
+      await clienteSupabase.auth.signOut();
+      throw new Error('No se completó la verificación adicional de la cuenta.');
+    }
+
+    const rol = await resolverRolAutenticado();
+    if (!rol) {
+      await clienteSupabase.auth.signOut();
+      throw new Error('La cuenta autenticó, pero no tiene un perfil autorizado asignado.');
+    }
+    mostrarAplicacion(rol);
+  } catch (error) {
+    mostrarError(error?.message || 'No se pudo ingresar con la llave de acceso. Verificá que Passkeys esté habilitado en Supabase y que este dominio esté autorizado.');
+  } finally {
+    if (boton) { boton.disabled = false; boton.textContent = 'Ingresar con huella / llave de acceso'; }
+  }
+}
+
 export async function solicitarAccesoInicial() {
   limpiarError();
   const email = document.getElementById('login-email')?.value.trim() || '';
@@ -261,6 +297,7 @@ function verificarPermisoModuloParaRol(rol, modulo) {
 }
 
 window.iniciarSesion = iniciarSesion;
+window.iniciarSesionPasskey = iniciarSesionPasskey;
 window.solicitarAccesoInicial = solicitarAccesoInicial;
 window.establecerContrasena = establecerContrasena;
 window.cerrarSesion = cerrarSesion;
