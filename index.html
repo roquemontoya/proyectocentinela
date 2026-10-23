@@ -74,6 +74,8 @@
                     <input id="login-password" type="password" autocomplete="current-password" required style="box-sizing:border-box;width:100%;padding:12px;margin-bottom:14px;background:#111827;border:1px solid #4b5563;border-radius:7px;color:#fff;">
                     <button id="btn-login" type="submit" style="width:100%;padding:12px;border:1px solid #38bdf8;border-radius:7px;background:#0c4a6e;color:#fff;font-weight:bold;cursor:pointer;">Ingresar</button>
                 </form>
+                <button id="btn-login-passkey" type="button" onclick="iniciarSesionPasskey()" style="width:100%;margin-top:10px;padding:11px;background:#111827;border:1px solid #38bdf8;border-radius:7px;color:#e0f2fe;font-weight:bold;cursor:pointer;">Ingresar con huella / llave de acceso</button>
+                <p style="font-size:12px;color:#94a3b8;margin:6px 0 0;">Disponible si registraste una passkey en este dispositivo. Si tu cuenta tiene 2FA TOTP, también se solicitará ese código.</p>
                 <button id="btn-reset-password" type="button" onclick="solicitarAccesoInicial()" style="width:100%;margin-top:10px;padding:10px;background:transparent;border:1px solid #475569;border-radius:7px;color:#cbd5e1;cursor:pointer;">Primer ingreso / olvidé mi contraseña</button>
                 <form id="form-password-setup" onsubmit="establecerContrasena(event)" style="display:none;margin-top:18px;border-top:1px solid #374151;padding-top:18px;">
                     <h2 id="password-setup-title" style="font-size:17px;margin:0 0 14px;">Activar cuenta</h2>
