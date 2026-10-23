@@ -101,6 +101,18 @@ export async function inicializarPreferenciasVisuales() {
   const { data: { user } = {} } = await clienteSupabase.auth.getUser().catch(() => ({ data: {} }));
   const p = await obtenerPreferenciasVisuales(user?.id);
   aplicarPreferenciasVisuales(p);
+
+  // Al iniciar sesión sin recargar la PWA, volver a aplicar las preferencias de esa cuenta.
+  clienteSupabase.auth.onAuthStateChange((event, session) => {
+    if (event === 'SIGNED_IN' && session?.user) {
+      const uid = session.user.id;
+      let local = {};
+      try { local = JSON.parse(localStorage.getItem(clave(uid)) || '{}'); } catch { local = {}; }
+      const next = normalizar({ ...local, ...(session.user.user_metadata?.centinela_preferences || {}) });
+      aplicarPreferenciasVisuales(next);
+    }
+  });
+
   if (p.appearance === 'system') {
     try {
       window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => aplicarPreferenciasVisuales(p));
