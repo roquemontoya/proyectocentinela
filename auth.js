@@ -3,6 +3,7 @@
 // Administrador y Superadministrador usan Supabase Auth + rol asignado en la base.
 
 import { clienteSupabase } from './supabaseClient.js';
+import { verificarSegundoFactor } from './seguridadCuenta.js';
 
 let rolActual = null;
 
@@ -123,6 +124,18 @@ export async function iniciarSesion(event) {
   try {
     const { error } = await clienteSupabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
+
+    let segundoFactorCorrecto = false;
+    try {
+      segundoFactorCorrecto = await verificarSegundoFactor();
+    } catch (mfaError) {
+      await clienteSupabase.auth.signOut();
+      throw new Error('No se pudo completar la verificación de seguridad. Revisá la configuración de 2FA e intentá nuevamente.');
+    }
+    if (!segundoFactorCorrecto) {
+      await clienteSupabase.auth.signOut();
+      throw new Error('No se completó el segundo factor. Ingresá nuevamente e intentá con un código vigente.');
+    }
 
     const rol = await resolverRolAutenticado();
     if (!rol) {
