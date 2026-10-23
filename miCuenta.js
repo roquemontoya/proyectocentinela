@@ -240,7 +240,7 @@ export async function cargarModuloMiCuenta(root) {
         if (!window.confirm('¿Quitar esta llave de acceso de tu cuenta?')) return;
         remove.disabled = true;
         try {
-          const { error: deleteError } = await clienteSupabase.auth.passkey.delete({ id: item.id });
+          const { error: deleteError } = await clienteSupabase.auth.passkey.delete({ passkeyId: item.id });
           if (deleteError) throw deleteError;
           await refrescarPasskeys();
           passkeyStatus.textContent = 'Llave de acceso quitada.';
