@@ -266,6 +266,7 @@ export function obtenerRolActual() {
 export function verificarPermisoModulo(modulo) {
   const nombre = String(modulo || '').toLowerCase();
   if (rolActual === 'administrador' || rolActual === 'superadministrador') return true;
+  if (nombre === 'mayordomo001') return false;
   if (['administracionusuarios', 'admincsv', 'gestortablas'].includes(nombre)) return false;
   if (rolActual === 'bomberos' || rolActual === 'bombero_inspector') return MODULOS_BOMBEROS.has(nombre);
   return ['supervisor', 'mantenimiento'].includes(rolActual);
@@ -291,6 +292,7 @@ export function aplicarPermisosInterfaz(rol = rolActual) {
 function verificarPermisoModuloParaRol(rol, modulo) {
   const nombre = String(modulo || '').toLowerCase();
   if (rol === 'administrador' || rol === 'superadministrador') return true;
+  if (nombre === 'mayordomo001') return false;
   if (['administracionusuarios', 'admincsv', 'gestortablas'].includes(nombre)) return false;
   if (rol === 'bomberos' || rol === 'bombero_inspector') return MODULOS_BOMBEROS.has(nombre);
   return ['supervisor', 'mantenimiento'].includes(rol);
