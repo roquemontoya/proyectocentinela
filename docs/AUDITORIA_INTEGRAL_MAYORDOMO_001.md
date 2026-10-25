@@ -1,7 +1,7 @@
-# Mayordomo_001 — Auditoría integral de consistencia de Centinela
+# J.A.R.V.I.S. — Auditoría integral de consistencia de Centinela
 
 Estado: diseño técnico inicial en rama aislada `mayordomo-001-auditoria-integral`.
-Base: `main` después de integrar Mayordomo_001.
+Base: `main` después de integrar J.A.R.V.I.S..
 Principio no negociable: solo lectura. Ninguna regla puede corregir, borrar, normalizar ni mover datos automáticamente.
 
 ## Objetivo
@@ -112,3 +112,61 @@ El análisis de esquema de Supabase devolvió una advertencia de RLS deshabilita
 ## Estado actual
 
 Este documento define el alcance inicial. No implica que todas las reglas estén implementadas ni verificadas. La auditoría existente sigue limitada principalmente a Extintores, trazabilidad y alvéolos hasta que se desarrollen y prueben las fases anteriores.
+
+
+## Catálogo funcional para J.A.R.V.I.S.
+
+Este catálogo distingue el propósito deducido del nombre/esquema de una tabla de las reglas ya codificadas. Debe confirmarse con el código de cada módulo antes de tratar una inferencia como requisito definitivo.
+
+| Área | Tablas | Propósito funcional conocido o inferido |
+|---|---|---|
+| Maestro geográfico y de activos | `leu` | Registro común de activos, etiqueta, categoría, sector, ronda, geometría WKT y atributos. Es el punto de unión de controles y anomalías. |
+| Fichas específicas | `Extintores`, `hidrantes`, `ecas`, `Valvulas`, `vecas`, `pecas`, `ipp` | Datos propios de cada familia de equipo, además de la ficha común del maestro. Las claves y campos obligatorios varían por familia. |
+| Bomberos / inicio | `Bomberos`, `inicio` | Tablas auxiliares de la experiencia operativa/inicio; el propósito exacto debe confirmarse contra los módulos consumidores. |
+| Territorios y caminos | `territorios_dinamicos`, `caminos_internos` | Geometrías/sectores territoriales y caminos internos; revisar jerarquía, geometría y vínculos con recorridos. |
+| Inspecciones | `controles_e`, `controles_h`, `controles_ecas`, `controles_vecas`, `controles_v`, `controles_pecas`, `controles_pc`, `controles_c`, `controles_es`, `controles_pfp` | Historial de controles por tipo de activo o formulario. Cuando existe `id_activo`, debe enlazar al activo correcto en `leu`; los campos obligatorios y estados se validarán por módulo. |
+| Incidencias | `anomalias` | Registro de anomalías vinculadas a activos y su resolución. El cierre debe ser coherente con fecha y detalle de resolución, según el flujo real. |
+| Extintores y trazabilidad | `extintores_trazabilidad` | Historial/identidad de extintores, relacionado con `leu`; verificar serial, tarjeta, ubicación e identidad sin inventar valores faltantes. |
+| Inventario Pulmón | `pulmon_alveolos` | Alvéolos/capacidad del pulmón y asignación de extintores. Un extintor no debería ocupar dos alvéolos simultáneamente; estado y asignación deben concordar. |
+| Movimientos | `movimientos_extintores`, `reemplazos_temporales_extintores`, `movimientos_reemplazos_extintores` | Movimientos de inventario, reemplazos provisionales y eventos asociados. Fechas, activo titular/reemplazo y eventos de devolución deben concordar. |
+| Recorridos GPS | `recorridos_gps`, `puntos_recorrido_gps` | Cabecera de recorrido y puntos ordenados por secuencia con coordenadas/tiempo. |
+| Autorización | `app_roles`, `app_permissions`, `app_role_permissions`, `app_user_roles` | Catálogo de roles y permisos y asignación de roles a usuarios. Debe auditarse con consultas mínimas, sin extraer información personal innecesaria. |
+| Perfil y auditoría de usuario | `app_user_profiles`, `app_user_audit` | Perfil y registro de actividad/acciones. Se excluyen de la lectura masiva del motor inicial por minimización de datos; requieren auditoría separada con campos explícitos y aprobados. |
+
+## Reglas de validación: estado real
+
+### Ya codificadas en el motor inicial
+- `REL-001`: controles cuyo `id_activo` no existe en `leu`.
+- `REL-002`: controles sin `id_activo` (incompleto, no corrupción confirmada).
+- `DUP-001`: posibles duplicados de identificadores/etiquetas en tablas específicas de activos; requiere revisión humana.
+- `TRACE-001`: trazabilidad que referencia activos inexistentes en `leu`.
+- `PUL-001`: alvéolos asignados a un extintor inexistente.
+- `PUL-002`: mismo extintor asignado a más de un alvéolo.
+- `MOV-001`: movimientos de extintores sin activo maestro.
+- `ANO-001`: anomalías que apuntan a activos inexistentes.
+- `ANO-002`: anomalías con estado de resolución aparentemente resuelto y fecha/detalle faltante.
+- `REP-001`: reemplazo con fin anterior al inicio o activo titular igual al reemplazo.
+- `GPS-001`: fin de recorrido anterior al inicio, secuencia repetida dentro del recorrido o coordenadas fuera de rango.
+- `GEO-001`: activo maestro sin `ubicacion_wkt` (dato incompleto; solo aplica cuando requiere georreferenciación).
+
+### Reglas de negocio que deben implementarse antes de afirmar cobertura integral
+- Validación de tipo/capacidad, vencimiento `MM/YY` y prueba hidráulica `YYYY` para extintores.
+- Compatibilidad de reemplazos: PQS admite PQS/Halon/CO2; Halon solo Halon; CO2 admite CO2/Halon; K solo K.
+- Estado de Pulmón versus alvéolo ocupado/libre, disponibilidad, recarga y devolución; prevenir doble recambio cuando el vencimiento está a menos de 30 días o en el mes de vencimiento, según reglas del proyecto.
+- Cronología completa de movimientos, retornos del proveedor y reinstalación en línea.
+- Reglas específicas de campos requeridos, estados válidos, fechas y duplicidad para hidrantes, ECAS, válvulas, VECAS, PECAS e IPP.
+- Integridad de territorios: geometría válida, padres existentes y ausencia de ciclos.
+- Auditoría de relaciones y asignaciones de roles/permisos con proyección de columnas mínima.
+- Verificación de que cada módulo realmente consume/guarda la tabla esperada; el nombre de una tabla por sí solo no prueba su uso.
+
+## Seguridad de lectura y privacidad
+
+El motor de auditoría masiva excluye ahora las tablas de perfil y auditoría de usuario porque la primera versión no tenía reglas que las necesitasen. No deben leerse con `select=*`; una futura auditoría de autorización debe seleccionar solo columnas estrictamente necesarias. El motor sigue siendo de solo lectura y no debe corregir datos automáticamente.
+
+## Pruebas sintéticas
+
+Se añadieron pruebas para referencias huérfanas de controles, asignaciones inválidas de Pulmón, cronología imposible de reemplazos, coordenadas GPS fuera de rango y dataset vacío. La CI debe pasar estas pruebas antes de considerar lista la rama. Estas pruebas no sustituyen la validación con datos reales ni las pruebas de autorización autenticada.
+
+## Estado de cobertura
+
+La etiqueta “auditoría integral” describe el objetivo, no una cobertura ya terminada. El motor actual es un primer subconjunto determinista; no usa IA generativa. Los resultados son hallazgos para revisión, no órdenes de reparación. La interfaz PWA, despliegue de la nueva función y pruebas autenticadas siguen siendo pasos separados y pendientes.
