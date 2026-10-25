@@ -50,6 +50,7 @@ begin
     'leu','Extintores','hidrantes','ecas','vecas','Valvulas','pecas','Bomberos','inicio','ipp',
     'controles_e','controles_h','controles_ecas','controles_vecas','controles_v','controles_pecas',
     'controles_pfp','controles_c','controles_pc','controles_es','anomalias',
+    'extintores_trazabilidad','movimientos_extintores','movimientos_reemplazos_extintores','reemplazos_temporales_extintores',
     'pulmon','pulmon_extintores','pulmon_alveolos','pulmon_movimientos','alveolos_pulmon',
     'movimientos_pulmon','Movimientos_Pulmon','Inspecciones_extintores',
     'extintores_pulmon','extintores_vertoles','extintores_bertoles','bertoles','Vertolez','Bertolez'
