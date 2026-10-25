@@ -121,23 +121,23 @@ export async function cargarModuloAdministracionUsuarios(contenedor) {
       <summary style="cursor:pointer;font-weight:700">🔐 Matriz de permisos por perfil</summary>
       <p style="color:#9ca3af;font-size:12px;line-height:1.5">Permisos configurados actualmente en Supabase. El acceso a cada pantalla puede variar según los módulos activos.</p>
       <div style="overflow:auto"><table style="width:100%;border-collapse:collapse;min-width:780px;text-align:left">
-        <thead><tr>${["Capacidad","Superadministrador","Administrador","Supervisor","Bombero/Inspector","Mantenimiento"].map(x=>`<th style="padding:9px;border-bottom:1px solid #374151;font-size:12px">${x}</th>`).join("")}</tr></thead>
+        <thead><tr>${["Capacidad","Superadministrador","Administrador","Supervisor","Bombero/Inspector","Bombero Referente","Mantenimiento"].map(x=>`<th style="padding:9px;border-bottom:1px solid #374151;font-size:12px">${x}</th>`).join("")}</tr></thead>
         <tbody>${[
-          ["Consultar activos e inventario",[1,1,1,1,1]],
-          ["Modificar datos maestros de activos",[1,1,0,0,1]],
-          ["Consultar historial de controles",[1,1,1,1,1]],
-          ["Registrar controles",[1,1,1,1,1]],
-          ["Corregir controles existentes",[1,1,1,0,1]],
-          ["Consultar y registrar anomalías",[1,1,1,1,1]],
-          ["Resolver anomalías",[1,1,1,0,1]],
-          ["Modificar ubicaciones",[1,1,1,0,1]],
-          ["Consultar personal de Bomberos",[1,1,1,1,1]],
-          ["Administrar personal de Bomberos",[1,1,0,0,1]],
-          ["Consultar Pulmón y recargas",[1,1,1,1,1]],
-          ["Actualizar stock y recargas",[1,1,0,0,1]],
-          ["Administrar cuentas de usuario",[1,1,0,0,0]],
-          ["Administrar roles y permisos",[1,0,0,0,0]],
-          ["Funciones avanzadas del sistema",[1,0,0,0,0]]
+          ["Consultar activos e inventario",[1,1,1,1,1,1]],
+          ["Modificar datos maestros de activos",[1,1,0,0,0,1]],
+          ["Consultar historial de controles",[1,1,1,1,1,1]],
+          ["Registrar controles",[1,1,1,1,0,1]],
+          ["Corregir controles existentes",[1,1,1,0,0,1]],
+          ["Consultar y registrar anomalías",[1,1,1,1,1,1]],
+          ["Resolver anomalías",[1,1,1,0,0,1]],
+          ["Modificar ubicaciones",[1,1,1,0,0,1]],
+          ["Consultar personal de Bomberos",[1,1,1,1,1,1]],
+          ["Administrar personal de Bomberos",[1,1,0,0,0,1]],
+          ["Consultar Pulmón y recargas",[1,1,1,1,1,1]],
+          ["Actualizar stock y recargas",[1,1,0,0,0,1]],
+          ["Administrar cuentas de usuario",[1,1,0,0,0,0]],
+          ["Administrar roles y permisos",[1,0,0,0,0,0]],
+          ["Funciones avanzadas del sistema",[1,0,0,0,0,0]]
         ].map(([capacidad,vals])=>`<tr><td style="padding:9px;border-bottom:1px solid #263244">${capacidad}</td>${vals.map(v=>`<td style="padding:9px;text-align:center;border-bottom:1px solid #263244;color:${v?"#86efac":"#9ca3af"}">${v?"✓":"—"}</td>`).join("")}</tr>`).join("")}</tbody>
       </table></div>
       <p style="color:#fbbf24;font-size:12px;line-height:1.5">La matriz documenta los permisos configurados; antes de producción debemos comprobar también que cada módulo y operación los aplique efectivamente en el backend.</p>
