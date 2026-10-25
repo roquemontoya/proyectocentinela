@@ -37,6 +37,47 @@ jobs:
         env:
           CENTINELA_URL: https://proyectocentinela.vercel.app/
 
+      - name: Publicar resumen de diagnóstico en la ejecución
+        if: always()
+        shell: bash
+        run: |
+          REPORT="artifacts/centinela-diagnostic-report.json"
+          if [ ! -f "$REPORT" ]; then
+            {
+              echo "## Agente Centinela — diagnóstico"
+              echo
+              echo "**Resultado:** No se generó el informe. Revisar los pasos anteriores."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          STATUS=$(jq -r '.status // "UNKNOWN"' "$REPORT")
+          TITLE=$(jq -r '.title // "No disponible"' "$REPORT")
+          HTTP=$(jq -r '.httpStatus // "No disponible"' "$REPORT")
+          JS_COUNT=$(jq '.javascriptErrors | length' "$REPORT")
+          HTTP_COUNT=$(jq '.httpErrors | length' "$REPORT")
+          NET_COUNT=$(jq '.requestFailures | length' "$REPORT")
+
+          {
+            echo "## Agente Centinela — diagnóstico"
+            echo
+            echo "- **Resultado:** $STATUS"
+            echo "- **Aplicación:** $TITLE"
+            echo "- **Estado HTTP inicial:** $HTTP"
+            echo "- **Errores JavaScript:** $JS_COUNT"
+            echo "- **Respuestas HTTP fallidas:** $HTTP_COUNT"
+            echo "- **Solicitudes de red fallidas:** $NET_COUNT"
+            echo
+            echo "### Comprobaciones"
+            echo
+            echo "| Comprobación | Resultado |"
+            echo "|---|---|"
+            jq -r '.checks | to_entries[] | "| " + .key + " | " + (if .value then "PASS" else "REVISAR" end) + " |"' "$REPORT"
+            echo
+            echo "El JSON completo se conserva como artefacto de esta ejecución."
+            echo "Este diagnóstico solo revisa la carga inicial y la pantalla de acceso; no valida módulos autenticados ni operaciones de base de datos."
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Guardar informe aunque la prueba falle
         if: always()
         uses: actions/upload-artifact@v4
