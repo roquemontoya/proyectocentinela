@@ -308,84 +308,32 @@ function diasHastaVencimientoPulmon(valor) {
     const hoy = new Date(); hoy.setHours(0,0,0,0);
     return Math.floor((fecha.getTime() - hoy.getTime()) / 86400000);
 }
-window.enviarPulmonARecarga = async function(dbId, etiqueta) {
-    if (!confirm(`El extintor "${etiqueta}" está vencido o le quedan 30 días o menos. ¿Confirmás enviarlo a recarga y retirarlo del stock disponible?`)) return;
+async function ejecutarMovimientoStockPulmon(dbId, accion, etiqueta) {
+    const responsable = prompt('Nombre del bombero responsable del movimiento:');
+    if (!responsable || !responsable.trim()) return alert('El responsable es obligatorio.');
+    const observaciones = prompt('Observaciones (opcional):') || '';
+    const accionTexto = accion === 'enviar_recarga' ? 'enviar a recarga' : 'recibir de recarga';
+    if (!confirm(`¿Confirmás ${accionTexto} el extintor "${etiqueta}"? El inventario, alvéolo e historial se actualizarán en una única transacción.`)) return;
     try {
-        const { data: equipo, error: errorEquipo } = await clienteSupabase
-            .from('Extintores').select('id,PRP,alveolo_id').eq('id', dbId).maybeSingle();
-        if (errorEquipo || !equipo) throw new Error(errorEquipo?.message || 'No se encontró el extintor.');
-        if (!/pulm[oó]n/i.test(String(equipo.PRP || ''))) throw new Error('El equipo ya no figura en el Pulmón; actualizá la vista antes de continuar.');
-
-        const ahora = new Date().toISOString();
-        const { error: errorEstado } = await clienteSupabase.from('Extintores')
-            .update({ PRP: 'En Recarga', UBICACION: 'EN RECARGA', alveolo_id: null })
-            .eq('id', dbId).in('PRP', ['En Pulmon', 'En Pulmón']);
-        if (errorEstado) throw new Error(errorEstado.message);
-
-        if (equipo.alveolo_id) {
-            const { error: errorAlveolo } = await clienteSupabase.from('pulmon_alveolos')
-                .update({ estado: 'Libre', activo_extintor_id: null, actualizado_en: ahora })
-                .eq('id', equipo.alveolo_id).eq('activo_extintor_id', Number(dbId));
-            if (errorAlveolo) {
-                throw new Error('El equipo quedó marcado En Recarga, pero no se pudo liberar su alvéolo. Revisá el inventario antes de repetir la operación: ' + errorAlveolo.message);
-            }
-        }
-        alert(`Se registró ${etiqueta} como En Recarga y dejó de estar disponible para reemplazos. Registrá el envío físico a Vertoles según el procedimiento de planta.`);
+        const { data, error } = await clienteSupabase.rpc('registrar_movimiento_stock_pulmon', {
+            p_inventario_id: Number(dbId),
+            p_accion: accion,
+            p_bombero: responsable.trim(),
+            p_observaciones: observaciones.trim() || null
+        });
+        if (error) throw new Error(error.message);
+        if (!data?.ok) throw new Error('La base de datos no confirmó el movimiento.');
+        alert(accion === 'enviar_recarga'
+            ? 'Envío registrado. El alvéolo quedó libre y el movimiento está en el historial.'
+            : `Recepción registrada. El extintor volvió al alvéolo ${data.alveolo_codigo}.`);
         window.cargarModulo('pulmon');
     } catch (err) {
-        alert('No se pudo registrar el envío a recarga: ' + err.message);
+        alert('No se registró el movimiento: ' + (err.message || err));
     }
 };
 
-// ==========================================
-// FUNCIÓN INVERSA: El proveedor trae el extintor recargado
-// ==========================================
-window.marcarRecibidoPulmon = async function(dbId, etiqueta) {
-    if (!confirm(`¿Confirmar que el extintor "${etiqueta}" regresó de Vertoles y vuelve al stock del Pulmón?`)) return;
-
-    let alveoloReservado = null;
-    try {
-        const { data: equipo, error: errorEquipo } = await clienteSupabase
-            .from('Extintores').select('id,PRP,alveolo_id').eq('id', dbId).maybeSingle();
-        if (errorEquipo || !equipo) throw new Error(errorEquipo?.message || 'No se encontró el extintor.');
-        if (!String(equipo.PRP || '').toLowerCase().includes('recarga')) {
-            throw new Error('El equipo ya no figura En Recarga. Actualizá la vista antes de continuar.');
-        }
-
-        const { data: libre, error: errorLibre } = await clienteSupabase
-            .from('pulmon_alveolos').select('id,codigo')
-            .eq('estado','Libre').is('activo_extintor_id',null)
-            .order('id').limit(1).maybeSingle();
-        if (errorLibre) throw new Error('No se pudo buscar un alvéolo libre: ' + errorLibre.message);
-        if (!libre) throw new Error('No hay alvéolos libres. No se registró la recepción; liberá o asigná una ubicación antes de reintentar.');
-
-        // Reservar primero el alvéolo con condición para reducir el riesgo de doble asignación.
-        const ahora = new Date().toISOString();
-        const { data: reserva, error: errorReserva } = await clienteSupabase
-            .from('pulmon_alveolos')
-            .update({ estado:'Ocupado', activo_extintor_id:Number(dbId), actualizado_en:ahora })
-            .eq('id', libre.id).eq('estado','Libre').is('activo_extintor_id',null)
-            .select('id').maybeSingle();
-        if (errorReserva || !reserva) throw new Error(errorReserva?.message || 'Otro movimiento ocupó el alvéolo elegido. Volvé a intentar.');
-
-        alveoloReservado = libre;
-        const { data: equipoActualizado, error: errorEstado } = await clienteSupabase
-            .from('Extintores')
-            .update({ PRP:'En Pulmon', UBICACION:libre.codigo, alveolo_id:libre.id })
-            .eq('id', dbId).ilike('PRP','%recarga%').select('id').maybeSingle();
-        if (errorEstado || !equipoActualizado) throw new Error(errorEstado?.message || 'El equipo ya no estaba En Recarga; se canceló la recepción.');
-
-        alert(`Recepción registrada: ${etiqueta} volvió de Vertoles y quedó asignado al alvéolo ${libre.codigo} del Pulmón.`);
-        window.cargarModulo('pulmon');
-    } catch (err) {
-        if (alveoloReservado) {
-            await clienteSupabase.from('pulmon_alveolos')
-                .update({ estado:'Libre', activo_extintor_id:null, actualizado_en:new Date().toISOString() })
-                .eq('id', alveoloReservado.id).eq('activo_extintor_id', Number(dbId));
-        }
-        alert('No se pudo completar la recepción: ' + err.message);
-    }
-};
+window.enviarPulmonARecarga = (dbId, etiqueta) => ejecutarMovimientoStockPulmon(dbId, 'enviar_recarga', etiqueta);
+window.marcarRecibidoPulmon = (dbId, etiqueta) => ejecutarMovimientoStockPulmon(dbId, 'recibir_recarga', etiqueta);
 
 function escHtmlPulmon(valor) {
     return String(valor ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
