@@ -188,6 +188,77 @@ export async function cargarModuloPulmon(contenedor) {
             </section>`);
     }
 
+    // Alta de reemplazo: seleccionar titular y extintor real disponible en Pulmón.
+    const { data: titularesReemplazo, error: errTitulares } = await clienteSupabase
+        .from('leu').select('id,etiqueta,sector,atributos_tecnicos').ilike('categoria','%extintor%').order('etiqueta');
+    const { data: stockReemplazo, error: errStock } = await clienteSupabase
+        .from('Extintores').select('id,ETIQUETA,TIPO,numero_serie,numero_tarjeta,activo_leu_id,alveolo_id,UBICACION,PRP')
+        .in('PRP',['En Pulmon','En Pulmón']).not('activo_leu_id','is',null).not('alveolo_id','is',null).order('ETIQUETA');
+    const { data: responsablesReemplazo } = await clienteSupabase.from('Bomberos').select('Bombero').eq('Estado','Activo').order('Bombero');
+    const titularesElegibles = (titularesReemplazo || []).filter(t => !((t.atributos_tecnicos || {}).reemplazo_temporal_id));
+    if (errTitulares || errStock) {
+        contenedor.insertAdjacentHTML('beforeend', '<p style="color:#f87171;max-width:1100px;margin:18px auto">No se pudo preparar el formulario de instalación. Revisá los permisos y actualizá el módulo.</p>');
+    } else {
+        const sectionInstalacion = document.createElement('section');
+        sectionInstalacion.style.cssText = 'max-width:1100px;margin:24px auto;padding:18px;background:#1e1e1e;border:1px solid #444;border-radius:8px;color:#fff;font-family:Arial,sans-serif';
+        sectionInstalacion.innerHTML = `
+          <h2 style="color:#38bdf8;margin-top:0">↔️ Instalar reemplazo temporal</h2>
+          <p style="color:#bbb">La operación registra el movimiento, libera el alvéolo y bloquea el extintor hasta su devolución. No se modifica la identidad de ninguno de los activos.</p>
+          <label style="display:block;margin:10px 0 5px">Extintor titular a cubrir</label>
+          <select id="pulmon-titular-select" style="width:100%;padding:10px;background:#111;color:#fff;border:1px solid #555;border-radius:5px">
+            <option value="">Seleccionar titular…</option>
+            ${titularesElegibles.map(t => `<option value="${t.id}">${escHtmlPulmon(t.etiqueta)} · ${escHtmlPulmon(t.sector || 'Sin sector')} · LEU ${t.id}</option>`).join('')}
+          </select>
+          <label style="display:block;margin:10px 0 5px">Extintor disponible en Pulmón</label>
+          <select id="pulmon-reemplazo-select" style="width:100%;padding:10px;background:#111;color:#fff;border:1px solid #555;border-radius:5px">
+            <option value="">Seleccionar extintor del Pulmón…</option>
+            ${(stockReemplazo || []).map(e => `<option value="${e.id}">${escHtmlPulmon(e.ETIQUETA || ('ID '+e.id))} · ${escHtmlPulmon(e.TIPO || 'Tipo N/D')} · Serie ${escHtmlPulmon(e.numero_serie || 'N/D')} · Alvéolo ${escHtmlPulmon(e.UBICACION || e.alveolo_id)}</option>`).join('')}
+          </select>
+          <label style="display:block;margin:10px 0 5px">Responsable que entrega</label>
+          <select id="pulmon-responsable-select" style="width:100%;padding:10px;background:#111;color:#fff;border:1px solid #555;border-radius:5px">
+            <option value="">Seleccionar bombero…</option>
+            ${(responsablesReemplazo || []).map(b => `<option value="${escHtmlPulmon(b.Bombero)}">${escHtmlPulmon(b.Bombero)}</option>`).join('')}
+          </select>
+          <label style="display:block;margin:10px 0 5px">Motivo del reemplazo</label>
+          <input id="pulmon-motivo-input" placeholder="Ej.: titular vencido, enviado a recarga, daño detectado…" style="width:100%;box-sizing:border-box;padding:10px;background:#111;color:#fff;border:1px solid #555;border-radius:5px">
+          <label style="display:block;margin:10px 0 5px">Observaciones (opcional)</label>
+          <input id="pulmon-obs-instalacion" placeholder="Novedad, orden o referencia documental…" style="width:100%;box-sizing:border-box;padding:10px;background:#111;color:#fff;border:1px solid #555;border-radius:5px">
+          <button id="pulmon-confirmar-instalacion" style="margin-top:14px;background:#0284c7;color:#fff;border:0;padding:11px 16px;border-radius:5px;font-weight:bold;cursor:pointer">Registrar instalación y movimiento</button>
+          <p style="color:#aaa;font-size:12px;margin-bottom:0">Disponibles: ${(stockReemplazo || []).length}. Titulares elegibles en LEU: ${titularesElegibles.length}.</p>
+        `;
+        contenedor.appendChild(sectionInstalacion);
+        sectionInstalacion.querySelector('#pulmon-confirmar-instalacion').addEventListener('click', async () => {
+            const titularId = Number(sectionInstalacion.querySelector('#pulmon-titular-select').value);
+            const reemplazoId = Number(sectionInstalacion.querySelector('#pulmon-reemplazo-select').value);
+            const responsable = sectionInstalacion.querySelector('#pulmon-responsable-select').value;
+            const motivo = sectionInstalacion.querySelector('#pulmon-motivo-input').value.trim();
+            const observaciones = sectionInstalacion.querySelector('#pulmon-obs-instalacion').value.trim();
+            if (!titularId || !reemplazoId || !responsable || !motivo) return alert('Seleccioná titular, extintor del Pulmón, responsable e indicá el motivo.');
+            if (titularId === Number((stockReemplazo || []).find(e => e.id === reemplazoId)?.activo_leu_id)) return alert('No se puede reemplazar un activo por sí mismo.');
+            if (!confirm('¿Confirmás la instalación temporal? Se registrarán los movimientos del titular y del provisorio en una única transacción.')) return;
+            const boton = sectionInstalacion.querySelector('#pulmon-confirmar-instalacion');
+            boton.disabled = true; boton.textContent = 'Registrando…';
+            try {
+                const { data, error } = await clienteSupabase.rpc('registrar_instalacion_reemplazo_pulmon', {
+                    p_activo_titular_id: titularId,
+                    p_inventario_reemplazo_id: reemplazoId,
+                    p_bombero: responsable,
+                    p_motivo: motivo,
+                    p_tipo_titular: 'Extintor titular',
+                    p_tipo_reemplazo: 'Extintor Pulmón',
+                    p_observaciones: observaciones || null
+                });
+                if (error) throw new Error(error.message);
+                if (!data?.ok) throw new Error('La base de datos no confirmó el movimiento.');
+                alert('Reemplazo registrado. El alvéolo quedó libre y el extintor del Pulmón está bloqueado hasta registrar su devolución.');
+                window.cargarModulo('pulmon');
+            } catch (err) {
+                alert('No se registró el reemplazo. No se deberían haber aplicado cambios: ' + (err.message || err));
+                boton.disabled = false; boton.textContent = 'Registrar instalación y movimiento';
+            }
+        });
+    }
+
     // Buscador en tiempo real
     const buscador = document.getElementById('buscador-pulmon');
     if (buscador) {
@@ -237,84 +308,32 @@ function diasHastaVencimientoPulmon(valor) {
     const hoy = new Date(); hoy.setHours(0,0,0,0);
     return Math.floor((fecha.getTime() - hoy.getTime()) / 86400000);
 }
-window.enviarPulmonARecarga = async function(dbId, etiqueta) {
-    if (!confirm(`El extintor "${etiqueta}" está vencido o le quedan 30 días o menos. ¿Confirmás enviarlo a recarga y retirarlo del stock disponible?`)) return;
+async function ejecutarMovimientoStockPulmon(dbId, accion, etiqueta) {
+    const responsable = prompt('Nombre del bombero responsable del movimiento:');
+    if (!responsable || !responsable.trim()) return alert('El responsable es obligatorio.');
+    const observaciones = prompt('Observaciones (opcional):') || '';
+    const accionTexto = accion === 'enviar_recarga' ? 'enviar a recarga' : 'recibir de recarga';
+    if (!confirm(`¿Confirmás ${accionTexto} el extintor "${etiqueta}"? El inventario, alvéolo e historial se actualizarán en una única transacción.`)) return;
     try {
-        const { data: equipo, error: errorEquipo } = await clienteSupabase
-            .from('Extintores').select('id,PRP,alveolo_id').eq('id', dbId).maybeSingle();
-        if (errorEquipo || !equipo) throw new Error(errorEquipo?.message || 'No se encontró el extintor.');
-        if (!/pulm[oó]n/i.test(String(equipo.PRP || ''))) throw new Error('El equipo ya no figura en el Pulmón; actualizá la vista antes de continuar.');
-
-        const ahora = new Date().toISOString();
-        const { error: errorEstado } = await clienteSupabase.from('Extintores')
-            .update({ PRP: 'En Recarga', UBICACION: 'EN RECARGA', alveolo_id: null })
-            .eq('id', dbId).in('PRP', ['En Pulmon', 'En Pulmón']);
-        if (errorEstado) throw new Error(errorEstado.message);
-
-        if (equipo.alveolo_id) {
-            const { error: errorAlveolo } = await clienteSupabase.from('pulmon_alveolos')
-                .update({ estado: 'Libre', activo_extintor_id: null, actualizado_en: ahora })
-                .eq('id', equipo.alveolo_id).eq('activo_extintor_id', Number(dbId));
-            if (errorAlveolo) {
-                throw new Error('El equipo quedó marcado En Recarga, pero no se pudo liberar su alvéolo. Revisá el inventario antes de repetir la operación: ' + errorAlveolo.message);
-            }
-        }
-        alert(`Se registró ${etiqueta} como En Recarga y dejó de estar disponible para reemplazos. Registrá el envío físico a Vertoles según el procedimiento de planta.`);
+        const { data, error } = await clienteSupabase.rpc('registrar_movimiento_stock_pulmon', {
+            p_inventario_id: Number(dbId),
+            p_accion: accion,
+            p_bombero: responsable.trim(),
+            p_observaciones: observaciones.trim() || null
+        });
+        if (error) throw new Error(error.message);
+        if (!data?.ok) throw new Error('La base de datos no confirmó el movimiento.');
+        alert(accion === 'enviar_recarga'
+            ? 'Envío registrado. El alvéolo quedó libre y el movimiento está en el historial.'
+            : `Recepción registrada. El extintor volvió al alvéolo ${data.alveolo_codigo}.`);
         window.cargarModulo('pulmon');
     } catch (err) {
-        alert('No se pudo registrar el envío a recarga: ' + err.message);
+        alert('No se registró el movimiento: ' + (err.message || err));
     }
 };
 
-// ==========================================
-// FUNCIÓN INVERSA: El proveedor trae el extintor recargado
-// ==========================================
-window.marcarRecibidoPulmon = async function(dbId, etiqueta) {
-    if (!confirm(`¿Confirmar que el extintor "${etiqueta}" regresó de Vertoles y vuelve al stock del Pulmón?`)) return;
-
-    let alveoloReservado = null;
-    try {
-        const { data: equipo, error: errorEquipo } = await clienteSupabase
-            .from('Extintores').select('id,PRP,alveolo_id').eq('id', dbId).maybeSingle();
-        if (errorEquipo || !equipo) throw new Error(errorEquipo?.message || 'No se encontró el extintor.');
-        if (!String(equipo.PRP || '').toLowerCase().includes('recarga')) {
-            throw new Error('El equipo ya no figura En Recarga. Actualizá la vista antes de continuar.');
-        }
-
-        const { data: libre, error: errorLibre } = await clienteSupabase
-            .from('pulmon_alveolos').select('id,codigo')
-            .eq('estado','Libre').is('activo_extintor_id',null)
-            .order('id').limit(1).maybeSingle();
-        if (errorLibre) throw new Error('No se pudo buscar un alvéolo libre: ' + errorLibre.message);
-        if (!libre) throw new Error('No hay alvéolos libres. No se registró la recepción; liberá o asigná una ubicación antes de reintentar.');
-
-        // Reservar primero el alvéolo con condición para reducir el riesgo de doble asignación.
-        const ahora = new Date().toISOString();
-        const { data: reserva, error: errorReserva } = await clienteSupabase
-            .from('pulmon_alveolos')
-            .update({ estado:'Ocupado', activo_extintor_id:Number(dbId), actualizado_en:ahora })
-            .eq('id', libre.id).eq('estado','Libre').is('activo_extintor_id',null)
-            .select('id').maybeSingle();
-        if (errorReserva || !reserva) throw new Error(errorReserva?.message || 'Otro movimiento ocupó el alvéolo elegido. Volvé a intentar.');
-
-        alveoloReservado = libre;
-        const { data: equipoActualizado, error: errorEstado } = await clienteSupabase
-            .from('Extintores')
-            .update({ PRP:'En Pulmon', UBICACION:libre.codigo, alveolo_id:libre.id })
-            .eq('id', dbId).ilike('PRP','%recarga%').select('id').maybeSingle();
-        if (errorEstado || !equipoActualizado) throw new Error(errorEstado?.message || 'El equipo ya no estaba En Recarga; se canceló la recepción.');
-
-        alert(`Recepción registrada: ${etiqueta} volvió de Vertoles y quedó asignado al alvéolo ${libre.codigo} del Pulmón.`);
-        window.cargarModulo('pulmon');
-    } catch (err) {
-        if (alveoloReservado) {
-            await clienteSupabase.from('pulmon_alveolos')
-                .update({ estado:'Libre', activo_extintor_id:null, actualizado_en:new Date().toISOString() })
-                .eq('id', alveoloReservado.id).eq('activo_extintor_id', Number(dbId));
-        }
-        alert('No se pudo completar la recepción: ' + err.message);
-    }
-};
+window.enviarPulmonARecarga = (dbId, etiqueta) => ejecutarMovimientoStockPulmon(dbId, 'enviar_recarga', etiqueta);
+window.marcarRecibidoPulmon = (dbId, etiqueta) => ejecutarMovimientoStockPulmon(dbId, 'recibir_recarga', etiqueta);
 
 function escHtmlPulmon(valor) {
     return String(valor ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
