@@ -1,0 +1,45 @@
+name: Mayordomo_001 Integral Audit Checks
+
+on:
+  push:
+    branches: [mayordomo-001-auditoria-integral]
+  pull_request:
+    branches: [main]
+    paths:
+      - "supabase/functions/mayordomo-001-audit-integral/**"
+      - "docs/AUDITORIA_INTEGRAL_MAYORDOMO_001.md"
+      - ".github/workflows/mayordomo-001-integral-audit.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  static-and-security-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Format check
+        run: deno fmt --check supabase/functions/mayordomo-001-audit-integral/index.ts
+      - name: Type check
+        run: deno check supabase/functions/mayordomo-001-audit-integral/index.ts
+      - name: Ensure read-only implementation and authorization gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          FILE="supabase/functions/mayordomo-001-audit-integral/index.ts"
+          grep -q 'read_only: true' "$FILE"
+          grep -q 'current_user_role' "$FILE"
+          grep -q 'insufficient_role' "$FILE"
+          grep -q 'fixed_allowlist_read_only' "$FILE"
+          grep -q 'const TABLES' "$FILE"
+          ! grep -Eq 'method: *"(POST|PATCH|PUT|DELETE)"[^\n]*rest/v1|\.insert\(|\.update\(|\.delete\(' "$FILE"
+      - name: Ensure no server secrets are committed
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! grep -R -n -E 'SUPABASE_SERVICE_ROLE_KEY=|SUPABASE_SECRET_KEY=|AGENTE_CAQ_AUDIT_TOKEN=' supabase/functions/mayordomo-001-audit-integral
