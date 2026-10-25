@@ -1,0 +1,41 @@
+name: Agente Centinela - diagnóstico de solo lectura
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostic:
+    name: Inspección inicial de Centinela
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Descargar código de la rama
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Instalar Playwright
+        run: npm install --no-save playwright
+
+      - name: Instalar Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Ejecutar diagnóstico de solo lectura
+        run: node tools/agent-diagnostic.mjs
+        env:
+          CENTINELA_URL: https://proyectocentinela.vercel.app/
+
+      - name: Guardar informe aunque la prueba falle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: centinela-diagnostic-report
+          path: artifacts/centinela-diagnostic-report.json
+          if-no-files-found: warn
+          retention-days: 30
