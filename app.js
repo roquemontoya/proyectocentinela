@@ -2,7 +2,7 @@
 // SCRIPT PRINCIPAL: app.js (Controlador PWA)
 // ==========================================
 
-import { inicializarAutenticacion, verificarPermisoModulo } from './auth.js';
+import { inicializarAutenticacion, verificarPermisoModulo, obtenerRolActual } from './auth.js';
 
 import { cargarModuloAdminCsv } from './conversorMaestroUniversal.js';
 import { cargarModuloGestorTablas } from './gestorTablas.js';
@@ -73,6 +73,10 @@ window.verificarDetalleLlave = verificarDetalleLlave;
 window.cerrarFormularioControl = cerrarFormularioControl;
 
 window.abrirFormularioControl = async function(tabla, dbId, idElemento) {
+    if (obtenerRolActual() === 'bombero_referente') {
+        alert('Bombero Referente tiene acceso de solo lectura. Podés consultar el estado y los controles, pero no iniciar ni modificar controles.');
+        return;
+    }
     const tablaNormalizada = String(tabla || '').toLowerCase();
 
     if (tablaNormalizada === 'extintores' || tablaNormalizada === 'extintor') {
@@ -93,6 +97,10 @@ window.abrirFormularioControl = async function(tabla, dbId, idElemento) {
 };
 
 window.guardarControl = async function(event) {
+    if (obtenerRolActual() === 'bombero_referente') {
+        alert('Bombero Referente tiene permisos de solo lectura. No se guardó ningún cambio.');
+        return;
+    }
     const tabla = String(document.getElementById('input-tabla')?.value || '').toLowerCase();
 
     if (tabla === 'extintores' || tabla === 'extintor') {
