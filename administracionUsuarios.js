@@ -5,6 +5,7 @@ const ROLES = [
   { value: "administrador", label: "Administrador" },
   { value: "supervisor", label: "Supervisor" },
   { value: "bombero_inspector", label: "Bombero/Inspector" },
+  { value: "bombero_referente", label: "Bombero Referente (solo lectura)" },
   { value: "mantenimiento", label: "Mantenimiento" },
   { value: "superadministrador", label: "Superadministrador" },
 ];

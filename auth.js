@@ -62,7 +62,7 @@ function mostrarAplicacion(rol) {
 
 async function resolverRolAutenticado() {
   const { data, error } = await clienteSupabase.rpc('current_user_role');
-  const rolesAdmitidos = new Set(['administrador', 'superadministrador', 'supervisor', 'bombero_inspector', 'mantenimiento', 'bomberos']);
+  const rolesAdmitidos = new Set(['administrador', 'superadministrador', 'supervisor', 'bombero_inspector', 'mantenimiento', 'bomberos', 'bombero_referente']);
   if (!error && typeof data === 'string' && rolesAdmitidos.has(data)) return data;
 
   // Compatibilidad temporal mientras la migración de roles se despliega en Supabase.
@@ -268,6 +268,7 @@ export function verificarPermisoModulo(modulo) {
   if (rolActual === 'administrador' || rolActual === 'superadministrador') return true;
   if (nombre === 'mayordomo001') return false;
   if (['administracionusuarios', 'admincsv', 'gestortablas'].includes(nombre)) return false;
+  if (rolActual === 'bombero_referente') return ['referente', 'bomberos'].includes(nombre);
   if (rolActual === 'bomberos' || rolActual === 'bombero_inspector') return MODULOS_BOMBEROS.has(nombre);
   return ['supervisor', 'mantenimiento'].includes(rolActual);
 }
@@ -294,6 +295,7 @@ function verificarPermisoModuloParaRol(rol, modulo) {
   if (rol === 'administrador' || rol === 'superadministrador') return true;
   if (nombre === 'mayordomo001') return false;
   if (['administracionusuarios', 'admincsv', 'gestortablas'].includes(nombre)) return false;
+  if (rol === 'bombero_referente') return ['referente', 'bomberos'].includes(nombre);
   if (rol === 'bomberos' || rol === 'bombero_inspector') return MODULOS_BOMBEROS.has(nombre);
   return ['supervisor', 'mantenimiento'].includes(rol);
 }

@@ -12,6 +12,7 @@ import { cargarModuloGPS, detenerModuloGPS } from './gpsActivosCercanos.js';
 import { cargarModuloRecorridosGPS, detenerModuloRecorridosGPS } from './recorridosGps.js';
 import { cargarModuloPulmon } from './moduloPulmon.js';
 import { cargarModuloBomberos } from './bomberos.js';
+import { cargarModuloReferente } from './referente.js';
 import { cargarModuloAnomalias } from './anomalias.js';
 import { cargarModuloHistorialFotos } from './historialFotos.js';
 import { cargarModuloEditorUbicaciones } from './editorUbicaciones.js';
@@ -203,6 +204,10 @@ window.cargarModulo = async function(modulo) {
                 await cargarModuloBomberos(vistaDinamica);
                 break;
 
+            case 'referente':
+                await cargarModuloReferente(vistaDinamica);
+                break;
+
             case 'ecas':
             case 'extintores':
             case 'hidrantes':
@@ -268,6 +273,16 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         window.cargarModulo('gestorTablas');
     };
+
+    let btnReferente = document.getElementById('nav-referente');
+    if (!btnReferente) {
+        btnReferente = document.createElement('li');
+        btnReferente.id = 'nav-referente';
+        btnReferente.textContent = '👨‍🚒 Panel Bombero Referente';
+        btnReferente.style.cssText = 'color:#86efac;font-weight:bold;cursor:pointer;';
+        listaMenu.appendChild(btnReferente);
+    }
+    btnReferente.onclick = (e) => { e.preventDefault(); window.cargarModulo('referente'); };
 
     // Mayordomo_001 (nombre interno de desarrollo: Caquitas), solo para administradores.
     let btnMayordomo = document.getElementById('nav-mayordomo-001');
