@@ -274,6 +274,16 @@ document.addEventListener('DOMContentLoaded', () => {
         window.cargarModulo('gestorTablas');
     };
 
+    let btnReferente = document.getElementById('nav-referente');
+    if (!btnReferente) {
+        btnReferente = document.createElement('li');
+        btnReferente.id = 'nav-referente';
+        btnReferente.textContent = '👨‍🚒 Panel Bombero Referente';
+        btnReferente.style.cssText = 'color:#86efac;font-weight:bold;cursor:pointer;';
+        listaMenu.appendChild(btnReferente);
+    }
+    btnReferente.onclick = (e) => { e.preventDefault(); window.cargarModulo('referente'); };
+
     // Mayordomo_001 (nombre interno de desarrollo: Caquitas), solo para administradores.
     let btnMayordomo = document.getElementById('nav-mayordomo-001');
     if (!btnMayordomo) {
