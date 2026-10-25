@@ -8,11 +8,10 @@ const TABLES = [
   "anomalias", "extintores_trazabilidad", "movimientos_extintores",
   "reemplazos_temporales_extintores", "movimientos_reemplazos_extintores",
   "pulmon_alveolos", "recorridos_gps", "puntos_recorrido_gps", "caminos_internos",
-  "territorios_dinamicos", "app_roles", "app_permissions", "app_role_permissions",
-  "app_user_roles", "app_user_profiles", "app_user_audit",
+  "territorios_dinamicos",
 ] as const;
 
-type Row = Record<string, unknown>;
+export type Row = Record<string, unknown>;
 type Finding = {
   code: string; severity: "alta" | "media" | "baja" | "informativa";
   confidence: "confirmado" | "probable" | "incompleto" | "revision_humana";
@@ -80,7 +79,7 @@ function duplicateGroups(rows: Row[], field: string) {
     .map(([value, group]) => ({ value, count: group.length, ids: group.slice(0, 10).map(id) }));
 }
 
-function runRules(data: Record<string, Row[]>): Finding[] {
+export function runRules(data: Record<string, Row[]>): Finding[] {
   const out: Finding[] = [];
   const leu = data.leu ?? [];
   const leuIds = new Set(leu.map(row => String(row.id)));
@@ -181,7 +180,7 @@ function runRules(data: Record<string, Row[]>): Finding[] {
   return out;
 }
 
-serve(async (req: Request) => {
+if (import.meta.main) serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: headers(req) });
   if (req.method !== "POST") return response(req, 405, { error: "method_not_allowed" });
   const authorization = req.headers.get("Authorization") ?? "";
@@ -214,7 +213,7 @@ serve(async (req: Request) => {
     const findings = runRules(tables);
     const counts = Object.fromEntries(TABLES.map(table => [table, tables[table].length]));
     return response(req, 200, {
-      agent_id: "AGENTE-CAQUITAS-001", presented_as: "Mayordomo_001",
+      agent_id: "AGENTE-JARVIS-001", presented_as: "J.A.R.V.I.S.",
       task_id: "auditoria-integral-v1", generated_at: new Date().toISOString(),
       read_only: true, mode: "fixed_allowlist_read_only",
       summary: {
@@ -235,7 +234,7 @@ serve(async (req: Request) => {
       ],
     });
   } catch (error) {
-    console.error("mayordomo_integral_failed", error instanceof Error ? error.message : "unknown");
+    console.error("jarvis_integral_failed", error instanceof Error ? error.message : "unknown");
     return response(req, 500, { error: "integral_audit_failed" });
   }
 });
