@@ -268,7 +268,7 @@ export function verificarPermisoModulo(modulo) {
   if (rolActual === 'administrador' || rolActual === 'superadministrador') return true;
   if (nombre === 'mayordomo001') return false;
   if (['administracionusuarios', 'admincsv', 'gestortablas'].includes(nombre)) return false;
-  if (rolActual === 'bombero_referente') return ['referente', 'bomberos', 'anomalias', 'extintores', 'pulmon'].includes(nombre);
+  if (rolActual === 'bombero_referente') return ['referente', 'bomberos'].includes(nombre);
   if (rolActual === 'bomberos' || rolActual === 'bombero_inspector') return MODULOS_BOMBEROS.has(nombre);
   return ['supervisor', 'mantenimiento'].includes(rolActual);
 }
@@ -295,7 +295,7 @@ function verificarPermisoModuloParaRol(rol, modulo) {
   if (rol === 'administrador' || rol === 'superadministrador') return true;
   if (nombre === 'mayordomo001') return false;
   if (['administracionusuarios', 'admincsv', 'gestortablas'].includes(nombre)) return false;
-  if (rol === 'bombero_referente') return ['referente', 'bomberos', 'anomalias', 'extintores', 'pulmon'].includes(nombre);
+  if (rol === 'bombero_referente') return ['referente', 'bomberos'].includes(nombre);
   if (rol === 'bomberos' || rol === 'bombero_inspector') return MODULOS_BOMBEROS.has(nombre);
   return ['supervisor', 'mantenimiento'].includes(rol);
 }
