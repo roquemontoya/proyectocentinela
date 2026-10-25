@@ -23,7 +23,7 @@ function duplicates(rows, key) {
 }
 
 export function auditExtintores({ extintores = [], trazabilidad = [], alveolos = [] } = {}) {
-  const reportFindings = [];
+  const reportFindings = createAuditReport({ runId: `rules-${Date.now()}`, taskId: 'auditoria-extintores' });
   const duplicateSerials = duplicates(extintores, 'numero_serie');
   const duplicateCards = duplicates(extintores, 'numero_tarjeta');
   const duplicateTraceIds = duplicates(trazabilidad, 'id_activo');
@@ -53,5 +53,5 @@ export function auditExtintores({ extintores = [], trazabilidad = [], alveolos =
   for (const f of findings) {
     addCheck(reportFindings, f);
   }
-  return reportFindings;
+  return reportFindings.checks;
 }
