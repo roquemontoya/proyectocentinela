@@ -1,0 +1,31 @@
+name: EL_MAYORDOMO_001 - pruebas de auditoría local
+
+on:
+  push:
+    branches:
+      - agente-ia-lab
+    paths:
+      - 'tools/agente-caquitas/**'
+      - '.github/workflows/mayordomo-001-tests.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'tools/agente-caquitas/**'
+      - '.github/workflows/mayordomo-001-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit-engine-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Probar reglas de auditoría (sin conexión a producción)
+        run: node --test tools/agente-caquitas/audit-rules.test.mjs
