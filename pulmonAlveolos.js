@@ -58,7 +58,7 @@ export async function renderizarAlveolosPulmon(contenedor) {
               <strong style="color:#7dd3fc">${esc(a.codigo)}</strong>
               <div style="font-size:12px;margin:7px 0;color:${estado==='Ocupado'?'#86efac':'#94a3b8'}">${estado==='Ocupado'?'● OCUPADO':'○ LIBRE'}</div>
               <div style="font-size:12px;min-height:32px;overflow-wrap:anywhere">${esc(etiqueta || 'Sin equipo asignado')}</div>
-              ${e ? `<div style="font-size:12px;color:#7dd3fc;margin-top:4px">${esc(tipo)} · ID ${e.id}</div>${ficticio?'<small style="display:block;color:#fbbf24;margin-top:5px">🧪 FICTICIO</small>':''}<small style="display:block;color:#94a3b8;margin-top:8px">Para retirar este equipo, registrá un movimiento desde Reemplazos temporales.</small>` : `<select data-assign="${a.id}" style="width:100%;margin-top:8px;padding:7px;background:#111;color:#fff;border:1px solid #555;border-radius:4px"><option value="">Asignar equipo de prueba…</option>${stock.map(s=>`<option value="${s.id}">${esc(s.ETIQUETA||('ID '+s.id))} — ${esc(s.TIPO||'N/D')}</option>`).join('')}</select>`}
+              ${e ? `<div style="font-size:12px;color:#7dd3fc;margin-top:4px">${esc(tipo)} · ID ${e.id}</div>${ficticio?'<small style="display:block;color:#fbbf24;margin-top:5px">🧪 FICTICIO</small>':''}<small style="display:block;color:#94a3b8;margin-top:8px">Para retirar este equipo, registrá un movimiento desde Reemplazos temporales.</small>` : `<small style="display:block;color:#94a3b8;margin-top:8px">Alvéolo libre. Las asignaciones deben registrarse desde un movimiento transaccional autorizado.</small>`}
             </article>`;
         }).join('')}
       </div>`;
@@ -75,22 +75,6 @@ export async function renderizarAlveolosPulmon(contenedor) {
     section.querySelector('#filtro-alveolo').addEventListener('input', aplicarFiltros);
     section.querySelector('#filtro-tipo-alveolo').addEventListener('change', aplicarFiltros);
     section.querySelector('#filtro-estado-alveolo').addEventListener('change', aplicarFiltros);
-
-    section.querySelectorAll('[data-assign]').forEach(select => select.addEventListener('change', async () => {
-        const assetId = Number(select.value), alveoloId = Number(select.dataset.assign);
-        if (!assetId) return;
-        const equipo = stock.find(e => Number(e.id) === assetId);
-        if (!equipo) return alert('El equipo ya no está disponible. Actualizá el módulo.');
-        if (!confirm(`¿Asignar ${equipo.ETIQUETA || 'ID '+assetId} a este alvéolo?`)) { select.value=''; return; }
-        const { data: actual, error: errActual } = await clienteSupabase.from('pulmon_alveolos').select('estado,activo_extintor_id').eq('id',alveoloId).single();
-        if (errActual || actual.estado !== 'Libre' || actual.activo_extintor_id) return alert('El alvéolo ya no está libre. Actualizá la vista.');
-        const { error: errEquipo } = await clienteSupabase.from('Extintores').update({alveolo_id:alveoloId, UBICACION:'PULMÓN '+String(alveoloId).padStart(3,'0'), PRP:'En Pulmon'}).eq('id',assetId).eq('PRP','En Pulmon');
-        if (errEquipo) return alert('No se pudo asignar el extintor. Revisá permisos RLS: '+errEquipo.message);
-        const { error: errSlot } = await clienteSupabase.from('pulmon_alveolos').update({estado:'Ocupado',activo_extintor_id:assetId,actualizado_en:new Date().toISOString()}).eq('id',alveoloId).eq('estado','Libre');
-        if (errSlot) return alert('El equipo se actualizó pero el alvéolo no; hay que reconciliar el registro: '+errSlot.message);
-        alert('Equipo asignado al alvéolo.');
-        window.cargarModulo('pulmon');
-    }));
 
 
 }
