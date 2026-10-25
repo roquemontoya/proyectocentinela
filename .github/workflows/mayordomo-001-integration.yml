@@ -41,4 +41,3 @@ jobs:
           ! grep -nE 'AGENTE_CAQ_AUDIT_TOKEN|SUPABASE_SERVICE_ROLE_KEY|SUPABASE_SECRET_KEY' mayordomo001.js app.js auth.js
           grep -q "functions.invoke('mayordomo-001-audit'" mayordomo001.js
           grep -q "nombre === 'mayordomo001'" auth.js
-          grep -q "presented_as" <(git show HEAD:mayordomo001.js) || true
