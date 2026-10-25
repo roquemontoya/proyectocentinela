@@ -29,8 +29,14 @@ jobs:
       - name: Instalar Playwright
         run: npm install --no-save playwright
 
-      - name: Instalar Chromium
-        run: npx playwright install --with-deps chromium
+      - name: Restaurar caché de Chromium
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ runner.arch }}-v1
+
+      - name: Instalar Chromium (sin instalar paquetes del sistema)
+        run: npx playwright install chromium
 
       - name: Ejecutar diagnóstico de solo lectura
         run: node tools/agent-diagnostic.mjs
