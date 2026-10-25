@@ -170,3 +170,37 @@ Se añadieron pruebas para referencias huérfanas de controles, asignaciones inv
 ## Estado de cobertura
 
 La etiqueta “auditoría integral” describe el objetivo, no una cobertura ya terminada. El motor actual es un primer subconjunto determinista; no usa IA generativa. Los resultados son hallazgos para revisión, no órdenes de reparación. La interfaz PWA, despliegue de la nueva función y pruebas autenticadas siguen siendo pasos separados y pendientes.
+
+
+## Nuevas reglas operativas solicitadas: perímetro GPS y proveedor de recarga
+
+### Perímetro GPS de planta
+No basta con validar latitud/longitud en el rango mundial. Un punto puede ser geográficamente válido y estar a 20 cuadras de la planta. J.A.R.V.I.S. debe comparar cada control y punto de recorrido con un perímetro operativo aprobado de la fábrica y, cuando corresponda, con la posición conocida del activo controlado.
+
+Diseño recomendado:
+- Crear una geometría oficial del perímetro de planta a partir de la cartografía existente y una fuente cartográfica pública (por ejemplo, OpenStreetMap) solo como referencia para digitalización y contraste. La fuente pública no reemplaza la validación del perímetro por personal autorizado de planta.
+- Mantener polígonos o zonas con versión, fecha de vigencia, origen y aprobador. Si hay sectores internos o áreas con mala recepción GPS, registrarlos explícitamente para ajustar la evaluación sin falsear el perímetro global.
+- Al guardar un control, calcular si la posición está dentro del perímetro y la distancia a la ubicación esperada del activo. Si está fuera, crear una advertencia de GPS sospechoso, no rechazar ni alterar automáticamente el control.
+- Configurar umbrales iniciales y calibrables: dentro del perímetro = normal; punto fuera pero cercano = advertencia; punto muy alejado (por ejemplo, cientos de metros o kilómetros) = posible fallo fuerte de GPS. Los umbrales definitivos se determinan midiendo datos reales y el tamaño del predio.
+- Guardar latitud/longitud original, precisión reportada por el dispositivo si está disponible, distancia al perímetro/activo, resultado de validación y versión de la regla. No sustituir la posición original.
+- Evitar que una posición GPS sospechosa se convierta en una ubicación nueva del activo. Debe distinguirse “ubicación fija del equipo” de “posición del dispositivo durante la inspección”.
+- Implementar pruebas con ubicaciones conocidas dentro de planta, zonas problemáticas y puntos simulados fuera del predio. Si no existe precisión GPS en el navegador, dejarla como desconocida, no inventarla.
+
+Estado: propuesta documentada; aún no implementada en el motor. La regla GPS-001 actual solo detecta coordenadas imposibles en el rango mundial, secuencias duplicadas y fechas invertidas.
+
+### Seguimiento de equipos enviados a proveedor
+El sistema necesita una vista de ciclo completo para saber cuántos extintores están con el proveedor, cuántos están pendientes de envío, cuántos están programados para salir, cuántos fueron despachados, cuántos debe devolver el proveedor, cuántos volvieron y cuáles están demorados.
+
+Nombre del proveedor: en los registros anteriores del proyecto aparece “Vertoles”, pero el usuario ahora escribió “Bertoles”. No fijar todavía un nombre canónico sin verificarlo contra remitos/órdenes de compra o la razón social correcta. La tabla debe almacenar el nombre legal del proveedor y, si corresponde, su nombre comercial; evitar que ambas variantes creen proveedores duplicados.
+
+Modelo de datos sugerido:
+- `proveedores`: proveedor_id, razon_social, nombre_comercial, CUIT opcional, activo, contacto operativo.
+- `ordenes_servicio_extintores`: orden_id, proveedor_id, tipo_servicio (recarga/prueba hidráulica/mantenimiento), estado, fecha_programada_envio, fecha_envio_real, fecha_devolucion_comprometida, fecha_cierre, remito_salida, remito_retorno y observaciones.
+- `ordenes_servicio_extintores_detalle`: orden_id, extintor_id/activo_leu_id, vencimiento/PH al envío si aplica, estado_por_equipo, fecha de devolución individual y observación. Cada extintor debe estar identificable; no confiar solo en cantidades agregadas.
+- Si el esquema actual de `movimientos_extintores` y `extintores_trazabilidad` ya permite reconstruir todos los eventos de envío y retorno de manera inequívoca, reutilizarlo y agregar las relaciones faltantes en vez de duplicar la fuente de verdad. Primero se audita su estructura y uso real en el código.
+- Registrar eventos de envío, recepción parcial, devolución parcial, observación/rechazo y cierre; nunca asumir que una orden completa volvió porque llegó un lote.
+- Reporte derivado: en proveedor actualmente, programados para envío, pendientes de programación, vencidos de retorno, devolución comprometida por semana/mes, retornados, y conciliación entre unidades despachadas y devueltas.
+- Reglas de integridad: un extintor no puede figurar simultáneamente en dos órdenes abiertas incompatibles; las fechas deben ser coherentes; retorno no puede superar despacho por equipo; una orden solo se cierra cuando cada ítem está devuelto, cancelado justificadamente o conciliado por un responsable.
+- Vincular el flujo con Pulmón para reflejar la etapa “en proveedor” y evitar que el extintor aparezca disponible para reemplazos mientras está físicamente fuera de planta.
+
+Estado: el inventario/los movimientos existentes se deben inspeccionar antes de decidir si hace falta una tabla nueva. El esquema propuesto no se ha creado en Supabase y no se deben contar cantidades hasta reconciliar la identidad de cada equipo.
