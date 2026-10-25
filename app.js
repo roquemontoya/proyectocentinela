@@ -21,6 +21,7 @@ import { cargarModuloSimulacionControlin } from './simulacionControlin.js';
 import { cargarModuloAdministracionUsuarios } from './administracionUsuarios.js';
 import { abrirSeguridadCuenta } from './seguridadCuenta.js';
 import { cargarModuloMiCuenta } from './miCuenta.js';
+import { cargarModuloMayordomo001 } from './mayordomo001.js';
 import { inicializarPreferenciasVisuales } from './preferenciasVisuales.js';
 import { abrirControlExtintor, guardarControlExtintor } from './controlesExtintores.js';
 import { abrirControlHidrante, guardarControlHidrante, cambiarTipoControl, verificarDetalleLlave } from './controlesHidrantes.js';
@@ -184,6 +185,10 @@ window.cargarModulo = async function(modulo) {
 
             case 'miCuenta':
                 await cargarModuloMiCuenta(vistaDinamica);
+                break;
+
+            case 'mayordomo001':
+                await cargarModuloMayordomo001(vistaDinamica);
                 break;
 
             case 'correccionEcas':
