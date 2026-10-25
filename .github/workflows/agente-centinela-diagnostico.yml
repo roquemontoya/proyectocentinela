@@ -1,6 +1,12 @@
 name: Agente Centinela - diagnóstico de solo lectura
 
 on:
+  push:
+    branches:
+      - agente-ia-lab
+    paths:
+      - '.github/workflows/agente-centinela-diagnostico.yml'
+      - 'tools/agent-diagnostic.mjs'
   workflow_dispatch:
 
 permissions:
