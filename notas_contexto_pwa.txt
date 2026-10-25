@@ -29,3 +29,56 @@ Este archivo contendrá información clave para continuar charlas o transferir c
   - K: solo se reemplaza entre extintores K.
 
 Este archivo debe ser actualizado conforme avancemos.
+
+============================================================
+HITO MAYOR — 25/10/2026
+MAYORDOMO_001 (nombre interno: “Caquitas”) INTEGRADO EN MAIN
+============================================================
+
+Objetivo
+Incorporar a Centinela un primer agente auditor de solo lectura para revisar consistencia de activos, trazabilidad e inventario del Pulmón, sin modificar registros.
+
+Implementación integrada
+- Módulo frontend: `mayordomo001.js`, con resumen de auditoría, detalle de hallazgos y exportación local a JSON y CSV.
+- Menú lateral: “🛡️ Mayordomo_001 · Auditoría”, restringido a administradores/superadministradores.
+- Backend: Edge Function protegida `mayordomo-001-audit`, con JWT obligatorio, verificación de sesión y rol, y llamada interna al informe mediante secreto de servidor. El secreto no se expone al frontend.
+- Funciones de auditoría de soporte: `agente-caquitas-audit-read` y `agente-caquitas-audit-report`.
+- El agente informa hallazgos; no corrige datos ni registra movimientos. No se realizaron modificaciones en tablas como parte de esta integración.
+
+Auditoría inicial observada en la interfaz
+- Extintores: 420.
+- Registros de trazabilidad: 1.410.
+- Alvéolos del Pulmón: 420.
+- Hallazgos totales: 4 (1 alta, 1 media y 2 informativos).
+  1. Alta: 1.410 registros de trazabilidad con identificadores o ubicación faltantes. Deben investigarse; no implica por sí solo que todos sean datos corruptos.
+  2. Media: 1 extintor sin año de prueba hidráulica (PH): registro con ubicación “PULMÓN 420”, vencimiento 06/27 y PH vacío.
+  3. Informativo: 1.410 registros pendientes de relevamiento operativo.
+  4. Informativo: 1.410 registros pendientes de verificación de ubicación.
+- Las reglas de auditoría son preliminares. Los estados pendientes no se consideran errores automáticamente; el vencimiento MM/AA se acepta como formato de revisión y no se normaliza automáticamente.
+
+Pruebas realizadas
+- GitHub Actions aprobó la sintaxis de JavaScript.
+- Se comprobó que los secretos del servidor no estén incluidos en los archivos frontend.
+- Los endpoints de informe y wrapper rechazaron solicitudes anónimas.
+- Se aprobó el preflight CORS para el origen de producción.
+- La interfaz se probó en un despliegue Preview de Vercel; el usuario confirmó que abrió correctamente y mostró los contadores y cuatro hallazgos.
+- Estas pruebas no sustituyen la prueba autenticada con distintos roles.
+
+Integración y despliegue
+- Pull request: https://github.com/roquemontoya/proyectocentinela/pull/27
+- Estado: fusionado (squash merge) el 25/10/2026.
+- Commit de integración en `main`: `1d4b0e12e9e911299c80ce27cbb39f92638bfe80`.
+- Vercel registró el despliegue de producción asociado a ese commit como READY.
+- URL de producción: https://proyectocentinela.vercel.app
+- Rama de integración usada: `mayordomo-001-main-integration`; se creó desde `main` para evitar incorporar cambios ajenos de `agente-ia-lab`.
+
+Pendiente de seguridad antes de considerar completa la validación
+- Completar prueba de extremo a extremo con una sesión real de administrador/superadministrador y confirmar la respuesta de `mayordomo-001-audit`.
+- Confirmar que una sesión válida con rol no autorizado recibe rechazo (403).
+- Revisar los hallazgos operativos con criterio humano antes de tomar acciones sobre los datos.
+- No afirmar que los permisos autenticados están totalmente validados hasta completar estas pruebas.
+
+Principio operativo
+Mayordomo_001 comienza como auditor de solo lectura: primero detecta y documenta; no modifica activos, trazabilidad, inventario ni movimientos automáticamente.
+
+============================================================
