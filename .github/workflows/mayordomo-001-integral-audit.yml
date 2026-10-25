@@ -1,4 +1,4 @@
-name: Mayordomo_001 Integral Audit Checks
+name: J.A.R.V.I.S. Integral Audit Checks
 
 on:
   push:
@@ -25,10 +25,12 @@ jobs:
           deno-version: v2.x
       - name: Format and check
         run: |
-          deno fmt supabase/functions/mayordomo-001-audit-integral/index.ts
-          deno fmt --check supabase/functions/mayordomo-001-audit-integral/index.ts
+          deno fmt supabase/functions/mayordomo-001-audit-integral/index.ts supabase/functions/mayordomo-001-audit-integral/index_test.ts
+          deno fmt --check supabase/functions/mayordomo-001-audit-integral/index.ts supabase/functions/mayordomo-001-audit-integral/index_test.ts
       - name: Type check
-        run: deno check supabase/functions/mayordomo-001-audit-integral/index.ts
+        run: deno check supabase/functions/mayordomo-001-audit-integral/index.ts supabase/functions/mayordomo-001-audit-integral/index_test.ts
+      - name: Synthetic regression tests
+        run: deno test supabase/functions/mayordomo-001-audit-integral/index_test.ts
       - name: Ensure read-only implementation and authorization gates
         shell: bash
         run: |
