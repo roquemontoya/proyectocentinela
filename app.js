@@ -12,6 +12,7 @@ import { cargarModuloGPS, detenerModuloGPS } from './gpsActivosCercanos.js';
 import { cargarModuloRecorridosGPS, detenerModuloRecorridosGPS } from './recorridosGps.js';
 import { cargarModuloPulmon } from './moduloPulmon.js';
 import { cargarModuloBomberos } from './bomberos.js';
+import { cargarModuloReferente } from './referente.js';
 import { cargarModuloAnomalias } from './anomalias.js';
 import { cargarModuloHistorialFotos } from './historialFotos.js';
 import { cargarModuloEditorUbicaciones } from './editorUbicaciones.js';
@@ -201,6 +202,10 @@ window.cargarModulo = async function(modulo) {
 
             case 'bomberos':
                 await cargarModuloBomberos(vistaDinamica);
+                break;
+
+            case 'referente':
+                await cargarModuloReferente(vistaDinamica);
                 break;
 
             case 'ecas':
