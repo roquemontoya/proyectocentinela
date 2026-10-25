@@ -1,0 +1,61 @@
+name: Mayordomo_001 - integration checks
+
+on:
+  push:
+    branches:
+      - mayordomo-001-main-integration
+    paths:
+      - 'app.js'
+      - 'auth.js'
+      - 'mayordomo001.js'
+      - '.github/workflows/mayordomo-001-integration.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'app.js'
+      - 'auth.js'
+      - 'mayordomo001.js'
+      - '.github/workflows/mayordomo-001-integration.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  frontend-static-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verificar sintaxis JavaScript
+        run: |
+          node --check app.js
+          node --check auth.js
+          node --check mayordomo001.js
+      - name: Comprobar límites de seguridad del frontend
+        run: |
+          ! grep -nE 'AGENTE_CAQ_AUDIT_TOKEN|SUPABASE_SERVICE_ROLE_KEY|SUPABASE_SECRET_KEY' mayordomo001.js app.js auth.js
+          grep -q "functions.invoke('mayordomo-001-audit'" mayordomo001.js
+          grep -q "nombre === 'mayordomo001'" auth.js
+      - name: Verificar que los endpoints rechazan llamadas anónimas
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPORT_STATUS=$(curl -sS -o /tmp/report-body.json -w '%{http_code}' -X POST 'https://zgzhudcdxoentmfgdncf.supabase.co/functions/v1/agente-caquitas-audit-report' -H 'Content-Type: application/json' -d '{"agent_id":"AGENTE-CAQUITAS-001","mayordomo_id":"EL_MAYORDOMO_001","task_id":"auditoria-extintores-resumen"}')
+          test "$REPORT_STATUS" = "401"
+          WRAPPER_STATUS=$(curl -sS -o /tmp/wrapper-body.json -w '%{http_code}' -X POST 'https://zgzhudcdxoentmfgdncf.supabase.co/functions/v1/mayordomo-001-audit' -H 'Content-Type: application/json' -d '{}')
+          test "$WRAPPER_STATUS" = "401"
+          echo "El endpoint de informe y el wrapper protegido rechazaron solicitudes sin credenciales."
+      - name: Verificar preflight CORS del wrapper
+        shell: bash
+        run: |
+          set -euo pipefail
+          STATUS=$(curl -sS -D /tmp/cors-headers.txt -o /tmp/cors-body.txt -w '%{http_code}' -X OPTIONS 'https://zgzhudcdxoentmfgdncf.supabase.co/functions/v1/mayordomo-001-audit' -H 'Origin: https://proyectocentinela.vercel.app' -H 'Access-Control-Request-Method: POST' -H 'Access-Control-Request-Headers: authorization, apikey, content-type, x-client-info')
+          test "$STATUS" = "204"
+          grep -qi '^access-control-allow-origin: https://proyectocentinela.vercel.app' /tmp/cors-headers.txt
+          grep -qi 'x-client-info' /tmp/cors-headers.txt
+          echo "Preflight CORS aprobado para el dominio de producción."

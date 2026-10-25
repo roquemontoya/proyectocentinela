@@ -21,6 +21,7 @@ import { cargarModuloSimulacionControlin } from './simulacionControlin.js';
 import { cargarModuloAdministracionUsuarios } from './administracionUsuarios.js';
 import { abrirSeguridadCuenta } from './seguridadCuenta.js';
 import { cargarModuloMiCuenta } from './miCuenta.js';
+import { cargarModuloMayordomo001 } from './mayordomo001.js';
 import { inicializarPreferenciasVisuales } from './preferenciasVisuales.js';
 import { abrirControlExtintor, guardarControlExtintor } from './controlesExtintores.js';
 import { abrirControlHidrante, guardarControlHidrante, cambiarTipoControl, verificarDetalleLlave } from './controlesHidrantes.js';
@@ -186,6 +187,10 @@ window.cargarModulo = async function(modulo) {
                 await cargarModuloMiCuenta(vistaDinamica);
                 break;
 
+            case 'mayordomo001':
+                await cargarModuloMayordomo001(vistaDinamica);
+                break;
+
             case 'correccionEcas':
                 await cargarFormularioCorreccionEcas(vistaDinamica);
                 break;
@@ -262,6 +267,21 @@ document.addEventListener('DOMContentLoaded', () => {
     btnGestor.onclick = (e) => {
         e.preventDefault();
         window.cargarModulo('gestorTablas');
+    };
+
+    // Mayordomo_001 (nombre interno de desarrollo: Caquitas), solo para administradores.
+    let btnMayordomo = document.getElementById('nav-mayordomo-001');
+    if (!btnMayordomo) {
+        btnMayordomo = document.createElement('li');
+        btnMayordomo.id = 'nav-mayordomo-001';
+        btnMayordomo.className = 'menu-solo-admin';
+        btnMayordomo.textContent = '🛡️ Mayordomo_001 · Auditoría';
+        btnMayordomo.style.cssText = 'color:#7dd3fc;font-weight:bold;cursor:pointer;';
+        listaMenu.appendChild(btnMayordomo);
+    }
+    btnMayordomo.onclick = (e) => {
+        e.preventDefault();
+        window.cargarModulo('mayordomo001');
     };
 
     let btnHistorialFotos = document.getElementById('nav-historial-fotos');
