@@ -28,4 +28,4 @@ jobs:
         with:
           node-version: 22
       - name: Probar reglas de auditoría (sin conexión a producción)
-        run: node --test tools/agente-caquitas/audit-rules.test.mjs
+        run: node --test tools/agente-caquitas/*.test.mjs
