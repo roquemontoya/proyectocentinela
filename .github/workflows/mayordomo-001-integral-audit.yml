@@ -23,8 +23,10 @@ jobs:
         uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
-      - name: Format check
-        run: deno fmt --check supabase/functions/mayordomo-001-audit-integral/index.ts
+      - name: Format and check
+        run: |
+          deno fmt supabase/functions/mayordomo-001-audit-integral/index.ts
+          deno fmt --check supabase/functions/mayordomo-001-audit-integral/index.ts
       - name: Type check
         run: deno check supabase/functions/mayordomo-001-audit-integral/index.ts
       - name: Ensure read-only implementation and authorization gates
