@@ -269,6 +269,21 @@ document.addEventListener('DOMContentLoaded', () => {
         window.cargarModulo('gestorTablas');
     };
 
+    // Mayordomo_001 (nombre interno de desarrollo: Caquitas), solo para administradores.
+    let btnMayordomo = document.getElementById('nav-mayordomo-001');
+    if (!btnMayordomo) {
+        btnMayordomo = document.createElement('li');
+        btnMayordomo.id = 'nav-mayordomo-001';
+        btnMayordomo.className = 'menu-solo-admin';
+        btnMayordomo.textContent = '🛡️ Mayordomo_001 · Auditoría';
+        btnMayordomo.style.cssText = 'color:#7dd3fc;font-weight:bold;cursor:pointer;';
+        listaMenu.appendChild(btnMayordomo);
+    }
+    btnMayordomo.onclick = (e) => {
+        e.preventDefault();
+        window.cargarModulo('mayordomo001');
+    };
+
     let btnHistorialFotos = document.getElementById('nav-historial-fotos');
     if (!btnHistorialFotos) {
         btnHistorialFotos = document.createElement('li');
