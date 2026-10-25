@@ -285,7 +285,7 @@ export function aplicarPermisosInterfaz(rol = rolActual) {
   document.querySelectorAll('.menu-solo-admin').forEach(el => { el.style.display = esAdmin ? '' : 'none'; });
   for (const id of ['nav-gestor-tablas', 'nav-cmu', 'nav-historial-fotos', 'nav-administracion-usuarios']) {
     const elemento = document.getElementById(id);
-    if (elemento) elemento.style.display = id === 'nav-historial-fotos' ? ((esBombero || esReferente) ? '' : '') : (esAdmin ? '' : 'none');
+    if (elemento) elemento.style.display = id === 'nav-historial-fotos' ? (esBombero && !esReferente ? 'none' : '') : (esAdmin ? '' : 'none');
   }
   const botonSalir = document.getElementById('btn-logout');
   if (botonSalir) botonSalir.textContent = 'Cerrar sesión';
