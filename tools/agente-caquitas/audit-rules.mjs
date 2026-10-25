@@ -3,7 +3,7 @@
  * Solo procesa snapshots ya suministrados por un adaptador de lectura.
  * No importa Supabase, no hace peticiones y no escribe datos.
  */
-import { addCheck } from './identity.mjs';
+import { addCheck, createAuditReport } from './identity.mjs';
 
 function value(row, key) {
   const v = row?.[key];
