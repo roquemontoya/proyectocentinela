@@ -24,10 +24,10 @@ test('detecta duplicados y faltantes sin mutar las filas de entrada', () => {
   });
   assert.deepEqual(extintores, original);
   assert.equal(checks.find(c => c.id === 'EXT_DUPLICATE_SERIAL').status, 'CHECK_REQUIRED');
-  assert.equal(checks.find(c => c.id === 'EXT_MISSING_LABEL').count, 1);
-  assert.equal(checks.find(c => c.id === 'EXT_MISSING_TRACE').count, 2);
-  assert.equal(checks.find(c => c.id === 'TRACE_DUPLICATE_ASSET').count, 1);
-  assert.equal(checks.find(c => c.id === 'PULMON_ASSET_IN_MULTIPLE_SLOTS').count, 1);
+  assert.equal(checks.find(c => c.id === 'EXT_MISSING_LABEL').evidence.length, 1);
+  assert.equal(checks.find(c => c.id === 'EXT_MISSING_TRACE').evidence.length, 2);
+  assert.equal(checks.find(c => c.id === 'TRACE_DUPLICATE_ASSET').evidence.length, 1);
+  assert.equal(checks.find(c => c.id === 'PULMON_ASSET_IN_MULTIPLE_SLOTS').evidence.length, 1);
 });
 
 test('informe sano pasa todos los controles de integridad', () => {
