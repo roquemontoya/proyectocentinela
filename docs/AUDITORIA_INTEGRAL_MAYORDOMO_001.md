@@ -204,3 +204,10 @@ Modelo de datos sugerido:
 - Vincular el flujo con Pulmón para reflejar la etapa “en proveedor” y evitar que el extintor aparezca disponible para reemplazos mientras está físicamente fuera de planta.
 
 Estado: el inventario/los movimientos existentes se deben inspeccionar antes de decidir si hace falta una tabla nueva. El esquema propuesto no se ha creado en Supabase y no se deben contar cantidades hasta reconciliar la identidad de cada equipo.
+
+
+### Proveedor confirmado para el seguimiento de recargas
+
+El usuario confirmó como proveedor a **Bertolez**, sitio oficial https://bertolez.com. La web oficial indica venta y recarga de extintores y prueba hidráulica; publica el domicilio comercial Corrientes 1680, Córdoba, teléfono 0351 867-8581, celular/WhatsApp +54 9 351 704-8630 y correo info@bertolez.com. Fuente: https://bertolez.com/ (consultada para esta documentación).
+
+Registrar en Centinela como nombre comercial **Bertolez** y usar ese nombre en las vistas e informes. La web se identifica como “Bertolez SRL”; para campos fiscales/razón social y CUIT, confirmar con una factura/remito o constancia fiscal del proveedor antes de fijarlos como datos legales definitivos. No usar las variantes “Bertoles” o “Vertoles” como proveedores diferentes; si aparecen en registros históricos, normalizarlos al proveedor canónico solo después de revisar los documentos asociados.
