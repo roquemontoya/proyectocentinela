@@ -323,12 +323,29 @@ function renderizarFormularioExtintorHTML(leu, attrs, estadoSugerido, reemplazoA
                 }
             }
         };
+        const actualizarAcentosEstado = () => {
+            const color = ({ 'Vigente': '#22c55e', 'Por Vencer': '#eab308', 'Vencido': '#ef4444' })[selectCondicion.value] || '#38bdf8';
+            const fieldsets = c.querySelectorAll('fieldset');
+            fieldsets.forEach((fieldset, index) => {
+                // El primer panel es "Datos del elemento"; el segundo es "Control Mensual".
+                if (index < 2) {
+                    fieldset.style.borderColor = color;
+                    const legend = fieldset.querySelector('legend');
+                    if (legend) legend.style.color = color;
+                }
+            });
+            const mapa = document.getElementById('mini-mapa-extintor');
+            if (mapa) mapa.style.borderColor = color;
+            selectCondicion.style.borderColor = color;
+        };
         selectCondicion.addEventListener('change', () => {
             const titulo = document.getElementById('modal-titulo-elemento');
             aplicarTituloControl(titulo, 'Extintor', leu.etiqueta, selectCondicion.value);
             actualizarReemplazo();
+            actualizarAcentosEstado();
         });
         actualizarReemplazo();
+        actualizarAcentosEstado();
     }
 
     // Mapa mini: reutiliza Leaflet, con zoom máximo y marcador del activo.
