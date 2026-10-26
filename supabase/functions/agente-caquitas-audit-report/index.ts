@@ -166,13 +166,28 @@ serve(async (req: Request) => {
     const traceMissingLocation = trazabilidad.filter(r => blank(r.ubicacion_operativa));
     const tracePendingLocation = trazabilidad.filter(r => normalized(r.estado_ubicacion) === "PENDIENTE_VERIFICACION");
     const tracePendingOperational = trazabilidad.filter(r => normalized(r.estado_operativo) === "PENDIENTE_RELEVAMIENTO");
+    const tracePending = trazabilidad.filter(r =>
+      normalized(r.estado_ubicacion) === "PENDIENTE_VERIFICACION" ||
+      normalized(r.estado_operativo) === "PENDIENTE_RELEVAMIENTO"
+    );
+    const traceIncomplete = trazabilidad.filter(r => blank(r.numero_serie) || blank(r.numero_tarjeta) || blank(r.ubicacion_operativa));
+    const traceIncompletePending = traceIncomplete.filter(r => tracePending.includes(r));
+    const traceIncompleteNotPending = traceIncomplete.filter(r => !tracePending.includes(r));
     const traceDuplicateIds = duplicateGroups(trazabilidad, "id_activo");
-    if (traceMissingSeries.length || traceMissingCards.length || traceMissingLocation.length) {
-      findings.push(finding("alta", "TRAZABILIDAD_DATOS_INCOMPLETOS", "Trazabilidad con identificadores o ubicación faltantes",
-        Math.max(traceMissingSeries.length, traceMissingCards.length, traceMissingLocation.length),
-        "Los conteos por campo se informan por separado; registros históricos requieren revisión antes de vincularlos.",
-        [{campo:"numero_serie", faltantes:traceMissingSeries.length},{campo:"numero_tarjeta", faltantes:traceMissingCards.length},{campo:"ubicacion_operativa", faltantes:traceMissingLocation.length},
-          ...trazabilidad.filter(r => blank(r.numero_serie) || blank(r.numero_tarjeta) || blank(r.ubicacion_operativa)).slice(0,8).map(r=>({id_activo:r.id_activo, estado_ubicacion:r.estado_ubicacion, estado_operativo:r.estado_operativo}))]));
+    if (traceIncompleteNotPending.length) {
+      const missingSeriesNotPending = traceIncompleteNotPending.filter(r => blank(r.numero_serie)).length;
+      const missingCardsNotPending = traceIncompleteNotPending.filter(r => blank(r.numero_tarjeta)).length;
+      const missingLocationNotPending = traceIncompleteNotPending.filter(r => blank(r.ubicacion_operativa)).length;
+      findings.push(finding("alta", "TRAZABILIDAD_DATOS_INCOMPLETOS", "Trazabilidad no pendiente con identificadores o ubicación faltantes",
+        traceIncompleteNotPending.length,
+        "Solo incluye registros no marcados como pendientes; revisar antes de vincular o corregir datos.",
+        [{campo:"numero_serie", faltantes:missingSeriesNotPending},{campo:"numero_tarjeta", faltantes:missingCardsNotPending},{campo:"ubicacion_operativa", faltantes:missingLocationNotPending},
+          ...traceIncompleteNotPending.slice(0,8).map(r=>({id_activo:r.id_activo, estado_ubicacion:r.estado_ubicacion, estado_operativo:r.estado_operativo}))]));
+    }
+    if (traceIncompletePending.length) {
+      findings.push(finding("informativa", "TRAZABILIDAD_PENDIENTE_DATOS", "Registros pendientes con datos por relevar", traceIncompletePending.length,
+        "La ficha está marcada como pendiente; completar la verificación operativa antes de tratar los campos vacíos como defectos confirmados.",
+        traceIncompletePending.slice(0,10).map(r=>({id_activo:r.id_activo, estado_ubicacion:r.estado_ubicacion, estado_operativo:r.estado_operativo}))));
     }
     if (tracePendingLocation.length) findings.push(finding("informativa", "TRAZABILIDAD_PENDIENTE_UBICACION", "Registros pendientes de verificación de ubicación", tracePendingLocation.length, "Pendiente no implica error: confirmar si estos registros están en una cola de relevamiento."));
     if (tracePendingOperational.length) findings.push(finding("informativa", "TRAZABILIDAD_PENDIENTE_RELEVAMIENTO", "Registros pendientes de relevamiento operativo", tracePendingOperational.length, "Pendiente no implica error: confirmar proceso operativo esperado."));
@@ -224,7 +239,7 @@ serve(async (req: Request) => {
       data_quality_details: {
         trazabilidad: {
           total: trazabilidad.length,
-          faltan_numero_serie: traceMissingSeries.length,
+          faltan_numero_serie: traceMissingSeries.length,\n          registros_incompletos_no_pendientes: traceIncompleteNotPending.length,\n          registros_incompletos_pendientes: traceIncompletePending.length,
           faltan_numero_tarjeta: traceMissingCards.length,
           faltan_ubicacion_operativa: traceMissingLocation.length,
           estado_ubicacion_pendiente: tracePendingLocation.length,
