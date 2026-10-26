@@ -264,7 +264,9 @@ serve(async (req: Request) => {
     // CSV opcional para guardar el informe en Excel; JSON sigue siendo el formato predeterminado.
     if ((new URL(req.url)).searchParams.get("format") === "csv") {
       const csvCell = (value: unknown) => {
-        const raw = typeof value === "string" ? value : JSON.stringify(value ?? "");
+        let raw = typeof value === "string" ? value : JSON.stringify(value ?? "");
+        // Evita que valores de datos se interpreten como fórmulas al abrir CSV en Excel.
+        if (/^[\\u0000-\\u0020]*[=+@-]/.test(raw)) raw = "'" + raw;
         return '"' + raw.replace(/"/g, '""') + '"';
       };
       const lines = [
