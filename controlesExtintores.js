@@ -280,13 +280,12 @@ function renderizarFormularioExtintorHTML(leu, attrs, estadoSugerido, reemplazoA
 
             <div id="seccion-reemplazo-extintor" style="display:${estadoSugerido === 'Vencido' ? 'block' : 'none'};background:#2a1515;border:1px solid #ef4444;border-radius:7px;padding:12px;margin-bottom:14px;">
                 <h3 style="margin:0 0 8px;color:#f87171;font-size:15px;">🔁 Recambio temporal desde Pulmón</h3>
-                <p style="margin:0 0 10px;color:#fecaca;font-size:12px;line-height:1.5;">1. Seleccioná el equipo que se instala como provisorio. 2. El bombero elegido en “Realizado por” quedará registrado como responsable de la instalación. 3. La devolución se completa luego desde el módulo Pulmón con el bombero que retira el provisorio y el estado de ambos equipos.</p>
-                <label for="input-nuevo-id-reemplazo" style="display:block;font-size:13px;color:#fff;font-weight:bold;margin-bottom:6px;">Equipo provisorio disponible:</label>
+                <p style="margin:0 0 10px;color:#fecaca;font-size:12px;line-height:1.5;">Selecciona el extintor que dejarás como provisorio.</p>
+                <label for="input-nuevo-id-reemplazo" style="display:block;font-size:13px;color:#fff;font-weight:bold;margin-bottom:6px;">Extintores Disponibles:</label>
                 <select id="input-nuevo-id-reemplazo" style="width:100%;padding:10px;background:#1e1e1e;border:1px solid #ef4444;color:#fff;border-radius:5px;">
                     ${crearOpcionesReemplazo(tipo)}
                 </select>
-                <small style="display:block;color:#fca5a5;margin-top:7px;">El titular conserva su tipo y su historial. El provisorio queda bloqueado en el stock hasta registrar su devolución.</small>
-                <small style="display:block;color:#fde68a;margin-top:6px;">Regla de rotación: solo se ofrecen equipos compatibles con fecha válida y más de 30 días hasta el vencimiento. Los vencidos, los que vencen dentro de 30 días y los que no tienen fecha interpretable quedan excluidos para enviarlos directamente a recarga o revisar sus datos.</small>
+                <small style="display:block;color:#fca5a5;margin-top:7px;">Cuando el equipo reemplazado esté disponible, se te avisará para el recambio.</small>
             </div>
 
             <label style="display:block;font-size:13px;margin-bottom:5px;">Tipo del extintor titular (no el provisorio):</label>
