@@ -16,7 +16,7 @@ No se completan identificadores ni se modifica ningún dato operativo.
 ## Pruebas preparadas
 ### A. Red Team seguro (black-box)
 El script `tests/security/audit-red-team.mjs` comprueba:
-1. GET a cada endpoint → debe responder `405 method_not_allowed`.
+1. GET a informe y lectura → deben responder `405 method_not_allowed` (Mayordomo exige JWT en la capa gateway y se prueba por separado).
 2. POST a lectura e informe sin `x-agent-token` → `401 unauthorized`.
 3. POST a lectura e informe con token incorrecto → `401 unauthorized`.
 4. POST a Mayordomo sin sesión → HTTP `401`.
