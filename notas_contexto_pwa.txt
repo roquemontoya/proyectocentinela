@@ -202,3 +202,28 @@ Casos límite obligatorios para Caquitas: (1) tablas vacías => informe válido 
 
 Estado verificado al 26/10/2026: Edge Functions agente-caquitas-audit-read v9 y agente-caquitas-audit-report v4 activas. La lectura usa token y consultas GET de selectores fijos, sin mutaciones. Se identificó un defecto en el informe: trata arrays vacíos de cualquiera de las tres tablas como payload incompleto. Corregirlo para aceptar tablas legítimamente vacías y validar estructura/presencia de counts. Las pruebas end-to-end con token real, auth, paginación y CSV siguen pendientes; no declarar aprobadas sin ejecución real.
 ============================================================
+
+
+============================================================
+CORRECCIÓN DE ARQUITECTURA — 26/10/2026
+UN SOLO AGENTE CENTRAL; ESPECIALISTAS COMO CAPACIDADES
+============================================================
+
+Esta sección SUPERA y CORRIGE el apartado anterior titulado “J.A.R.V.I.S. PÚBLICO Y CAQUITAS INTERNO — CONTRATO OPERATIVO”. No deben implementarse como dos agentes de IA independientes.
+
+- J.A.R.V.I.S. y Caquitas son la misma identidad lógica de agente central de Proyecto Centinela.
+- J.A.R.V.I.S. es el nombre visible dentro de la aplicación; Caquitas es el nombre/apodo usado por el equipo durante desarrollo, auditorías y pruebas.
+- Comparten contexto central, reglas y lógica. La respuesta y las herramientas disponibles se filtran según la sesión autenticada, rol, autorización y finalidad. La identidad común NO significa que todos los usuarios tengan los mismos permisos.
+- Las capacidades de auditoría de datos, seguridad, operación contra incendios/Pulmón y diagnóstico técnico se implementan primero como módulos/herramientas especializadas del agente central, no como agentes autónomos con memorias separadas. Solo crear agentes independientes si existe una necesidad demostrada y un contrato explícito de coordinación.
+- Mayordomo_001 es el operador/orquestador técnico separado para trabajo autorizado de repositorio, despliegue y mantenimiento. No es un alias de J.A.R.V.I.S./Caquitas ni debe duplicar su identidad conversacional.
+- Principio de seguridad: mínimo privilegio. Auditoría en solo lectura por defecto; nunca exponer secretos; ninguna modificación de datos de seguridad industrial sin autorización específica, validación y trazabilidad. El agente no puede concederse permisos.
+- Cuando un dato sea desconocido, las herramientas fallen o el resultado no se pueda validar, el agente debe informar la limitación y no inventar ni presentar un resultado parcial como completo. La intervención humana queda reservada para decisiones de riesgo, autorizaciones o ambigüedades reales; no se considera un fallo que el agente se niegue a realizar acciones no autorizadas.
+
+Plan técnico:
+1. Consolidar el contrato de identidad y permisos.
+2. Mantener las funciones actuales de auditoría como herramientas del agente central.
+3. Crear pruebas adversariales automatizadas sin mutar producción: payloads malformados, tablas vacías, duplicados, paginación, errores upstream, datos hostiles, exportaciones CSV y consistencia/determinismo.
+4. Separar claramente pruebas unitarias/estáticas de pruebas end-to-end reales. No declarar validada autenticación, aislamiento de roles o paginación sin probar el endpoint con credenciales de prueba autorizadas.
+5. Mantener cambios de código y documentación en una rama de prueba y solicitar revisión antes de fusionar a main.
+
+============================================================
