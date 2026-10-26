@@ -30,8 +30,10 @@ jobs:
           deno-version: v2.x
       - name: Verificar script Red Team (sintaxis)
         run: node --check tests/security/audit-red-team.mjs
-      - name: Verificar prototipo de auditoría CSV
+      - name: Compilar prototipo de auditoría CSV
         run: python -m py_compile tests/data-quality/csv_two_pass_audit.py
+      - name: Probar reglas de reparación CSV
+        run: python -m unittest discover -s tests/data-quality -p 'test_*.py' -v
       - name: Verificar Mayordomo
         run: deno check supabase/functions/mayordomo-001-audit/index.ts
       - name: Verificar lectura de Caquitas
