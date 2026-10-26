@@ -11,7 +11,7 @@ const REPLACEMENTS = Object.freeze({
 });
 
 function validPayload(p) {
-  return Boolean(p && p.counts && typeof p.counts === "object")
+  return Boolean(p && p.counts && typeof p.counts === "object" && !Array.isArray(p.counts))
     && Array.isArray(p.extintores)
     && Array.isArray(p.trazabilidad)
     && Array.isArray(p.alveolos)
@@ -65,7 +65,7 @@ test("rejects null, missing arrays, wrong identity/task, and malformed counts", 
   assert.equal(validPayload({agent_id:AGENT,task_id:TASK,counts:{},extintores:[],trazabilidad:[]}), false);
   assert.equal(validPayload({agent_id:"spoof",task_id:TASK,counts:{},extintores:[],trazabilidad:[],alveolos:[]}), false);
   assert.equal(validPayload({agent_id:AGENT,task_id:"admin-delete",counts:{},extintores:[],trazabilidad:[],alveolos:[]}), false);
-  assert.equal(validPayload({agent_id:AGENT,task_id:TASK,counts:[],extintores:[],trazabilidad:[],alveolos:[]}), true);
+  assert.equal(validPayload({agent_id:AGENT,task_id:TASK,counts:[],extintores:[],trazabilidad:[],alveolos:[]}), false);
 });
 test("duplicate detection ignores case and whitespace but skips blanks", () => {
   assert.deepEqual(duplicateGroups([{s:" x-1 "},{s:"X-1"},{s:""},{s:null}], "s"), [{value:"X-1",count:2}]);
