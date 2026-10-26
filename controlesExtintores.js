@@ -325,18 +325,17 @@ function renderizarFormularioExtintorHTML(leu, attrs, estadoSugerido, reemplazoA
         };
         const actualizarAcentosEstado = () => {
             const color = ({ 'Vigente': '#22c55e', 'Por Vencer': '#eab308', 'Vencido': '#ef4444' })[selectCondicion.value] || '#38bdf8';
-            const fieldsets = c.querySelectorAll('fieldset');
-            fieldsets.forEach((fieldset, index) => {
-                // El primer panel es "Datos del elemento"; el segundo es "Control Mensual".
-                if (index < 2) {
-                    fieldset.style.borderColor = color;
-                    const legend = fieldset.querySelector('legend');
-                    if (legend) legend.style.color = color;
-                }
+            // Aplicar el color del estado a todos los bordes del formulario, incluidos
+            // campos de entrada, selectores, paneles y mapa; mantener intactos los fondos.
+            c.querySelectorAll('fieldset, input, select, textarea, #mini-mapa-extintor').forEach(elemento => {
+                elemento.style.borderColor = color;
             });
-            const mapa = document.getElementById('mini-mapa-extintor');
-            if (mapa) mapa.style.borderColor = color;
+            c.querySelectorAll('fieldset legend').forEach(legend => {
+                legend.style.color = color;
+            });
             selectCondicion.style.borderColor = color;
+            const titulo = document.getElementById('modal-titulo-elemento');
+            if (titulo) titulo.style.color = color;
         };
         selectCondicion.addEventListener('change', () => {
             const titulo = document.getElementById('modal-titulo-elemento');
