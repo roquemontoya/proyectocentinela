@@ -274,6 +274,17 @@ export async function establecerContrasena(event) {
     if (currentInput) { currentInput.value = ''; currentInput.required = false; currentInput.style.display = 'none'; }
     const currentLabel = document.getElementById('setup-current-label');
     if (currentLabel) currentLabel.style.display = 'none';
+    let segundoFactorCorrecto = false;
+    try {
+      segundoFactorCorrecto = await verificarSegundoFactor();
+    } catch {
+      await clienteSupabase.auth.signOut();
+      throw new Error('La contraseña se actualizó, pero no se pudo completar la verificación de seguridad. Ingresá nuevamente y completá el segundo factor.');
+    }
+    if (!segundoFactorCorrecto) {
+      await clienteSupabase.auth.signOut();
+      throw new Error('La contraseña se actualizó, pero falta completar el segundo factor. Ingresá nuevamente.');
+    }
     const rol = await resolverRolAutenticado();
     if (!rol) {
       await clienteSupabase.auth.signOut();
