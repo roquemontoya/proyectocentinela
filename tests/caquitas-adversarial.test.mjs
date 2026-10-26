@@ -76,8 +76,9 @@ test("expiry accepts MM/YY and MM/YYYY; rejects impossible months and malformed 
   for (const bad of ["00/2027","13/2027","2/2027","2027/02","abc",null,""]) assert.equal(parseExpiry(bad),null);
 });
 test("replacement matrix is exact and fails closed on unknown types", () => {
-  for (const holder of Object.keys(REPLACEMENTS)) for (const candidate of ["PQS","HALON","CO2","K","UNKNOWN"]) {
-    assert.equal((REPLACEMENTS[holder] ?? []).includes(candidate), REPLACEMENTS[holder].includes(candidate), holder+" -> "+candidate);
+  const expected = { PQS: ["PQS","HALON","CO2"], HALON: ["HALON"], CO2: ["CO2","HALON"], K: ["K"] };
+  for (const holder of Object.keys(expected)) for (const candidate of ["PQS","HALON","CO2","K","UNKNOWN"]) {
+    assert.equal((REPLACEMENTS[holder] ?? []).includes(candidate), expected[holder].includes(candidate), holder+" -> "+candidate);
   }
   assert.deepEqual(REPLACEMENTS.HALON,["HALON"]);
   assert.deepEqual(REPLACEMENTS.K,["K"]);
