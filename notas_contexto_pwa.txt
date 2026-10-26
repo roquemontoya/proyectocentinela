@@ -244,3 +244,13 @@ Enlaces:
 - PR #33: https://github.com/roquemontoya/proyectocentinela/pull/33
 - Bitácora: https://github.com/roquemontoya/proyectocentinela/blob/main/notas_contexto_pwa.txt
 ============================================================
+
+
+ACTUALIZACIÓN — 26/10/2026 — SIMULADOR VISUAL DE ROLES (IMPLEMENTACIÓN EN MAIN)
+- Se incorpora un selector flotante exclusivo del rol real superadministrador para previsualizar perfiles sin cerrar sesión ni cambiar el rol autenticado.
+- Perfiles simulables: Administrador, Supervisor, Bombero/Inspector, Bombero, Bombero Referente, Mantenimiento, jefaturas y Gerencia.
+- La simulación filtra tarjetas del inicio, accesos del menú lateral y bloquea desde el enrutador la apertura de módulos no permitidos por el perfil visual.
+- Se mantiene separada la identidad autenticada: no se actualiza Supabase, no se cambian roles reales ni políticas RLS. Es una simulación de interfaz; no certifica autorización del servidor.
+- El panel puede minimizarse y permite volver a la vista real de Superadministrador o cambiar directamente a otro perfil.
+- Archivos: simuladorRoles.js (nuevo), app.js, auth.js, style.css.
+- Verificación: cambios de código guardados en main mediante GitHub Contents API. No se modificó configuración de Vercel ni se accedió a Supabase para alterar datos o permisos. El despliegue automático y la ejecución en navegador no se han verificado en esta operación.
