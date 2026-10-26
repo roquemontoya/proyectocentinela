@@ -130,7 +130,7 @@ serve(async (req: Request) => {
         agent_role: "Agente central en modo auditor de solo lectura en esta función. Puede invocar capacidades especializadas como herramientas, sujetas a permisos de la sesión y al alcance autorizado.",
         user_facing_behavior: "Las respuestas visibles de J.A.R.V.I.S. solo pueden incluir datos y acciones autorizados para la sesión actual. No filtrar información interna, datos personales, secretos ni herramientas privilegiadas.",
         specialist_model: "Auditoría de datos, seguridad, operación de extintores/Pulmón y diagnóstico técnico son capacidades/módulos especializados del mismo agente; no son identidades autónomas.",
-        mayordomo_role: "Mayordomo_001 es el operador/orquestador técnico separado que ejecuta tareas de desarrollo y despliegue autorizadas; no es otra identidad conversacional del agente central."
+        mayordomo_role: "Mayordomo_001 es el operador/orquestador técnico separado que ejecuta tareas de desarrollo y despliegue autorizadas; no es otra identidad conversacional del agente central.",
         provider_name: "Bertolez",
         asset_locations: ["En planta", "En Pulmón", "Instalado como provisorio", "Enviado a Bertolez", "Retornado al Pulmón"],
         replacement_rules: {
