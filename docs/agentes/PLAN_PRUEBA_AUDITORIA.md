@@ -42,3 +42,25 @@ Se agregó un workflow manual `.github/workflows/audit-red-team-staging.yml`. So
 
 ## Nota de privilegios mínimos
 La función de lectura usa una clave de servidor y consultas GET/select codificadas de forma fija. Eso limita la superficie de consulta en el código actual, pero no equivale a que PostgreSQL aplique privilegios de solo lectura al rol de base de datos. La separación efectiva mediante credenciales de privilegio mínimo sigue pendiente y debe revisarse antes de producción.
+
+
+## Pasada local de CSV — solo pruebas (2026-10-26)
+Se recibieron y revisaron 19 CSV originales (3.433 filas de datos en total). No se conectó a Supabase ni se modificaron los archivos originales. El prototipo local está en `tests/data-quality/csv_two_pass_audit.py` y genera copias separadas con la etiqueta de uso de prueba.
+
+Hallazgos iniciales del parser de estructura:
+- Extintores: 1.412 filas; 614 filas tienen una columna adicional en la lectura CSV simple. Se detectaron 3 casos de alta confianza en que la etiqueta del extintor quedó partida en `3` y `5 Kg`; la prueba los reconstruye como `3,5 Kg` conservando el orden posterior. Las demás filas anómalas quedan pendientes.
+- IPP: 432 filas; gran parte de las filas no se interpreta como una fila tabular completa en una lectura CSV simple, por lo que requiere un reparador específico de WKT/GEOMETRYCOLLECTION y delimitación.
+- Red troncal: 462 filas; se observan grupos con 1, 3 y 12 columnas frente a 14 en cabecera. No se reparan por conjetura.
+- Hidrantes: 464 filas; hay 87 filas con más columnas que la cabecera. Requieren análisis de campos entrecomillados/estructuras.
+- Válvulas, ECAS, ceniceros, espumígenos, puertas cortafuego y otras capas presentan anomalías estructurales de distinta magnitud.
+
+Estos números son señales del parser estándar, no un veredicto de pérdida de datos: las exportaciones contienen comillas internas, geometrías, comas y campos multilínea que exigen parsers/reglas por categoría. El prototipo es una segunda pasada conservadora, no reemplaza todavía al CMU de navegador ni autoriza importación. La salida local debe tratarse como **SOLO PRUEBAS — NO IMPORTAR A PRODUCCIÓN**.
+
+## Revisión estática de seguridad
+- [x] Las tres Edge Functions limitan los métodos a POST/OPTIONS en el código de aplicación.
+- [x] Lectura e informe validan un token interno con comparación de longitud fija y comparación byte a byte.
+- [x] Mayordomo valida el JWT consultando Auth y exige `administrador` o `superadministrador` mediante `current_user_role()`.
+- [x] Se ajustó el Red Team para probar GET solo en informe/lectura (Mayordomo puede ser bloqueado antes por el gateway JWT) y se amplió el bloqueo de la URL conocida de producción.
+- [ ] Prueba HTTP real contra staging: pendiente; no hay URL/secretos de staging disponibles en esta sesión.
+- [ ] Pruebas positivas/negativas por rol: pendientes hasta disponer de usuarios y entorno aislados.
+- [ ] Mitigación antes de producción: lectura aún usa una clave privilegiada de servidor con selects fijos. Se recomienda reemplazarla por credenciales de mínimo privilegio/rol estrictamente de solo lectura, y probarlo antes de considerar integración.
