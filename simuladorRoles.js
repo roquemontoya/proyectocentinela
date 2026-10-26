@@ -26,6 +26,26 @@ function permisoParaRol(rol, modulo) {
   return ['supervisor','mantenimiento'].includes(rol);
 }
 function etiquetaRol(rol) { return ROLES.find(([id]) => id === rol)?.[1] || rol; }
+const DASHBOARD = {
+ superadministrador:[['panelGeografico','🌐','Mapa de supervisión'],['anomalias','⚠️','Seguimiento de anomalías'],['extintores','🧯','Extintores en planta'],['pulmon','📦','Pulmón / reserva'],['hidrantes','🚰','Hidrantes'],['recorridosGps','🧭','Recorridos y caminos internos'],['bomberos','👨‍🚒','Personal / Bomberos'],['mayordomo001','🛡️','Auditoría del sistema']],
+ administrador:[['anomalias','⚠️','Seguimiento de anomalías'],['pulmon','📦','Pulmón / reserva'],['extintores','🧯','Extintores en planta'],['hidrantes','🚰','Hidrantes'],['bomberos','👨‍🚒','Personal / Bomberos'],['panelGeografico','🌐','Mapa de supervisión']],
+ supervisor:[['panelGeografico','🌐','Mapa de supervisión'],['anomalias','⚠️','Seguimiento de anomalías'],['recorridosGps','🧭','Recorridos y caminos internos'],['extintores','🧯','Extintores en planta'],['hidrantes','🚰','Hidrantes'],['pulmon','📦','Pulmón / reserva']],
+ bombero_inspector:[['extintores','🧯','Extintores en planta'],['hidrantes','🚰','Hidrantes'],['pulmon','📦','Pulmón / reserva'],['ecas','📋','ECAS'],['valvulas','⚙️','Válvulas'],['vecas','⚙️','VECAS'],['pecas','🔧','PECAS'],['ipp','👷','IPP'],['recorridosGps','🧭','Recorridos GPS']],
+ bomberos:[['extintores','🧯','Extintores en planta'],['hidrantes','🚰','Hidrantes'],['pulmon','📦','Pulmón / reserva'],['ecas','📋','ECAS'],['valvulas','⚙️','Válvulas'],['vecas','⚙️','VECAS'],['pecas','🔧','PECAS'],['ipp','👷','IPP'],['recorridosGps','🧭','Recorridos GPS']],
+ bombero_referente:[['extintores','🧯','Estado de extintores'],['pulmon','📦','Pulmón / reserva'],['hidrantes','🚰','Hidrantes'],['anomalias','⚠️','Seguimiento de anomalías'],['historialFotos','📷','Historial de controles']],
+ mantenimiento:[['extintores','🧯','Extintores en planta'],['pulmon','📦','Pulmón / reserva'],['hidrantes','🚰','Hidrantes'],['ecas','📋','ECAS'],['valvulas','⚙️','Válvulas']],
+ jefe_seguridad_patrimonial:[['panelGeografico','🌐','Mapa de supervisión'],['anomalias','⚠️','Seguimiento de anomalías'],['extintores','🧯','Estado de extintores'],['hidrantes','🚰','Hidrantes']],
+ jefe_guardia_fisica:[['panelGeografico','🌐','Mapa de supervisión'],['recorridosGps','🧭','Recorridos GPS'],['gps','🛰️','Ubicación GPS'],['anomalias','⚠️','Seguimiento de anomalías']],
+ jefe_prevencion_incendios:[['panelGeografico','🌐','Mapa de supervisión'],['anomalias','⚠️','Seguimiento de anomalías'],['extintores','🧯','Estado de extintores'],['pulmon','📦','Pulmón / reserva']],
+ jefe_rhp:[['anomalias','⚠️','Seguimiento de anomalías'],['extintores','🧯','Estado de extintores'],['pulmon','📦','Pulmón / reserva']],
+ gerencia:[['panelGeografico','🌐','Mapa de supervisión'],['anomalias','⚠️','Seguimiento de anomalías'],['extintores','🧯','Estado de extintores'],['pulmon','📦','Pulmón / reserva']]
+};
+function renderDashboard(rol){
+ const main=document.getElementById('main-content'); if(!main)return;
+ const role=rolSimulado||rol||rolReal; const items=DASHBOARD[role]||DASHBOARD.bombero_inspector; main.innerHTML='';
+ items.forEach(item=>{const id=item[0];if(!permisoParaRol(role,id))return;const card=document.createElement('button');card.type='button';card.className='card';card.setAttribute('aria-label',item[2]);const icon=document.createElement('div');icon.className='card-img';icon.textContent=item[1];const title=document.createElement('div');title.className='card-title';title.textContent=item[2];card.append(icon,title);card.addEventListener('click',()=>window.cargarModulo(id));main.appendChild(card);});
+}
+
 function asegurarPanel() {
   if (document.getElementById('centinela-role-simulator')) return;
   const panel = document.createElement('aside');
@@ -52,6 +72,7 @@ function cambiarRol(rol) {
     panel.querySelector('#role-simulator-select').value = rol || '';
   }
   aplicarVista(rol || rolReal);
+  renderDashboard(rol || rolReal);
   const vista = document.getElementById('vista-dinamica');
   if (vista && vista.style.display !== 'none') window.irInicio?.();
 }
@@ -84,5 +105,6 @@ export function inicializarSimuladorRoles(rol) {
   const p = document.getElementById('centinela-role-simulator');
   if (p) p.style.display = 'block';
   aplicarVista(rolSimulado || rolReal);
+  renderDashboard(rolSimulado || rolReal);
 }
 window.centinelaSimuladorRoles = { obtenerRolSimulado, moduloPermitidoEnSimulacion, esSimulacionSoloLectura };
