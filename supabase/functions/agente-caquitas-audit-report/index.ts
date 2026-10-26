@@ -118,7 +118,9 @@ serve(async (req: Request) => {
   // Una tabla legítimamente vacía es un resultado válido. Solo se considera
   // incompleto el payload si faltan los contenedores o los metadatos de origen.
   if (
-    !sourceData.counts ||\n    typeof sourceData.counts !== "object" ||\n    Array.isArray(sourceData.counts) ||
+    !sourceData.counts ||
+    typeof sourceData.counts !== "object" ||
+    Array.isArray(sourceData.counts) ||
     !Array.isArray(sourceData.extintores) ||
     !Array.isArray(sourceData.trazabilidad) ||
     !Array.isArray(sourceData.alveolos) ||
