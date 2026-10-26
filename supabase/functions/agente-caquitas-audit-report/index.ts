@@ -119,6 +119,8 @@ serve(async (req: Request) => {
   // incompleto el payload si faltan los contenedores o los metadatos de origen.
   if (
     !sourceData.counts ||
+    typeof sourceData.counts !== "object" ||
+    Array.isArray(sourceData.counts) ||
     !Array.isArray(sourceData.extintores) ||
     !Array.isArray(sourceData.trazabilidad) ||
     !Array.isArray(sourceData.alveolos) ||
@@ -264,7 +266,9 @@ serve(async (req: Request) => {
     // CSV opcional para guardar el informe en Excel; JSON sigue siendo el formato predeterminado.
     if ((new URL(req.url)).searchParams.get("format") === "csv") {
       const csvCell = (value: unknown) => {
-        const raw = typeof value === "string" ? value : JSON.stringify(value ?? "");
+        let raw = typeof value === "string" ? value : JSON.stringify(value ?? "");
+        // Evita que valores de datos se interpreten como fórmulas al abrir CSV en Excel.
+        if (/^[\u0000-\u0020]*[=+@-]/.test(raw)) raw = "'" + raw;
         return '"' + raw.replace(/"/g, '""') + '"';
       };
       const lines = [
@@ -273,7 +277,7 @@ serve(async (req: Request) => {
           reportPayload.generated_at, f.severity, f.code, f.title, f.count, f.detail, f.examples
         ].map(csvCell).join(","))
       ];
-      return new Response("\\uFEFF" + lines.join("\\r\\n"), {
+      return new Response("\uFEFF" + lines.join("\r\n"), {
         status: 200,
         headers: {
           ...headers,
