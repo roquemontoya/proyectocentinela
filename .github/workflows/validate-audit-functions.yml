@@ -1,0 +1,42 @@
+name: Validar agentes de auditoría
+
+on:
+  pull_request:
+    paths:
+      - "supabase/functions/mayordomo-001-audit/**"
+      - "supabase/functions/agente-caquitas-audit-read/**"
+      - "supabase/functions/agente-caquitas-audit-report/**"
+      - ".github/workflows/validate-audit-functions.yml"
+      - "tests/security/**"
+      - "tests/data-quality/**"
+  push:
+    branches:
+      - "test/agentes-auditoria-pre-funcional"
+    paths:
+      - "supabase/functions/mayordomo-001-audit/**"
+      - "supabase/functions/agente-caquitas-audit-read/**"
+      - "supabase/functions/agente-caquitas-audit-report/**"
+      - ".github/workflows/validate-audit-functions.yml"
+      - "tests/security/**"
+      - "tests/data-quality/**"
+
+jobs:
+  deno-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Verificar script Red Team (sintaxis)
+        run: node --check tests/security/audit-red-team.mjs
+      - name: Compilar prototipo de auditoría CSV
+        run: python -m py_compile tests/data-quality/csv_two_pass_audit.py
+      - name: Probar reglas de reparación CSV
+        run: python -m unittest discover -s tests/data-quality -p 'test_*.py' -v
+      - name: Verificar Mayordomo
+        run: deno check supabase/functions/mayordomo-001-audit/index.ts
+      - name: Verificar lectura de Caquitas
+        run: deno check supabase/functions/agente-caquitas-audit-read/index.ts
+      - name: Verificar informe de Caquitas
+        run: deno check supabase/functions/agente-caquitas-audit-report/index.ts

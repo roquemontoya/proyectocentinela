@@ -1,0 +1,37 @@
+name: Prueba Red Team segura (staging)
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_isolated_staging:
+        description: "Escribí CONFIRMO-STAGING para ejecutar solo contra un proyecto aislado"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  red-team-safe:
+    if: ${{ inputs.confirm_isolated_staging == 'CONFIRMO-STAGING' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: test/agentes-auditoria-pre-funcional
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validar que existen secretos de staging
+        env:
+          STAGING_URL: ${{ secrets.CENTINELA_STAGING_SUPABASE_URL }}
+          AUDIT_TOKEN: ${{ secrets.AGENTE_CAQ_AUDIT_TOKEN }}
+        run: |
+          test -n "$STAGING_URL" || (echo "Falta CENTINELA_STAGING_SUPABASE_URL" && exit 2)
+          test -n "$AUDIT_TOKEN" || (echo "Falta AGENTE_CAQ_AUDIT_TOKEN" && exit 2)
+      - name: Ejecutar pruebas negativas no destructivas
+        env:
+          CENTINELA_STAGING_SUPABASE_URL: ${{ secrets.CENTINELA_STAGING_SUPABASE_URL }}
+          AGENTE_CAQ_AUDIT_TOKEN: ${{ secrets.AGENTE_CAQ_AUDIT_TOKEN }}
+        run: node tests/security/audit-red-team.mjs
