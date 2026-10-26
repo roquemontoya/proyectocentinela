@@ -145,7 +145,7 @@ test("report function validates upstream payload before generating a report", ()
 });
 
 test("CSV output uses actual UTF-8 BOM and CRLF, not escaped literal text", () => {
-  assert.ok(reportSource.includes('new Response("\\\\uFEFF" + lines.join("\\\\r\\\\n"),'));
+  assert.ok(reportSource.includes('new Response("\\uFEFF" + lines.join("\\r\\n"),'));
 });
 
 test("read function describes J.A.R.V.I.S. and Caquitas as one central agent", () => {
