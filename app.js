@@ -98,7 +98,7 @@ window.abrirFormularioControl = async function(tabla, dbId, idElemento) {
 };
 
 window.guardarControl = async function(event) {
-    if ((obtenerRolSimulado() || obtenerRolActual()) === 'bombero_referente') {
+    if (['bombero_referente','jefe_seguridad_patrimonial','jefe_guardia_fisica','jefe_prevencion_incendios','jefe_rhp','gerencia'].includes(obtenerRolSimulado() || obtenerRolActual())) {
         alert('Bombero Referente tiene permisos de solo lectura. No se guardó ningún cambio.');
         return;
     }
