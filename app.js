@@ -23,6 +23,7 @@ import { abrirSeguridadCuenta } from './seguridadCuenta.js';
 import { cargarModuloMiCuenta } from './miCuenta.js';
 import { cargarModuloMayordomo001 } from './mayordomo001.js';
 import { inicializarPreferenciasVisuales } from './preferenciasVisuales.js';
+import { inicializarSimuladorRoles, moduloPermitidoEnSimulacion, obtenerRolSimulado } from './simuladorRoles.js';
 import { abrirControlExtintor, guardarControlExtintor } from './controlesExtintores.js';
 import { abrirControlHidrante, guardarControlHidrante, cambiarTipoControl, verificarDetalleLlave } from './controlesHidrantes.js';
 import { cerrarFormularioControl, verificarEstadoControl } from './controlesBase.js';
@@ -73,7 +74,7 @@ window.verificarDetalleLlave = verificarDetalleLlave;
 window.cerrarFormularioControl = cerrarFormularioControl;
 
 window.abrirFormularioControl = async function(tabla, dbId, idElemento) {
-    if (['bombero_referente','jefe_seguridad_patrimonial','jefe_guardia_fisica','jefe_prevencion_incendios','jefe_rhp','gerencia'].includes(obtenerRolActual())) {
+    if (['bombero_referente','jefe_seguridad_patrimonial','jefe_guardia_fisica','jefe_prevencion_incendios','jefe_rhp','gerencia'].includes(obtenerRolSimulado() || obtenerRolActual())) {
         alert('Bombero Referente tiene acceso de solo lectura. Podés consultar el estado y los controles, pero no iniciar ni modificar controles.');
         return;
     }
@@ -97,7 +98,7 @@ window.abrirFormularioControl = async function(tabla, dbId, idElemento) {
 };
 
 window.guardarControl = async function(event) {
-    if (obtenerRolActual() === 'bombero_referente') {
+    if ((obtenerRolSimulado() || obtenerRolActual()) === 'bombero_referente') {
         alert('Bombero Referente tiene permisos de solo lectura. No se guardó ningún cambio.');
         return;
     }
@@ -124,7 +125,7 @@ window.cargarModulo = async function(modulo) {
     detenerModuloGPS();
     detenerModuloRecorridosGPS();
     detenerModuloMapa();
-    if (modulo !== 'miCuenta' && !verificarPermisoModulo(modulo)) {
+    if (modulo !== 'miCuenta' && (!verificarPermisoModulo(modulo) || !moduloPermitidoEnSimulacion(modulo))) {
         alert('Tu rol actual no tiene permiso para acceder a este módulo.');
         return;
     }
@@ -315,5 +316,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     console.log('🚀 Centinela 3.0: enrutador y navegación inicializados.');
+    window.inicializarSimuladorRoles = inicializarSimuladorRoles;
     inicializarAutenticacion();
 });
