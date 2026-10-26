@@ -254,3 +254,11 @@ ACTUALIZACIÓN — 26/10/2026 — SIMULADOR VISUAL DE ROLES (IMPLEMENTACIÓN EN 
 - El panel puede minimizarse y permite volver a la vista real de Superadministrador o cambiar directamente a otro perfil.
 - Archivos: simuladorRoles.js (nuevo), app.js, auth.js, style.css.
 - Verificación: cambios de código guardados en main mediante GitHub Contents API. No se modificó configuración de Vercel ni se accedió a Supabase para alterar datos o permisos. El despliegue automático y la ejecución en navegador no se han verificado en esta operación.
+
+
+ACTUALIZACIÓN — 26/10/2026 — MATRIZ DE PANTALLA PRINCIPAL POR ROL
+- El dashboard ahora se genera desde una matriz de prioridad por perfil, con accesos operativos, supervisión y administración según el rol efectivo o el rol visual simulado.
+- Categorías de barra lateral renombradas: Mapas, zonas y ubicación; Protección contra incendios; Controles, novedades y seguimiento; Herramientas y administración.
+- La pantalla principal deja de usar un conjunto fijo de tarjetas idéntico para todos los roles.
+- No se cambiaron roles reales, RLS ni datos de Supabase. La matriz necesita revisión visual en navegador para confirmar la correspondencia de cada módulo y ajustar cualquier acceso que no sea aplicable a un rol.
+- Archivos modificados: index.html, simuladorRoles.js, style.css y bitácora.
