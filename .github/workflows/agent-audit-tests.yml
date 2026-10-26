@@ -1,0 +1,38 @@
+name: Agent audit validation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "tests/caquitas-adversarial.test.mjs"
+      - "supabase/functions/agente-caquitas-audit-read/**"
+      - "supabase/functions/agente-caquitas-audit-report/**"
+      - ".github/workflows/agent-audit-tests.yml"
+  push:
+    branches: [jarvis-caqui-central-agent]
+
+permissions:
+  contents: read
+
+jobs:
+  contract-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run adversarial contract tests
+        run: node --test tests/caquitas-adversarial.test.mjs
+
+  edge-function-typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Type-check read-only audit function
+        run: deno check supabase/functions/agente-caquitas-audit-read/index.ts
+      - name: Type-check audit report function
+        run: deno check supabase/functions/agente-caquitas-audit-report/index.ts
