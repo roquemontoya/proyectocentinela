@@ -27,15 +27,17 @@ Deno.serve(async (req) => {
 
   const admin = createClient(url, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } });
   const actorId = sessionData.user.id;
+  let body: Record<string, unknown>;
+  try { body = await req.json(); } catch { return responder({ error: "Solicitud JSON inválida" }, 400); }
+  const action = String(body.action || "");
+  const esCambioObligatorio = action === "complete_temporary_password" && sessionData.user.app_metadata?.must_change_password === true;
   const { data: actorRole, error: actorRoleError } = await admin.rpc("current_user_role_for_id", { p_user_id: actorId });
-  if (actorRoleError || !["administrador", "superadministrador"].includes(actorRole)) {
+  if (!esCambioObligatorio && (actorRoleError || !["administrador", "superadministrador"].includes(actorRole))) {
     return responder({ error: "Solo Administración puede gestionar usuarios" }, 403);
   }
   const esSuper = actorRole === "superadministrador";
 
   try {
-    const body = await req.json();
-    const action = String(body.action || "");
     if (action === "list") {
       const { data: list, error } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
       if (error) throw error;
@@ -143,6 +145,48 @@ Deno.serve(async (req) => {
       await admin.auth.admin.updateUserById(id, { user_metadata: { nombre_completo: nombre } });
       await admin.from("app_user_audit").insert({ actor_user_id: actorId, target_user_id: id, accion: "usuario_actualizado", detalle: { role, legajo } });
       return responder({ ok: true });
+    }
+
+    if (action === "set_temporary_password") {
+      if (!esSuper) return responder({ error: "Solo Superadministrador puede asignar claves temporales." }, 403);
+      const id = String(body.user_id || "");
+      const temporaryPassword = String(body.temporary_password || "");
+      if (!id || temporaryPassword.length < 10 || temporaryPassword.length > 128) return responder({ error: "Usuario inválido o clave temporal fuera de la política de longitud." }, 400);
+      if (id === actorId) return responder({ error: "No podés asignarte una clave temporal desde este panel." }, 400);
+      const { data: target, error: targetError } = await admin.auth.admin.getUserById(id);
+      if (targetError || !target.user) return responder({ error: "No se encontró la cuenta de destino." }, 404);
+      const { error: passwordError } = await admin.auth.admin.updateUserById(id, {
+        password: temporaryPassword,
+        user_metadata: { ...(target.user.user_metadata || {}) }, app_metadata: { ...(target.user.app_metadata || {}), must_change_password: true, temporary_password_issued_at: new Date().toISOString() }
+      });
+      if (passwordError) throw passwordError;
+      const { error: auditError } = await admin.from("app_user_audit").insert({
+        actor_user_id: actorId, target_user_id: id, accion: "clave_temporal_asignada",
+        detalle: { must_change_password: true, method: "admin_auth_password_update" }
+      });
+      if (auditError) throw auditError;
+      return responder({ ok: true, must_change_password: true, message: "Clave temporal asignada; el usuario deberá cambiarla antes de acceder." });
+    }
+
+    if (action === "complete_temporary_password") {
+      const password = String(body.password || "");
+      if (!password || password.length < 10) return responder({ error: "La nueva contraseña no cumple la política mínima." }, 400);
+      const { data: target, error: targetError } = await admin.auth.admin.getUserById(actorId);
+      if (targetError || !target.user) return responder({ error: "No se pudo verificar la cuenta." }, 404);
+      if (target.user.app_metadata?.must_change_password !== true) return responder({ error: "La cuenta no requiere completar un cambio obligatorio." }, 409);
+      const email = target.user.email || "";
+      const { data: verified, error: verifyError } = await createClient(url, anonKey, { auth: { persistSession: false, autoRefreshToken: false } }).auth.signInWithPassword({ email, password });
+      if (verifyError || verified.user?.id !== actorId) return responder({ error: "No se pudo verificar la nueva contraseña." }, 403);
+      const { error: clearError } = await admin.auth.admin.updateUserById(actorId, {
+        app_metadata: { ...(target.user.app_metadata || {}), must_change_password: false, password_changed_at: new Date().toISOString() }
+      });
+      if (clearError) throw clearError;
+      const { error: auditError } = await admin.from("app_user_audit").insert({
+        actor_user_id: actorId, target_user_id: actorId, accion: "clave_temporal_cambiada",
+        detalle: { must_change_password: false, method: "verified_new_password" }
+      });
+      if (auditError) throw auditError;
+      return responder({ ok: true, must_change_password: false });
     }
 
     if (action === "set_active") {
