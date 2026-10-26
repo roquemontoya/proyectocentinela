@@ -125,7 +125,7 @@
             <li class="menu-inicio" onclick="irInicio()">🏠 Inicio</li>
             <li class="menu-grupo">
                 <details open>
-                    <summary>🗺️ Mapas y ubicaciones</summary>
+                    <summary>🗺️ Mapas, zonas y ubicación</summary>
                     <ul>
                         <li onclick="cargarModulo('editorTerritorios')">🗺️ Editor de zonas de planta</li>
                         <li onclick="cargarModulo('editorUbicaciones')">📍 Corregir ubicaciones de activos</li>
@@ -137,7 +137,7 @@
             </li>
             <li class="menu-grupo">
                 <details>
-                    <summary>🧯 Instalaciones contra incendios</summary>
+                    <summary>🧯 Protección contra incendios</summary>
                     <ul>
                         <li onclick="cargarModulo('extintores')">🧯 Extintores en planta</li>
                         <li onclick="cargarModulo('pulmon')">📦 Pulmón / reserva</li>
@@ -161,7 +161,7 @@
             </li>
             <li class="menu-grupo">
                 <details>
-                    <summary>⚠️ Novedades y controles</summary>
+                    <summary>⚠️ Controles, novedades y seguimiento</summary>
                     <ul>
                         <li onclick="cargarModulo('anomalias')">⚠️ Seguimiento de anomalías</li>
                         <li onclick="cargarModulo('correccionEcas')">📝 Corrección de datos ECAS</li>
@@ -171,7 +171,7 @@
             </li>
             <li class="menu-grupo menu-solo-admin">
                 <details>
-                    <summary>🛠️ Administración del sistema</summary>
+                    <summary>🛠️ Herramientas y administración</summary>
                     <ul>
                         <li onclick="cargarModulo('adminCsv')" id="nav-cmu">🛠️ CMU (Conversor Admin)</li>
                         <li id="nav-gestor-tablas" onclick="cargarModulo('gestorTablas')">🎛️ Gestor de tablas</li>
@@ -184,52 +184,7 @@
     <div id="drawer-overlay" class="overlay" style="display:none;" onclick="toggleMenu()"></div>
 
     <!-- Pantalla Principal: Tarjetas (Visible por defecto) -->
-    <main id="main-content" class="dashboard-grid" style="display:none;">
-        <div class="card" onclick="cargarModulo('gps')">
-            <div class="card-img" style="font-size: 45px; text-align: center; margin: 15px 0;">🛰️</div>
-            <div class="card-title">Ubicacion GPS</div>
-        </div>
-        <div class="card" onclick="cargarModulo('recorridosGps')">
-            <div class="card-img" style="font-size: 45px; text-align: center; margin: 15px 0;">🧭</div>
-            <div class="card-title">Recorridos GPS</div>
-        </div>
-        <div class="card" onclick="cargarModulo('hidrantes')">
-            <div class="card-img" style="font-size: 45px; text-align: center; margin: 15px 0;">🚰</div>
-            <div class="card-title">Hidrantes</div>
-        </div>
-        <div class="card" onclick="cargarModulo('extintores')">
-            <div class="card-img" style="font-size: 45px; text-align: center; margin: 15px 0;">🧯</div>
-            <div class="card-title">Extintores en Planta</div>
-        </div>
-        <div class="card" onclick="cargarModulo('pulmon')">
-            <div class="card-img" style="font-size: 45px; text-align: center; margin: 15px 0;">🔄</div>
-            <div class="card-title">Pulmón (Reserva / Recarga)</div>
-        </div>
-        <div class="card" onclick="cargarModulo('ecas')">
-            <div class="card-img" style="font-size: 45px; text-align: center; margin: 15px 0;">📋</div>
-            <div class="card-title">ECAS</div>
-        </div>
-        <div class="card" onclick="cargarModulo('valvulas')">
-            <div class="card-img" style="font-size: 45px; text-align: center; margin: 15px 0;">⚙️</div>
-            <div class="card-title">Válvulas</div>
-        </div>
-        <div class="card" onclick="cargarModulo('vecas')">
-            <div class="card-img" style="font-size: 45px; text-align: center; margin: 15px 0;">⚙️</div>
-            <div class="card-title">VECAS</div>
-        </div>
-        <div class="card" onclick="cargarModulo('pecas')">
-            <div class="card-img" style="font-size: 45px; text-align: center; margin: 15px 0;">🔧</div>
-            <div class="card-title">PECAS</div>
-        </div>
-        <div class="card" onclick="cargarModulo('bomberos')">
-            <div class="card-img" style="font-size: 45px; text-align: center; margin: 15px 0;">👨‍🚒</div>
-            <div class="card-title">Personal / Bomberos</div>
-        </div>
-        <div class="card" onclick="cargarModulo('ipp')">
-            <div class="card-img" style="font-size: 45px; text-align: center; margin: 15px 0;">👷‍♂️</div>
-            <div class="card-title">IPP</div>
-        </div>
-    </main>
+    <main id="main-content" class="dashboard-grid" style="display:none;" aria-label="Accesos principales por perfil"></main>
 
     <!-- Contenedor dinámico para mapas o tablas -->
     <div id="vista-dinamica" class="dynamic-container" style="display: none;"></div>
