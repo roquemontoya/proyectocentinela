@@ -13,7 +13,6 @@ const ROLES = [
   { value: "supervisor", label: "Supervisor" },
   { value: "bombero_referente", label: "Bombero Referente (solo lectura)" },
   { value: "bombero_inspector", label: "Bombero" },
-  { value: "bomberos", label: "Bomberos" },
 ];
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
 let usuarios = [];
