@@ -23,6 +23,9 @@ let capaActivos = null;
 let watchId = null;
 let activosConPunto = [];
 let posicionActual = null;
+let destinoSeleccionado = null;
+let marcadorDireccionUsuario = null;
+let lineaDireccion = null;
 let radioMetros = RADIO_INICIAL;
 let secuencia = 0;
 
@@ -77,6 +80,40 @@ function distanciaMetros(a, b) {
   return 6371000 * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
 }
 
+function rumboGrados(origen,destino) {
+  const rad=n=>n*Math.PI/180, lat1=rad(origen[0]), lat2=rad(destino[0]), dLng=rad(destino[1]-origen[1]);
+  const y=Math.sin(dLng)*Math.cos(lat2);
+  const x=Math.cos(lat1)*Math.sin(lat2)-Math.sin(lat1)*Math.cos(lat2)*Math.cos(dLng);
+  return (Math.atan2(y,x)*180/Math.PI+360)%360;
+}
+function actualizarIndicacionDireccion() {
+  if(!mapa||!posicionActual||!destinoSeleccionado) return;
+  const rumbo=rumboGrados(posicionActual,destinoSeleccionado.coords);
+  if(!lineaDireccion) lineaDireccion=L.polyline([posicionActual,destinoSeleccionado.coords],{
+    color:'#facc15',weight:3,opacity:0.9,dashArray:'7 7',interactive:false
+  }).addTo(mapa);
+  else lineaDireccion.setLatLngs([posicionActual,destinoSeleccionado.coords]);
+  const icono=L.divIcon({
+    className:'centinela-flecha-direccion',
+    html:'<div style="width:40px;height:40px;filter:drop-shadow(0 1px 3px #0009)"><svg width="40" height="40" viewBox="0 0 40 40" aria-label="Dirección al elemento seleccionado"><path d="M20 2 L10 23 L20 17 L30 23 Z" transform="rotate('+rumbo+' 20 20)" fill="#facc15" stroke="#111827" stroke-width="2" stroke-linejoin="round"/><circle cx="20" cy="20" r="7" fill="#2563eb" stroke="#fff" stroke-width="2.5"/></svg></div>',
+    iconSize:[40,40],iconAnchor:[20,20]
+  });
+  if(!marcadorDireccionUsuario) marcadorDireccionUsuario=L.marker(posicionActual,{icon:icono,interactive:true,keyboard:false,zIndexOffset:1200})
+    .addTo(mapa).bindPopup('Flecha orientada hacia: '+escapar(destinoSeleccionado.nombre));
+  else {
+    marcadorDireccionUsuario.setLatLng(posicionActual);
+    marcadorDireccionUsuario.setIcon(icono);
+    marcadorDireccionUsuario.setPopupContent('Flecha orientada hacia: '+escapar(destinoSeleccionado.nombre));
+  }
+  marcadorDireccionUsuario.bringToFront();
+}
+function seleccionarDestino(coords,nombre) {
+  if(!Array.isArray(coords)||coords.length<2) return;
+  destinoSeleccionado={coords,nombre:nombre||'elemento seleccionado'};
+  actualizarIndicacionDireccion();
+  mostrarEstado('Objetivo seleccionado: '+destinoSeleccionado.nombre+
+    (posicionActual?' · flecha amarilla orientada al objetivo':' · esperando ubicación GPS…'));
+}
 function formatoDistancia(metros) {
   return metros < 1000 ? Math.round(metros) + ' m' : (metros / 1000).toLocaleString('es-AR', { maximumFractionDigits: 2 }) + ' km';
 }
@@ -132,6 +169,7 @@ function renderizarActivosCercanos() {
       '</div>'
     );
     marcador.bindTooltip(escapar(nombreActivo(item)), { direction: 'top' });
+    marcador.on('popupopen', () => seleccionarDestino(item.coords, nombreActivo(item)));
   });
 
   const resumen = document.getElementById('gps-resumen');
@@ -156,6 +194,7 @@ function renderizarActivosCercanos() {
       boton.addEventListener('click', () => {
         const elegido = cercanos[Number(boton.dataset.gpsIndex)];
         if (!elegido || !mapa) return;
+        seleccionarDestino(elegido.item.coords, nombreActivo(elegido.item));
         mapa.setView(elegido.item.coords, Math.max(mapa.getZoom(), 18));
         capaActivos.eachLayer(layer => {
           if (layer.getLatLng && layer.getLatLng().lat === elegido.item.coords[0] &&
@@ -183,6 +222,7 @@ function actualizarPosicion(posicion) {
   circuloPrecision = L.circle(posicionActual, {
     radius: precision, color: '#60a5fa', weight: 1, fillColor: '#3b82f6', fillOpacity: 0.08
   }).addTo(mapa);
+  actualizarIndicacionDireccion();
   const coordenadasEl = document.getElementById('gps-coordenadas');
   if (coordenadasEl) coordenadasEl.textContent =
     posicionActual[0].toFixed(6) + ', ' + posicionActual[1].toFixed(6) +
@@ -226,6 +266,9 @@ export function detenerModuloGPS() {
     mapa = null;
   }
   marcadorUsuario = null;
+  marcadorDireccionUsuario = null;
+  lineaDireccion = null;
+  destinoSeleccionado = null;
   circuloPrecision = null;
   capaActivos = null;
   posicionActual = null;
