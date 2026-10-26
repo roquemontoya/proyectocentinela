@@ -45,6 +45,34 @@ function mostrarPantallaAcceso() {
   if (modal) modal.style.display = 'none';
 }
 
+function actualizarIdentidadHeader() {
+  const nombreEl = document.getElementById('header-user-name');
+  const correoEl = document.getElementById('header-user-email');
+  if (!nombreEl || !correoEl) return;
+
+  // Estado neutro mientras se consulta la sesión; nunca se inserta HTML del perfil.
+  nombreEl.textContent = 'Usuario';
+  correoEl.textContent = '';
+
+  clienteSupabase.auth.getUser().then(({ data, error }) => {
+    if (error || !data?.user) return;
+    const user = data.user;
+    const metadata = user.user_metadata || {};
+    const nombre = [
+      metadata.full_name,
+      metadata.name,
+      metadata.nombre,
+      metadata.display_name,
+      metadata.username
+    ].find(value => typeof value === 'string' && value.trim());
+    const correo = typeof user.email === 'string' ? user.email.trim() : '';
+    nombreEl.textContent = nombre ? nombre.trim() : (correo ? correo.split('@')[0] : 'Usuario');
+    correoEl.textContent = correo;
+    correoEl.title = correo;
+    nombreEl.title = nombreEl.textContent;
+  }).catch(error => console.warn('No se pudo cargar la identidad del usuario:', error));
+}
+
 function mostrarAplicacion(rol) {
   rolActual = rol;
   const acceso = document.getElementById('auth-screen');
@@ -57,6 +85,7 @@ function mostrarAplicacion(rol) {
   if (menu) menu.style.display = '';
   if (overlay) overlay.style.display = '';
   if (principal) principal.style.display = 'grid';
+  actualizarIdentidadHeader();
   aplicarPermisosInterfaz(rol);
 }
 
