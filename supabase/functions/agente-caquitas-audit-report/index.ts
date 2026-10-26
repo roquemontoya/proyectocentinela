@@ -277,7 +277,7 @@ serve(async (req: Request) => {
           reportPayload.generated_at, f.severity, f.code, f.title, f.count, f.detail, f.examples
         ].map(csvCell).join(","))
       ];
-      return new Response("\\uFEFF" + lines.join("\\r\\n"), {
+      return new Response("\uFEFF" + lines.join("\r\n"), {
         status: 200,
         headers: {
           ...headers,
