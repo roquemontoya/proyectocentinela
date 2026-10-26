@@ -3,64 +3,70 @@
 ## Alcance y seguridad
 - Rama aislada: `test/agentes-auditoria-pre-funcional`.
 - Funciones: `mayordomo-001-audit`, `agente-caquitas-audit-report`, `agente-caquitas-audit-read`.
-- La auditoría es estrictamente de lectura. No se insertan datos falsos ni se ejecutan operaciones destructivas sobre producción.
+- La auditoría de funciones es de solo lectura. No se insertan datos falsos ni se ejecutan operaciones destructivas sobre producción.
 - Las funciones internas de informe/lectura usan `verify_jwt=false` y deben rechazar solicitudes sin el secreto interno correcto. Mayordomo exige JWT de Supabase y rol administrador/superadministrador.
 
-## Corrección incluida en la rama
-Las 1.410 fichas de `extintores_trazabilidad` que se inspeccionaron están explícitamente en estados `pendiente_verificacion` / `pendiente_relevamiento`, con campos de serie, tarjeta y ubicación vacíos. La regla anterior las elevaba también a hallazgo de severidad alta, aunque ya estaban marcadas como pendientes. Ahora:
-- los registros incompletos marcados como pendientes se informan como `informativa` (`TRAZABILIDAD_PENDIENTE_DATOS`);
-- solo los incompletos no marcados como pendientes generan `alta` (`TRAZABILIDAD_DATOS_INCOMPLETOS`);
-- el detalle incluye conteos separados para ambos grupos.
+## Corrección de severidad de trazabilidad
+Las 1.410 fichas de `extintores_trazabilidad` inspeccionadas están explícitamente en estados `pendiente_verificacion` / `pendiente_relevamiento`, con campos de serie, tarjeta y ubicación vacíos. La regla anterior las elevaba también a severidad alta aunque ya estaban marcadas como pendientes. En la rama:
+- los registros incompletos marcados como pendientes se informan como informativos (`TRAZABILIDAD_PENDIENTE_DATOS`);
+- solo los incompletos no marcados como pendientes generan severidad alta (`TRAZABILIDAD_DATOS_INCOMPLETOS`);
+- el detalle separa los conteos de ambos grupos.
 No se completan identificadores ni se modifica ningún dato operativo.
 
-## Pruebas preparadas
-### A. Red Team seguro (black-box)
-El script `tests/security/audit-red-team.mjs` comprueba:
-1. GET a informe y lectura → deben responder `405 method_not_allowed` (Mayordomo exige JWT en la capa gateway y se prueba por separado).
-2. POST a lectura e informe sin `x-agent-token` → `401 unauthorized`.
-3. POST a lectura e informe con token incorrecto → `401 unauthorized`.
-4. POST a Mayordomo sin sesión → HTTP `401`.
-El script no intenta explotar servicios externos, no modifica datos y bloquea la URL conocida de producción.
+## Pasada local de CSV — SOLO PRUEBAS
+- Se recibieron 19 CSV y se procesaron localmente: 3.433 filas de datos.
+- No se conectó a Supabase y los archivos originales no se modificaron.
+- El prototipo `tests/data-quality/csv_two_pass_audit.py` genera copias separadas y marca las anomalías sin reparación segura como pendientes.
+- La regla `EXTINTOR_CAPACIDAD_3_5_NOMBRE_PARTIDO` propuso 3 reparaciones de alta confianza. Reconstruye la etiqueta dividida en `3` y `5 Kg` solo cuando coinciden nombre, patrón WKT, fragmento esperado y firma GPS.
+- Quedan 16 archivos con anomalías estructurales para análisis específico; esto no demuestra pérdida de datos. Exportaciones con comas, WKT y campos multilínea requieren reglas por capa y no deben repararse por conjetura.
 
-Se agregó un workflow manual `.github/workflows/audit-red-team-staging.yml`. Solo corre si se confirma literalmente `CONFIRMO-STAGING` y existen los secretos de repositorio `CENTINELA_STAGING_SUPABASE_URL` y `AGENTE_CAQ_AUDIT_TOKEN`. Estos secretos deben apuntar a una instancia de prueba aislada; nunca usar la URL de producción ni registrar el token en logs.
+## Pruebas de regresión del reparador CSV
+Se añadió `tests/data-quality/test_csv_two_pass_audit.py` y se integró al workflow de validación:
+1. patrón de alta confianza 3,5 kg se repara y vuelve a alinear la fila;
+2. ausencia de firma GPS impide reparar;
+3. la regla no se aplica a otras capas;
+4. no se modifica una fila ya alineada;
+5. la función de reparación no altera el archivo original.
+La ejecución local equivalente de estas cinco pruebas pasó (5/5). El workflow de GitHub debe confirmar la ejecución en CI; no se declara un resultado remoto hasta observarlo.
 
-### B. Pruebas todavía necesarias
-- [ ] Ejecutar Red Team real contra un proyecto Supabase aislado con las funciones de auditoría desplegadas allí.
-- [ ] Añadir usuario de prueba no administrador para comprobar `403 insufficient_role` y administrador de prueba para validar el flujo autorizado completo.
-- [ ] Comparar conteos e identificadores antes/después de la prueba para acreditar que no hubo escrituras.
-- [ ] Caquitas (Blue Team) revisa resultados y logs; Mayordomo entrega el informe consolidado.
-- [ ] Revisión funcional desde interfaz con una sesión de administrador y otra sin privilegios.
-- [ ] Aprobación del usuario antes de integrar a `main`.
-
-## Estado de ejecución
-- [x] Inspección estática de los tres códigos y columnas reales de las tablas.
-- [x] Consulta de solo lectura de calidad de datos y reglas preliminares.
-- [x] Corrección del falso positivo de severidad para fichas ya marcadas pendientes en rama aislada.
-- [x] Preparación de pruebas HTTP negativas no destructivas y workflow manual protegido para staging.
-- [ ] Ejecución HTTP real: todavía no realizada; requiere URL de un entorno aislado y secretos configurados.
-- [ ] Prueba funcional completa de autorización positiva y negativa.
-
-## Nota de privilegios mínimos
-La función de lectura usa una clave de servidor y consultas GET/select codificadas de forma fija. Eso limita la superficie de consulta en el código actual, pero no equivale a que PostgreSQL aplique privilegios de solo lectura al rol de base de datos. La separación efectiva mediante credenciales de privilegio mínimo sigue pendiente y debe revisarse antes de producción.
-
-
-## Pasada local de CSV — solo pruebas (2026-10-26)
-Se recibieron y revisaron 19 CSV originales (3.433 filas de datos en total). No se conectó a Supabase ni se modificaron los archivos originales. El prototipo local está en `tests/data-quality/csv_two_pass_audit.py` y genera copias separadas con la etiqueta de uso de prueba.
-
-Hallazgos iniciales del parser de estructura:
-- Extintores: 1.412 filas; 614 filas tienen una columna adicional en la lectura CSV simple. Se detectaron 3 casos de alta confianza en que la etiqueta del extintor quedó partida en `3` y `5 Kg`; la prueba los reconstruye como `3,5 Kg` conservando el orden posterior. Las demás filas anómalas quedan pendientes.
-- IPP: 432 filas; gran parte de las filas no se interpreta como una fila tabular completa en una lectura CSV simple, por lo que requiere un reparador específico de WKT/GEOMETRYCOLLECTION y delimitación.
-- Red troncal: 462 filas; se observan grupos con 1, 3 y 12 columnas frente a 14 en cabecera. No se reparan por conjetura.
-- Hidrantes: 464 filas; hay 87 filas con más columnas que la cabecera. Requieren análisis de campos entrecomillados/estructuras.
-- Válvulas, ECAS, ceniceros, espumígenos, puertas cortafuego y otras capas presentan anomalías estructurales de distinta magnitud.
-
-Estos números son señales del parser estándar, no un veredicto de pérdida de datos: las exportaciones contienen comillas internas, geometrías, comas y campos multilínea que exigen parsers/reglas por categoría. El prototipo es una segunda pasada conservadora, no reemplaza todavía al CMU de navegador ni autoriza importación. La salida local debe tratarse como **SOLO PRUEBAS — NO IMPORTAR A PRODUCCIÓN**.
+## Red Team seguro
+El script `tests/security/audit-red-team.mjs` está diseñado para comprobar:
+1. GET a informe/lectura debe responder 405;
+2. POST a lectura/informe sin token interno debe responder 401;
+3. POST a lectura/informe con token incorrecto debe responder 401;
+4. POST a Mayordomo sin sesión debe responder 401.
+El script bloquea la URL conocida de producción y requiere una URL HTTPS de staging y un token de prueba. No se ejecutó contra producción.
 
 ## Revisión estática de seguridad
-- [x] Las tres Edge Functions limitan los métodos a POST/OPTIONS en el código de aplicación.
-- [x] Lectura e informe validan un token interno con comparación de longitud fija y comparación byte a byte.
+- [x] Las tres Edge Functions limitan métodos a POST/OPTIONS en el código de aplicación.
+- [x] Lectura e informe validan el token interno con comparación de longitud fija y comparación byte a byte.
 - [x] Mayordomo valida el JWT consultando Auth y exige `administrador` o `superadministrador` mediante `current_user_role()`.
-- [x] Se ajustó el Red Team para probar GET solo en informe/lectura (Mayordomo puede ser bloqueado antes por el gateway JWT) y se amplió el bloqueo de la URL conocida de producción.
-- [ ] Prueba HTTP real contra staging: pendiente; no hay URL/secretos de staging disponibles en esta sesión.
+- [x] Se revisó el código desplegado de las tres funciones; no se hicieron despliegues en esta tarea.
+- [ ] Prueba HTTP real de Red Team contra staging: pendiente; no hay URL/secretos de staging disponibles.
 - [ ] Pruebas positivas/negativas por rol: pendientes hasta disponer de usuarios y entorno aislados.
-- [ ] Mitigación antes de producción: lectura aún usa una clave privilegiada de servidor con selects fijos. Se recomienda reemplazarla por credenciales de mínimo privilegio/rol estrictamente de solo lectura, y probarlo antes de considerar integración.
+- [ ] Comprobar invariancia de datos antes/después de los tests HTTP: pendiente.
+- [ ] Mitigación antes de producción: la función de lectura aún usa una clave privilegiada de servidor con selects fijos. Se recomienda migrar a credenciales de mínimo privilegio/rol estrictamente de solo lectura y probarlo antes de integrar.
+
+## Revisión del asesor de seguridad de Supabase (solo lectura, 2026-10-26)
+El asesor del proyecto reportó:
+- ERROR: `public.spatial_ref_sys` sin RLS.
+- WARN: tres variantes de `public.st_estimatedextent` ejecutables por `anon` como SECURITY DEFINER.
+- WARN: 15 funciones SECURITY DEFINER ejecutables por `authenticated`.
+- WARN: una función con `search_path` mutable.
+- WARN: protección de contraseñas filtradas deshabilitada.
+- WARN: extensión PostGIS instalada en `public`.
+Son alertas que requieren análisis individual; no prueban por sí solas explotación. No se modificaron permisos, tablas, extensiones ni ajustes de Auth.
+
+## Estado de ejecución y puerta de integración
+- [x] Inspección estática del código de agentes.
+- [x] Auditoría local inicial de 19 CSV sin conexión a Supabase.
+- [x] Pruebas locales de regresión de la regla 3,5 kg (5/5).
+- [x] Preparación del Red Team HTTP de solo solicitudes negativas.
+- [ ] CI remoto confirmado después de añadir pruebas de regresión.
+- [ ] Ejecución HTTP real en staging.
+- [ ] Validación funcional de autorización positiva y negativa por rol.
+- [ ] Confirmación de ausencia de escrituras.
+- [ ] Revisión de privilegios mínimos para el lector.
+- [ ] Aprobación antes de integrar a `main`.
+
+**Decisión:** mantener el PR como borrador y no integrar en `main` hasta completar las pruebas dinámicas y resolver o aceptar explícitamente los riesgos pendientes.
