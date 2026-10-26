@@ -145,6 +145,27 @@ Deno.serve(async (req) => {
       return responder({ ok: true });
     }
 
+    if (action === "set_temporary_password") {
+      if (!esSuper) return responder({ error: "Solo Superadministrador puede asignar claves temporales." }, 403);
+      const id = String(body.user_id || "");
+      const temporaryPassword = String(body.temporary_password || "");
+      if (!id || temporaryPassword.length < 10 || temporaryPassword.length > 128) return responder({ error: "Usuario inválido o clave temporal fuera de la política de longitud." }, 400);
+      if (id === actorId) return responder({ error: "No podés asignarte una clave temporal desde este panel." }, 400);
+      const { data: target, error: targetError } = await admin.auth.admin.getUserById(id);
+      if (targetError || !target.user) return responder({ error: "No se encontró la cuenta de destino." }, 404);
+      const { error: passwordError } = await admin.auth.admin.updateUserById(id, {
+        password: temporaryPassword,
+        user_metadata: { ...(target.user.user_metadata || {}), must_change_password: true, temporary_password_issued_at: new Date().toISOString() }
+      });
+      if (passwordError) throw passwordError;
+      const { error: auditError } = await admin.from("app_user_audit").insert({
+        actor_user_id: actorId, target_user_id: id, accion: "clave_temporal_asignada",
+        detalle: { must_change_password: true, method: "admin_auth_password_update" }
+      });
+      if (auditError) throw auditError;
+      return responder({ ok: true, must_change_password: true, message: "Clave temporal asignada; el usuario deberá cambiarla antes de acceder." });
+    }
+
     if (action === "set_active") {
       const id = String(body.user_id || "");
       const active = body.active === true;
