@@ -128,6 +128,92 @@ export async function cargarModuloPulmon(contenedor) {
     `;
 
     contenedor.innerHTML = html;
+
+    // Titulares que vencen durante el mes: se muestran aparte del stock del Pulmón.
+    // Esta sección es de consulta; no modifica ciclos ni estados de los equipos.
+    try {
+        const { data: titulares, error: errorTitulares } = await clienteSupabase
+            .from('leu')
+            .select('id, etiqueta, sector, atributos_tecnicos')
+            .eq('categoria', 'Extintores');
+        if (errorTitulares) throw errorTitulares;
+
+        const { data: ciclos, error: errorCiclos } = await clienteSupabase
+            .from('reemplazos_temporales_extintores')
+            .select('activo_titular_id, inventario_reemplazo_id, estado')
+            .eq('estado', 'Activo');
+        if (errorCiclos) throw errorCiclos;
+
+        const cicloPorTitular = new Map((ciclos || []).map(c => [String(c.activo_titular_id), c]));
+        const hoy = new Date();
+        const mesActual = hoy.getMonth();
+        const anioActual = hoy.getFullYear();
+        const normalizarFechaMes = valor => {
+            if (!valor) return null;
+            const s = String(valor).trim().toLowerCase();
+            let m = s.match(/^(\\d{1,2})[\\/\\-](\\d{2,4})$/);
+            if (m) {
+                let anio = Number(m[2]); if (anio < 100) anio += 2000;
+                const mes = Number(m[1]);
+                return mes >= 1 && mes <= 12 ? { mes: mes - 1, anio, texto: valor } : null;
+            }
+            m = s.match(/^([a-záéíóú]{3})[\\s\\-/]+(\\d{2,4})$/i);
+            if (m) {
+                const meses = {ene:0,feb:1,mar:2,abr:3,may:4,jun:5,jul:6,ago:7,sep:8,oct:9,nov:10,dic:11};
+                const nombre = m[1].normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').slice(0,3);
+                let anio = Number(m[2]); if (anio < 100) anio += 2000;
+                return meses[nombre] === undefined ? null : { mes: meses[nombre], anio, texto: valor };
+            }
+            const d = new Date(valor);
+            return Number.isNaN(d.getTime()) ? null : { mes: d.getMonth(), anio: d.getFullYear(), texto: valor };
+        };
+        const pendientes = (titulares || []).map(t => {
+            const attrs = t.atributos_tecnicos?.atributos_originales
+                || t.atributos_tecnicos?.originales
+                || t.atributos_tecnicos
+                || {};
+            const vencimiento = attrs.Vencimiento || attrs.vencimiento || attrs['Fecha de vencimiento'] || attrs.fecha_vencimiento || '';
+            const fecha = normalizarFechaMes(vencimiento);
+            return { titular: t, attrs, vencimiento, fecha, ciclo: cicloPorTitular.get(String(t.id)) };
+        }).filter(x => x.fecha && x.fecha.mes === mesActual && x.fecha.anio === anioActual)
+          .sort((a,b) => String(a.titular.sector || '').localeCompare(String(b.titular.sector || '')));
+
+        const { data: stockProvisorios } = await clienteSupabase
+            .from('Extintores')
+            .select('id, ETIQUETA, TIPO')
+            .in('id', [...new Set(pendientes.map(p => p.ciclo?.inventario_reemplazo_id).filter(Boolean))]);
+        const etiquetasProvisorios = new Map((stockProvisorios || []).map(x => [String(x.id), x.ETIQUETA || ('ID ' + x.id)]));
+        const filasPendientes = pendientes.map(({titular, attrs, vencimiento, ciclo}) => {
+            const tipo = attrs['Tipo de Extintor'] || attrs.TipoExtintor || attrs.tipo || 'N/D';
+            const serie = attrs['Número de serie'] || attrs.NumeroSerie || attrs.numero_serie || attrs.Serie || attrs.serie || 'No registrada';
+            const etiquetaProvisorio = ciclo ? etiquetasProvisorios.get(String(ciclo.inventario_reemplazo_id)) || 'Provisorio registrado' : '';
+            const estado = ciclo ? 'Reemplazado; titular pendiente de recarga' : 'Pendiente de recarga';
+            return '<tr style="border-bottom:1px solid #333">' +
+                '<td style="padding:10px">' + escHtmlPulmon(titular.etiqueta || ('LEU ' + titular.id)) + '</td>' +
+                '<td style="padding:10px">' + escHtmlPulmon(serie) + '</td>' +
+                '<td style="padding:10px">' + escHtmlPulmon(tipo) + '</td>' +
+                '<td style="padding:10px">' + escHtmlPulmon(titular.sector || '—') + '</td>' +
+                '<td style="padding:10px">' + escHtmlPulmon(vencimiento) + '</td>' +
+                '<td style="padding:10px">' + escHtmlPulmon(etiquetaProvisorio || '—') + '</td>' +
+                '<td style="padding:10px">' + escHtmlPulmon(estado) + '</td></tr>';
+        }).join('');
+
+        const mesNombre = hoy.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
+        contenedor.insertAdjacentHTML('afterbegin',
+            '<section style="max-width:1100px;margin:0 auto 22px;color:#fff;font-family:Arial,sans-serif;background:#1e1e1e;border:1px solid #444;border-radius:8px;padding:16px">' +
+            '<h2 style="margin:0 0 8px;color:#fbbf24">📋 Titulares pendientes de recarga — ' + escHtmlPulmon(mesNombre) + '</h2>' +
+            '<p style="margin:0 0 12px;color:#ccc">Se incluyen titulares con vencimiento en el mes en curso. Los que ya tienen provisorio siguen pendientes hasta completar su circuito; esta lista no confirma salidas físicas.</p>' +
+            '<strong style="display:block;margin-bottom:12px">' + pendientes.length + ' extintor(es) pendientes de recarga</strong>' +
+            '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:900px"><thead><tr style="background:#2a2a2a;color:#aaa;text-align:left">' +
+            '<th style="padding:10px">ETIQUETA</th><th style="padding:10px">N.º DE SERIE</th><th style="padding:10px">TIPO</th><th style="padding:10px">SECTOR</th><th style="padding:10px">VENCIMIENTO</th><th style="padding:10px">PROVISORIO</th><th style="padding:10px">SITUACIÓN</th></tr></thead><tbody>' +
+            (filasPendientes || '<tr><td colspan="7" style="padding:18px;color:#aaa">No se encontraron titulares con vencimiento en este mes. Si esperabas ver equipos, revisaremos los nombres y formatos de fecha de atributos_tecnicos.</td></tr>') +
+            '</tbody></table></div></section>');
+    } catch (err) {
+        console.error('No se pudo cargar la lista de titulares pendientes de recarga:', err);
+        contenedor.insertAdjacentHTML('afterbegin',
+            '<div style="max-width:1100px;margin:0 auto 16px;padding:12px;border:1px solid #b91c1c;border-radius:6px;color:#fecaca">No se pudo cargar la lista de titulares pendientes de recarga. El inventario del Pulmón sigue disponible. Revisar la consulta de titulares y reemplazos.</div>');
+    }
+
     await renderizarAlveolosPulmon(contenedor);
 
     // Reemplazos temporales activos: equipos fuera del stock hasta registrar devolución.
