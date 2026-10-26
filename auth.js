@@ -87,6 +87,10 @@ export async function inicializarAutenticacion() {
   const flujoCredencial = ['invite', 'recovery', 'signup', 'magiclink'].includes(tipoEnlace) || query.has('code');
 
   if (flujoCredencial) {
+    if (query.has('code')) {
+      const { error: exchangeError } = await clienteSupabase.auth.exchangeCodeForSession(query.get('code'));
+      if (exchangeError) { mostrarError('El enlace de recuperación venció, ya fue utilizado o su destino no está autorizado. Solicitá un enlace nuevo.'); return; }
+    }
     const { data, error } = await clienteSupabase.auth.getSession();
     if (error || !data?.session) {
       mostrarError('El enlace de invitación o contraseña venció o ya fue utilizado. Solicitá un nuevo correo de acceso.');
@@ -95,6 +99,10 @@ export async function inicializarAutenticacion() {
     const login = document.getElementById('form-login');
     const setup = document.getElementById('form-password-setup');
     if (login) login.style.display = 'none';
+    const passkey = document.getElementById('btn-login-passkey');
+    const reset = document.getElementById('btn-reset-password');
+    if (passkey) passkey.style.display = 'none';
+    if (reset) reset.style.display = 'none';
     if (setup) setup.style.display = 'block';
     const titulo = document.getElementById('password-setup-title');
     if (titulo) titulo.textContent = tipoEnlace === 'recovery' ? 'Establecer nueva contraseña' : 'Activar cuenta';
@@ -123,8 +131,27 @@ export async function iniciarSesion(event) {
   if (boton) { boton.disabled = true; boton.textContent = 'Verificando…'; }
 
   try {
-    const { error } = await clienteSupabase.auth.signInWithPassword({ email, password });
+    const { data: loginData, error } = await clienteSupabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
+    if (loginData.user?.user_metadata?.must_change_password === true) {
+      const login = document.getElementById('form-login');
+      const passkey = document.getElementById('btn-login-passkey');
+      const reset = document.getElementById('btn-reset-password');
+      const setup = document.getElementById('form-password-setup');
+      if (login) login.style.display = 'none';
+      if (passkey) passkey.style.display = 'none';
+      if (reset) reset.style.display = 'none';
+      if (setup) setup.style.display = 'block';
+      const title = document.getElementById('password-setup-title');
+      if (title) title.textContent = 'Cambio obligatorio de contraseña';
+      const currentLabel = document.getElementById('setup-current-label');
+      const current = document.getElementById('setup-current-password');
+      if (currentLabel) currentLabel.style.display = 'block';
+      if (current) { current.style.display = 'block'; current.required = true; }
+      const submit = document.getElementById('btn-set-password');
+      if (submit) submit.textContent = 'Cambiar contraseña y continuar';
+      return;
+    }
 
     let segundoFactorCorrecto = false;
     try {
@@ -218,6 +245,11 @@ export async function establecerContrasena(event) {
   limpiarError();
   const password = document.getElementById('setup-password')?.value || '';
   const confirm = document.getElementById('setup-password-confirm')?.value || '';
+  const currentPassword = document.getElementById('setup-current-password')?.value || '';
+  const { data: sessionInfo } = await clienteSupabase.auth.getSession();
+  const currentUser = sessionInfo?.session?.user;
+  const forcedChange = currentUser?.user_metadata?.must_change_password === true;
+  if (forcedChange && !currentPassword) { mostrarError('Ingresá la contraseña temporal actual.'); return; }
   if (password.length < 10) {
     mostrarError('La contraseña debe tener al menos 10 caracteres.');
     return;
@@ -229,8 +261,19 @@ export async function establecerContrasena(event) {
   const boton = document.getElementById('btn-set-password');
   if (boton) { boton.disabled = true; boton.textContent = 'Guardando…'; }
   try {
-    const { error } = await clienteSupabase.auth.updateUser({ password });
+    if (forcedChange) {
+      const email = currentUser?.email || '';
+      const { error: reauthError } = await clienteSupabase.auth.signInWithPassword({ email, password: currentPassword });
+      if (reauthError) throw new Error('La contraseña temporal actual no es correcta.');
+    }
+    const { error } = await clienteSupabase.auth.updateUser({
+      password, data: { must_change_password: false, password_changed_at: new Date().toISOString() }
+    });
     if (error) throw error;
+    const currentInput = document.getElementById('setup-current-password');
+    if (currentInput) { currentInput.value = ''; currentInput.required = false; currentInput.style.display = 'none'; }
+    const currentLabel = document.getElementById('setup-current-label');
+    if (currentLabel) currentLabel.style.display = 'none';
     const rol = await resolverRolAutenticado();
     if (!rol) {
       await clienteSupabase.auth.signOut();
