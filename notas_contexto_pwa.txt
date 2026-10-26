@@ -202,3 +202,45 @@ Casos límite obligatorios para Caquitas: (1) tablas vacías => informe válido 
 
 Estado verificado al 26/10/2026: Edge Functions agente-caquitas-audit-read v9 y agente-caquitas-audit-report v4 activas. La lectura usa token y consultas GET de selectores fijos, sin mutaciones. Se identificó un defecto en el informe: trata arrays vacíos de cualquiera de las tres tablas como payload incompleto. Corregirlo para aceptar tablas legítimamente vacías y validar estructura/presencia de counts. Las pruebas end-to-end con token real, auth, paginación y CSV siguen pendientes; no declarar aprobadas sin ejecución real.
 ============================================================
+
+
+============================================================
+ACTUALIZACIÓN — 26/10/2026
+INTEGRACIÓN EN MAIN — AUDITORÍA CAQUITAS / MAYORDOMO_001 Y PROTOTIPO CMU
+============================================================
+
+- Pull request #33: https://github.com/roquemontoya/proyectocentinela/pull/33
+- Estado: fusionado (squash merge) el 26/10/2026.
+- Rama integrada: test/agentes-auditoria-pre-funcional.
+- Commit de integración en main: c5795936a67f503b649726405e6181538a2a4d03.
+- Se incorporaron al repositorio los archivos de las tres Edge Functions de auditoría, documentación y prototipo local de comparación segura CSV/CMU, junto con pruebas de regresión existentes.
+- CI registrado en el PR: ejecución 40384203769, resultado SUCCESS para las comprobaciones indicadas en el PR.
+- No se desplegaron nuevas Edge Functions a Supabase ni se modificaron datos operativos como consecuencia de esta integración en GitHub.
+
+Estado de los agentes/backend comprobado el 26/10/2026
+- Supabase reporta activas:
+  - mayordomo-001-audit v2 (verify_jwt=true).
+  - agente-caquitas-audit-report v5 (verify_jwt=false; autenticación propia por secreto interno).
+  - agente-caquitas-audit-read v10 (verify_jwt=false; autenticación propia por secreto interno).
+- La revisión de código confirma que el informe valida el token interno y los identificadores de agente, Mayordomo y tarea antes de llamar a la función de lectura.
+- La función de lectura valida nuevamente token e identificadores; las consultas de datos auditados están implementadas como GET con selectores fijos.
+- Se registró previamente una ejecución legítima del circuito con HTTP 200 y respuesta de informe. Esto demuestra ejecución del backend en esa ocasión, no certifica por sí solo la integración end-to-end actual de la PWA.
+- Prueba negativa realizada por consola con un texto inventado como token: HTTP 401 {"error":"unauthorized"}. Esto confirma rechazo del token incorrecto; NO demuestra el rechazo de una tarea alterada con token válido.
+- El digest SHA-256 que muestra el panel de secretos de Supabase no permite recuperar el valor original de AGENTE_CAQ_AUDIT_TOKEN. No cambiar ni regenerar ese secreto como parte de esta validación.
+
+Estado de validación — no exagerar el alcance
+- Código integrado en GitHub main: confirmado.
+- Las tres Edge Functions de backend: activas en Supabase según el inventario consultado.
+- Integración funcional de extremo a extremo dentro de la PWA: pendiente de confirmar; no declarar plenamente verificada sin una comprobación de interfaz/sesión real.
+- Prueba con token válido y task_id deliberadamente alterado, esperando HTTP 400 task_not_allowed y sin invocar agente-caquitas-audit-read: pendiente. El usuario decidió no continuar con más pruebas por ahora.
+- Revisión/migración a privilegios mínimos para la clave privilegiada usada por la función de lectura: pendiente; la función mantiene consultas GET fijas, pero la clave del servidor sigue siendo privilegiada.
+- No se hicieron cambios a secretos, permisos ni tablas de producción durante esta integración.
+
+Declaración de estado recomendada
+“Los agentes y el prototipo de auditoría están incorporados en main; las funciones backend de auditoría están desplegadas y activas en Supabase. La validación funcional integral dentro de la PWA y algunas comprobaciones de seguridad permanecen pendientes.”
+
+Enlaces:
+- Main: https://github.com/roquemontoya/proyectocentinela/tree/main
+- PR #33: https://github.com/roquemontoya/proyectocentinela/pull/33
+- Bitácora: https://github.com/roquemontoya/proyectocentinela/blob/main/notas_contexto_pwa.txt
+============================================================
