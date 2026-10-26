@@ -239,7 +239,9 @@ serve(async (req: Request) => {
       data_quality_details: {
         trazabilidad: {
           total: trazabilidad.length,
-          faltan_numero_serie: traceMissingSeries.length,\n          registros_incompletos_no_pendientes: traceIncompleteNotPending.length,\n          registros_incompletos_pendientes: traceIncompletePending.length,
+          faltan_numero_serie: traceMissingSeries.length,
+          registros_incompletos_no_pendientes: traceIncompleteNotPending.length,
+          registros_incompletos_pendientes: traceIncompletePending.length,
           faltan_numero_tarjeta: traceMissingCards.length,
           faltan_ubicacion_operativa: traceMissingLocation.length,
           estado_ubicacion_pendiente: tracePendingLocation.length,
