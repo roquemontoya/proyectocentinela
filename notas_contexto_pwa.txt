@@ -142,3 +142,42 @@ Próximas comprobaciones prioritarias
 5. No cambiar los legajos históricos ni alterar asignaciones existentes durante la validación.
 
 ============================================================
+
+ACTUALIZACIÓN — 26/10/2026
+NUEVA CONVENCIÓN DE LEGAJOS Y REORGANIZACIÓN DE CUENTAS EXISTENTES
+============================================================
+
+Regla aprobada por el usuario
+- Superadministrador: 000–009.
+- Administrador: 010–029.
+- Mantenimiento (TI): 030–049.
+- Gerente: 100–109 (debe tener los números más bajos entre los administrativos jerárquicos).
+- Jefe de Seguridad Patrimonial (JSP): 110–119.
+- Jefe de Protección de Planta / Guardia Física: 120–139.
+- Jefe de Prevención de Incendios: 140–159.
+- Jefe de RHP: 160–179.
+- Las tres jefaturas de Protección de Planta, Prevención de Incendios y RHP están en el mismo nivel jerárquico. Los subrangos sirven para identificación administrativa, no representan superioridad entre ellas.
+- Supervisor: 200–219.
+- Bombero Referente: 220–299.
+- Bombero: 300 en adelante.
+
+Reorganización aplicada en Supabase
+La consulta de perfiles y roles encontró cuatro cuentas:
+- Roque Montoya — Superadministrador: legajo anterior `0`, nuevo `000`.
+- Pablo Maldonado — Superadministrador: legajo anterior `000`, nuevo `001`.
+- Base Monitoreo FSI — Administrador: legajo anterior `1`, nuevo `010`.
+- Controlin — Bombero (`bombero_inspector`): legajo anterior `3`, nuevo `300`.
+Los cuatro IDs de usuario se conservaron. La primera actualización directa falló por una colisión de unicidad en `000`; no se completó parcialmente. Se reintentó usando identificadores temporales dentro de una transacción, y luego se verificó el listado final. La verificación devolvió exactamente los cuatro legajos nuevos, sin duplicados en esas cuentas.
+
+Trigger de asignación automática
+- Se actualizó la función `private.asignar_legajo_primer_ingreso()` mediante la migración Supabase `actualizar_rangos_legajos_jerarquia`, aplicada con éxito.
+- El trigger conserva los legajos existentes y asigna el primer legajo libre del rango correspondiente solo en el primer ingreso cuando el legajo está vacío.
+- Se verificó la consulta de usuarios después de la renumeración. No se han realizado pruebas de primer ingreso con una cuenta nueva.
+
+Pendiente de sincronización/documentación
+- Asegurar que el SQL aplicado a Supabase esté representado por una migración versionada en GitHub main.
+- Verificar que no haya otras cuentas Auth sin fila en `app_user_profiles`; la consulta auditó los perfiles existentes, no una reconciliación completa de todas las cuentas de Auth.
+- Probar el trigger de asignación automática con un usuario de prueba antes de considerar el flujo validado end-to-end.
+- Confirmar despliegue de los últimos commits de `auth.js` y `administracionUsuarios.js` en Vercel.
+
+============================================================
