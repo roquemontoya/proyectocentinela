@@ -239,6 +239,7 @@ function renderizarFormularioExtintorHTML(leu, attrs, estadoSugerido, reemplazoA
     const anioPrueba = Number(String(prueba).match(/\d{4}/)?.[0]) || anioActual;
     const opcionesTipo = ['PQS','Co2','Halon','K'];
     const tipoNormalizado = opcionesTipo.find(t => t.toLowerCase() === String(tipo).toLowerCase()) || 'PQS';
+    const acentoEstado = ({ 'Vigente': '#22c55e', 'Por Vencer': '#eab308', 'Vencido': '#ef4444' })[estadoSugerido] || '#38bdf8';
     const opcionesAnios = Array.from({length: 31}, (_, i) => anioActual + i)
         .map(anio => `<option value="${anio}" ${anio === Math.max(anioActual, anioPrueba) ? 'selected' : ''}>${anio}</option>`).join('');
 
@@ -255,8 +256,8 @@ function renderizarFormularioExtintorHTML(leu, attrs, estadoSugerido, reemplazoA
     c.innerHTML = `
         ${avisoProvisorio}
         <div style="display:grid;grid-template-columns:minmax(0,1.25fr) minmax(150px,0.75fr);gap:12px;align-items:stretch;margin-bottom:12px;">
-            <fieldset style="min-width:0;border:1px solid #38bdf8;border-radius:5px;padding:10px;background:#182830;margin:0;">
-                <legend style="font-size:13px;color:#38bdf8;padding:0 5px;font-weight:bold;">📌 Datos del elemento</legend>
+            <fieldset style="min-width:0;border:1px solid ${acentoEstado};border-radius:5px;padding:10px;background:#182830;margin:0;">
+                <legend style="font-size:13px;color:${acentoEstado};padding:0 5px;font-weight:bold;">📌 Datos del elemento</legend>
                 <div style="font-size:12px;color:#ddd;line-height:1.7;overflow-wrap:anywhere;">
                     <div><strong>Etiqueta:</strong> ${leu.etiqueta || 'N/D'}</div>
                     <div><strong>Sector:</strong> ${leu.sector || 'N/D'}</div>
@@ -265,14 +266,14 @@ function renderizarFormularioExtintorHTML(leu, attrs, estadoSugerido, reemplazoA
             </fieldset>
             <div style="min-width:0;">
                 <div style="font-size:12px;color:#ddd;margin-bottom:5px;font-weight:bold;">📍 Ubicación del extintor</div>
-                <div id="mini-mapa-extintor" role="img" aria-label="Mapa centrado en la ubicación del extintor" style="width:100%;height:132px;border:1px solid #38bdf8;border-radius:5px;overflow:hidden;background:#111;"></div>
+                <div id="mini-mapa-extintor" role="img" aria-label="Mapa centrado en la ubicación del extintor" style="width:100%;height:132px;border:1px solid ${acentoEstado};border-radius:5px;overflow:hidden;background:#111;"></div>
             </div>
         </div>
 
-        <fieldset style="border:1px solid #444;border-radius:5px;padding:10px;margin-bottom:12px;">
-            <legend style="font-size:13px;color:#aaa;padding:0 5px;">Control Mensual</legend>
+        <fieldset style="border:1px solid ${acentoEstado};border-radius:5px;padding:10px;margin-bottom:12px;">
+            <legend style="font-size:13px;color:${acentoEstado};padding:0 5px;">Control Mensual</legend>
             <label style="display:block;font-size:13px;margin-bottom:5px;">Condición:</label>
-            <select id="input-condicion-extintor" required style="width:100%;padding:8px;margin-bottom:10px;background:#2a2a2a;border:1px solid #444;color:#fff;border-radius:5px;">
+            <select id="input-condicion-extintor" required style="width:100%;padding:8px;margin-bottom:10px;background:#2a2a2a;border:1px solid ${acentoEstado};color:#fff;border-radius:5px;">
                 <option value="Vigente" ${estadoSugerido === 'Vigente' ? 'selected' : ''}>Vigente</option>
                 <option value="Por Vencer" ${estadoSugerido === 'Por Vencer' ? 'selected' : ''}>Por Vencer</option>
                 <option value="Vencido" ${estadoSugerido === 'Vencido' ? 'selected' : ''}>Vencido</option>
@@ -288,12 +289,10 @@ function renderizarFormularioExtintorHTML(leu, attrs, estadoSugerido, reemplazoA
                 <small style="display:block;color:#fca5a5;margin-top:7px;">Cuando el equipo reemplazado esté disponible, se te avisará para el recambio.</small>
             </div>
 
-            <label style="display:block;font-size:13px;margin-bottom:5px;">Tipo del extintor titular (no el provisorio):</label>
+            <label style="display:block;font-size:13px;margin-bottom:5px;">Tipo de Extintor:</label>
             <select id="input-tipo-extintor" required disabled style="width:100%;padding:8px;margin-bottom:10px;background:#222;border:1px solid #444;color:#aaa;border-radius:5px;opacity:0.9;">
                 ${opcionesTipo.map(t => `<option value="${t}" ${t === tipoNormalizado ? 'selected' : ''}>${t}</option>`).join('')}
             </select>
-            <small style="display:block;color:#aaa;margin-top:-6px;margin-bottom:10px;">El tipo del titular no se modifica al instalar un reemplazo temporal.</small>
-
             <label style="display:block;font-size:13px;margin-bottom:5px;">Vencimiento:</label>
             <input type="date" id="input-vencimiento-extintor" value="${fechaVencimiento}" required style="width:100%;box-sizing:border-box;padding:8px;margin-bottom:10px;background:#2a2a2a;border:1px solid #444;color:#fff;border-radius:5px;">
 
