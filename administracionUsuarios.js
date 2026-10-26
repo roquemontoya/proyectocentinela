@@ -2,12 +2,18 @@ import { clienteSupabase } from "./supabaseClient.js";
 import { obtenerRolActual } from "./auth.js";
 
 const ROLES = [
-  { value: "administrador", label: "Administrador" },
-  { value: "supervisor", label: "Supervisor" },
-  { value: "bombero_inspector", label: "Bombero/Inspector" },
-  { value: "bombero_referente", label: "Bombero Referente (solo lectura)" },
-  { value: "mantenimiento", label: "Mantenimiento" },
   { value: "superadministrador", label: "Superadministrador" },
+  { value: "administrador", label: "Administrador" },
+  { value: "mantenimiento", label: "Mantenimiento (TI)" },
+  { value: "jefe_seguridad_patrimonial", label: "Jefe de Seguridad Patrimonial (solo lectura)" },
+  { value: "jefe_guardia_fisica", label: "Jefe de Guardia Física (solo lectura)" },
+  { value: "jefe_prevencion_incendios", label: "Jefe de Prevención de Incendios (solo lectura)" },
+  { value: "jefe_rhp", label: "Jefe de RHP (solo lectura)" },
+  { value: "gerencia", label: "Gerencia (solo lectura)" },
+  { value: "supervisor", label: "Supervisor" },
+  { value: "bombero_referente", label: "Bombero Referente (solo lectura)" },
+  { value: "bombero_inspector", label: "Bombero" },
+  { value: "bomberos", label: "Bomberos" },
 ];
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
 let usuarios = [];
@@ -121,7 +127,7 @@ export async function cargarModuloAdministracionUsuarios(contenedor) {
       <summary style="cursor:pointer;font-weight:700">🔐 Matriz de permisos por perfil</summary>
       <p style="color:#9ca3af;font-size:12px;line-height:1.5">Permisos configurados actualmente en Supabase. El acceso a cada pantalla puede variar según los módulos activos.</p>
       <div style="overflow:auto"><table style="width:100%;border-collapse:collapse;min-width:780px;text-align:left">
-        <thead><tr>${["Capacidad","Superadministrador","Administrador","Supervisor","Bombero/Inspector","Bombero Referente","Mantenimiento"].map(x=>`<th style="padding:9px;border-bottom:1px solid #374151;font-size:12px">${x}</th>`).join("")}</tr></thead>
+        <thead><tr>${["Capacidad","Superadministrador","Administrador","Supervisor","Bombero","Bombero Referente","Mantenimiento"].map(x=>`<th style="padding:9px;border-bottom:1px solid #374151;font-size:12px">${x}</th>`).join("")}</tr></thead>
         <tbody>${[
           ["Consultar activos e inventario",[1,1,1,1,1,1]],
           ["Modificar datos maestros de activos",[1,1,0,0,0,1]],
