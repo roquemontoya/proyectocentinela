@@ -27,15 +27,17 @@ Deno.serve(async (req) => {
 
   const admin = createClient(url, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } });
   const actorId = sessionData.user.id;
+  let body: Record<string, unknown>;
+  try { body = await req.json(); } catch { return responder({ error: "Solicitud JSON inválida" }, 400); }
+  const action = String(body.action || "");
+  const esCambioObligatorio = action === "complete_temporary_password" && sessionData.user.app_metadata?.must_change_password === true;
   const { data: actorRole, error: actorRoleError } = await admin.rpc("current_user_role_for_id", { p_user_id: actorId });
-  if (actorRoleError || !["administrador", "superadministrador"].includes(actorRole)) {
+  if (!esCambioObligatorio && (actorRoleError || !["administrador", "superadministrador"].includes(actorRole))) {
     return responder({ error: "Solo Administración puede gestionar usuarios" }, 403);
   }
   const esSuper = actorRole === "superadministrador";
 
   try {
-    const body = await req.json();
-    const action = String(body.action || "");
     if (action === "list") {
       const { data: list, error } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
       if (error) throw error;
