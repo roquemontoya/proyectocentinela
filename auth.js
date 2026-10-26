@@ -292,7 +292,9 @@ export function aplicarPermisosInterfaz(rol = rolActual) {
   if (botonSalir) botonSalir.textContent = 'Cerrar sesión';
 }
 
-function esRolJefaturaSoloLectura(rol) { return new Set(['jefe_seguridad_patrimonial','jefe_guardia_fisica','jefe_prevencion_incendios','jefe_rhp','gerencia']).has(rol); }\n\nfunction verificarPermisoModuloParaRol(rol, modulo) {
+function esRolJefaturaSoloLectura(rol) { return new Set(['jefe_seguridad_patrimonial','jefe_guardia_fisica','jefe_prevencion_incendios','jefe_rhp','gerencia']).has(rol); }
+
+function verificarPermisoModuloParaRol(rol, modulo) {
   const nombre = String(modulo || '').toLowerCase();
   if (rol === 'administrador' || rol === 'superadministrador') return true;
   if (nombre === 'mayordomo001') return false;
