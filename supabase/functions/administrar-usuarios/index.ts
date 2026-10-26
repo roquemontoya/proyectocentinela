@@ -155,7 +155,7 @@ Deno.serve(async (req) => {
       if (targetError || !target.user) return responder({ error: "No se encontró la cuenta de destino." }, 404);
       const { error: passwordError } = await admin.auth.admin.updateUserById(id, {
         password: temporaryPassword,
-        user_metadata: { ...(target.user.user_metadata || {}), must_change_password: true, temporary_password_issued_at: new Date().toISOString() }
+        user_metadata: { ...(target.user.user_metadata || {}) }, app_metadata: { ...(target.user.app_metadata || {}), must_change_password: true, temporary_password_issued_at: new Date().toISOString() }
       });
       if (passwordError) throw passwordError;
       const { error: auditError } = await admin.from("app_user_audit").insert({
@@ -164,6 +164,27 @@ Deno.serve(async (req) => {
       });
       if (auditError) throw auditError;
       return responder({ ok: true, must_change_password: true, message: "Clave temporal asignada; el usuario deberá cambiarla antes de acceder." });
+    }
+
+    if (action === "complete_temporary_password") {
+      const password = String(body.password || "");
+      if (!password || password.length < 10) return responder({ error: "La nueva contraseña no cumple la política mínima." }, 400);
+      const { data: target, error: targetError } = await admin.auth.admin.getUserById(actorId);
+      if (targetError || !target.user) return responder({ error: "No se pudo verificar la cuenta." }, 404);
+      if (target.user.app_metadata?.must_change_password !== true) return responder({ error: "La cuenta no requiere completar un cambio obligatorio." }, 409);
+      const email = target.user.email || "";
+      const { data: verified, error: verifyError } = await createClient(url, anonKey, { auth: { persistSession: false, autoRefreshToken: false } }).auth.signInWithPassword({ email, password });
+      if (verifyError || verified.user?.id !== actorId) return responder({ error: "No se pudo verificar la nueva contraseña." }, 403);
+      const { error: clearError } = await admin.auth.admin.updateUserById(actorId, {
+        app_metadata: { ...(target.user.app_metadata || {}), must_change_password: false, password_changed_at: new Date().toISOString() }
+      });
+      if (clearError) throw clearError;
+      const { error: auditError } = await admin.from("app_user_audit").insert({
+        actor_user_id: actorId, target_user_id: actorId, accion: "clave_temporal_cambiada",
+        detalle: { must_change_password: false, method: "verified_new_password" }
+      });
+      if (auditError) throw auditError;
+      return responder({ ok: true, must_change_password: false });
     }
 
     if (action === "set_active") {
