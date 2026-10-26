@@ -73,7 +73,7 @@ window.verificarDetalleLlave = verificarDetalleLlave;
 window.cerrarFormularioControl = cerrarFormularioControl;
 
 window.abrirFormularioControl = async function(tabla, dbId, idElemento) {
-    if (obtenerRolActual() === 'bombero_referente') {
+    if (['bombero_referente','jefe_seguridad_patrimonial','jefe_guardia_fisica','jefe_prevencion_incendios','jefe_rhp','gerencia'].includes(obtenerRolActual())) {
         alert('Bombero Referente tiene acceso de solo lectura. Podés consultar el estado y los controles, pero no iniciar ni modificar controles.');
         return;
     }
