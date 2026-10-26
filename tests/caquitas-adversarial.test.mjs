@@ -1,5 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, resolve } from "node:path";
+
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const readSource = readFileSync(resolve(ROOT, "supabase/functions/agente-caquitas-audit-read/index.ts"), "utf8");
+const reportSource = readFileSync(resolve(ROOT, "supabase/functions/agente-caquitas-audit-report/index.ts"), "utf8");
 
 const AGENT = "AGENTE-CAQUITAS-001";
 const TASK = "auditoria-extintores";
@@ -120,4 +127,29 @@ test("the agent architecture has one identity with role-filtered tools", () => {
   assert.match(contract,/same central agent/);
   assert.match(contract,/least privilege/);
   assert.match(contract,/Mayordomo_001 is a separate technical operator/);
+});
+
+
+test("production read function enforces method, token, and fixed task contract", () => {
+  assert.match(readSource, /req\.method !== "POST"/);
+  assert.match(readSource, /constantTimeEqual\(suppliedToken, expectedToken\)/);
+  assert.match(readSource, /body\.task_id !== "auditoria-extintores"/);
+  assert.match(readSource, /method: "GET"/);
+  assert.doesNotMatch(readSource, /method: "DELETE"|method: "PATCH"|method: "PUT"/);
+});
+
+test("report function validates upstream payload before generating a report", () => {
+  assert.match(reportSource, /Array\.isArray\(sourceData\.counts\)/);
+  assert.match(reportSource, /sourceData\.agent_id !== "AGENTE-CAQUITAS-001"/);
+  assert.match(reportSource, /return json\(502, \{ error: "audit_source_payload_incomplete" \}\)/);
+});
+
+test("CSV output uses actual UTF-8 BOM and CRLF, not escaped literal text", () => {
+  assert.ok(reportSource.includes('new Response("\\\\uFEFF" + lines.join("\\\\r\\\\n"),'));
+});
+
+test("read function describes J.A.R.V.I.S. and Caquitas as one central agent", () => {
+  assert.match(readSource, /Un solo agente lógico central/);
+  assert.match(readSource, /No son dos agentes/);
+  assert.match(readSource, /Mayordomo_001 es el operador\/orquestador técnico separado/);
 });
