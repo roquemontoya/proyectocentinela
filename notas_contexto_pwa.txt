@@ -82,3 +82,63 @@ Principio operativo
 Mayordomo_001 comienza como auditor de solo lectura: primero detecta y documenta; no modifica activos, trazabilidad, inventario ni movimientos automáticamente.
 
 ============================================================
+
+HITO MAYOR — 26/10/2026
+JERARQUÍA ADMINISTRATIVA, PERFILES Y MATRIZ DE PERMISOS
+============================================================
+
+Jerarquía administrativa confirmada por el usuario
+- Gerente (rol técnico: `gerencia`) ocupa el nivel administrativo más alto.
+- Jefe de Seguridad Patrimonial (`jefe_seguridad_patrimonial`) está debajo de Gerente.
+- En el mismo nivel jerárquico, debajo de Seguridad Patrimonial, están:
+  1. Jefe de Protección de Planta — Guardia Física (`jefe_guardia_fisica`).
+  2. Jefe de Prevención de Incendios (`jefe_prevencion_incendios`).
+  3. Jefe de RHP — Recursos Altamente Protegidos (`jefe_rhp`).
+- Los tres cargos anteriores son pares; ninguno debe mostrarse como superior a los otros.
+- Los roles de Informática siguen siendo Superadministrador, Administrador y Mantenimiento (TI), conforme a la jerarquía de funciones del sistema acordada anteriormente.
+- Supervisor, Bombero Referente y Bombero continúan como perfiles operativos en la matriz; Bombero es el nombre visible único para el rol técnico `bombero_inspector`.
+
+Cambios en GitHub main
+- `administracionUsuarios.js`: selector de roles reorganizado y etiquetas actualizadas para Gerente y las tres jefaturas.
+  - Commit: `3853ca99ccfaa6b5112444102fc64df127a98dc6`.
+- `supabase/functions/administrar-usuarios/index.ts`: orden de perfiles permitido alineado a la nueva jerarquía.
+  - Commit: `b2ef1950ebd603a529ae91f1d0d7a17225336744`.
+- Migración aplicada en Supabase: `reordenar_jerarquia_administrativa`.
+  - Actualizó nombres/descripciones de Gerente, Protección de Planta, Prevención de Incendios y RHP.
+  - Ajustó la prioridad del trigger de legajos: Gerente antes de Seguridad Patrimonial y las tres jefaturas con igual prioridad.
+  - Conservó rangos existentes y legajos ya asignados; no reasigna automáticamente legajos históricos.
+- Migración documentada en el repositorio:
+  `supabase/migrations/20261026190000_reordenar_jerarquia_administrativa.sql`.
+  - Commit: `9b02a3923855a787c7446be67a4a797e3527684b`.
+
+Incidente de sintaxis en auth.js
+- Tras una edición anterior de permisos quedó una secuencia literal `\n` dentro de `auth.js`, provocando en navegador `Uncaught SyntaxError: Invalid or unexpected token` en la línea aproximada 295 y bloqueando la carga del inicio de sesión.
+- Se corrigió el salto de línea y se confirmó por lectura de GitHub que ya no existe esa secuencia en el archivo.
+- Commit de corrección: `d4d0da80e465f3b29e33cd90d274102664081b0b`.
+- En el momento de la última consulta, Vercel todavía no mostraba el despliegue de ese commit. No afirmar que el login quedó verificado en producción hasta comprobar el despliegue READY y hacer una prueba real de acceso.
+- El usuario reportó el error mediante captura del navegador; asumir responsabilidad y validar sintaxis/build antes de futuras modificaciones.
+
+Matriz de permisos por perfil
+- Se detectó que el bloque “Matriz de permisos por perfil” en `administracionUsuarios.js` tenía columnas codificadas manualmente y omitía Gerente y las cuatro jefaturas administrativas.
+- Se amplió la tabla para mostrar: Superadministrador, Administrador, Mantenimiento (TI), Gerente, Jefe de Seguridad Patrimonial, Jefe de Protección de Planta (Guardia Física), Jefe de Prevención de Incendios, Jefe de RHP, Supervisor, Bombero Referente y Bombero.
+- Se añadieron filas para exportación de datos/estadísticas y se separaron las capacidades de consultar, registrar y resolver anomalías.
+- Commit de la actualización de matriz: `fd9fce1df1ed577b0c8dfa767e0113647615f9e2`.
+- La matriz es una representación informativa de capacidades esperadas, no prueba definitiva de permisos efectivos. Revisar y probar las policies RLS, RPC/Edge Functions y restricciones de frontend por rol antes de afirmar que cada operación está protegida.
+- La matriz es ancha y debe poder desplazarse horizontalmente.
+
+Despliegues y enlaces
+- Producción: https://proyectocentinela.vercel.app
+- Último despliegue que Vercel reportó READY durante la sesión antes de los últimos commits de corrección/matriz: `proyectocentinela-lpiq7e8qb-acme-argentina.vercel.app`, commit `9b02a3923855a787c7446be67a4a797e3527684b`.
+- Los commits posteriores `d4d0da80...` (auth.js) y `fd9fce1d...` (matriz) deben comprobarse en Vercel; no asumir que producción ya contiene ambos hasta verificar el SHA y estado READY.
+- GitHub main: https://github.com/roquemontoya/proyectocentinela/tree/main
+- Archivo de matriz/usuarios: https://github.com/roquemontoya/proyectocentinela/blob/main/administracionUsuarios.js
+- Archivo de autenticación: https://github.com/roquemontoya/proyectocentinela/blob/main/auth.js
+
+Próximas comprobaciones prioritarias
+1. Confirmar que Vercel haya desplegado el commit de corrección de `auth.js` y el commit de la matriz, ambos desde `main`.
+2. Probar inicio de sesión real y confirmar en consola que no reaparece el SyntaxError.
+3. Abrir Administración de usuarios y comprobar las once columnas de perfiles y las etiquetas correctas.
+4. Validar la matriz contra permisos reales: lectura de jefaturas y Gerente; ausencia de escrituras operativas para estos perfiles; permisos diferenciados de Supervisor, Bombero Referente, Bombero, Mantenimiento y Administración.
+5. No cambiar los legajos históricos ni alterar asignaciones existentes durante la validación.
+
+============================================================
