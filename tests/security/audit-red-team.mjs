@@ -19,13 +19,15 @@ if (!base || !token) {
 }
 const parsed = new URL(base);
 if (parsed.protocol !== "https:") throw new Error("La URL de prueba debe usar HTTPS.");
-if (parsed.hostname === "zgzhudcdxoentmfgdncf.supabase.co") {
+if (parsed.hostname === "zgzhudcdxoentmfgdncf.supabase.co" || parsed.hostname.startsWith("zgzhudcdxoentmfgdncf.")) {
   throw new Error("Bloqueado: esta es la URL conocida de producción; usa un proyecto aislado.");
 }
 if (token.length < 8) throw new Error("El token de prueba parece demasiado corto.");
 
-const functions = [
-  "mayordomo-001-audit",
+// GET is tested only on report/read functions: Mayordomo has verify_jwt=true,
+// so the Supabase gateway may reject an unauthenticated GET before the handler.
+// Its unauthenticated POST is tested separately below.
+const getRestrictedFunctions = [
   "agente-caquitas-audit-report",
   "agente-caquitas-audit-read",
 ];
@@ -47,7 +49,7 @@ function record(test, ok, detail) {
   console.log(`${ok ? "PASS" : "FAIL"} ${test}: ${detail}`);
 }
 
-for (const name of functions) {
+for (const name of getRestrictedFunctions) {
   try {
     const r = await request(name, "GET");
     record(`${name}: GET bloqueado`, r.status === 405, `HTTP ${r.status}`);
