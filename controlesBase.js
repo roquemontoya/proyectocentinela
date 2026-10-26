@@ -217,7 +217,20 @@ export function aplicarTituloControl(titulo, modulo, etiqueta, estado) {
     }
     titulo.textContent = nombreEtiqueta ? `Control ${nombreModulo} ${nombreEtiqueta}` : `Control ${nombreModulo}`;
     const e = String(estado || '').toLowerCase();
-    titulo.style.color = (e.includes('vencido') || e.includes('anómalo') || e.includes('anomalo') || e.includes('no operativo'))
+    const colorEstado = (e.includes('vencido') || e.includes('anómalo') || e.includes('anomalo') || e.includes('no operativo'))
         ? '#ef4444'
         : (e.includes('por vencer') || e.includes('observado')) ? '#eab308' : '#22c55e';
+    titulo.style.color = colorEstado;
+
+    // Sistema visual transversal: aplica el color de estado a todos los bordes
+    // del formulario activo, sin alterar fondos ni estilos de botones.
+    const contenedor = document.getElementById('contenedor-componentes-dinamicos');
+    if (contenedor) {
+        contenedor.querySelectorAll('fieldset, input, select, textarea, [role="img"], .tarjeta-reportado-select').forEach(elemento => {
+            elemento.style.borderColor = colorEstado;
+        });
+        contenedor.querySelectorAll('fieldset legend').forEach(legend => {
+            legend.style.color = colorEstado;
+        });
+    }
 }
