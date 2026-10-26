@@ -68,6 +68,10 @@ function abrirEdicion(contenedor, u) {
   form.elements.email.value = u.email || "";
   form.elements.role.value = (u.roles || [])[0] || "bombero_inspector";
   form.elements.email.disabled = true;
+  const temporal = contenedor.querySelector("#bloque-clave-temporal");
+  if (temporal) temporal.style.display = obtenerRolActual() === "superadministrador" ? "block" : "none";
+  form.elements.establecer_clave_temporal.checked = false;
+  form.elements.clave_temporal.value = "";
   contenedor.querySelector("#usuario-form-title").textContent = "Editar usuario";
   contenedor.querySelector("#usuario-cancelar").style.display = "inline-flex";
   form.style.display = "block";
@@ -80,6 +84,10 @@ function nuevoUsuario(contenedor) {
   form.elements.user_id.value = "";
   form.elements.email.disabled = false;
   form.elements.role.value = "bombero_inspector";
+  const temporal = contenedor.querySelector("#bloque-clave-temporal");
+  if (temporal) temporal.style.display = "none";
+  form.elements.establecer_clave_temporal.checked = false;
+  form.elements.clave_temporal.value = "";
   contenedor.querySelector("#usuario-form-title").textContent = "Crear usuario";
   contenedor.querySelector("#usuario-cancelar").style.display = "none";
 }
@@ -116,7 +124,12 @@ export async function cargarModuloAdministracionUsuarios(contenedor) {
         <label style="display:grid;gap:6px;font-size:13px">Legajo (opcional)<input name="legajo" maxlength="40" style="padding:10px;background:#0b1220;color:white;border:1px solid #475569;border-radius:6px"></label>
         <label style="display:grid;gap:6px;font-size:13px">Perfil<select name="role" required style="padding:10px;background:#0b1220;color:white;border:1px solid #475569;border-radius:6px">${ROLES.map((r) => `<option value="${r.value}">${r.label}</option>`).join("")}</select></label>
       </div>
-      <p style="font-size:12px;color:#9ca3af;line-height:1.5">La cuenta se crea con invitación por correo; no se define ni se almacena una contraseña desde este panel.</p>
+      <div id="bloque-clave-temporal" style="display:none;margin-top:14px;padding:12px;border:1px solid #854d0e;border-radius:8px;background:#1c1917">
+        <label style="display:flex;gap:8px;align-items:center;font-size:13px;margin-bottom:10px"><input type="checkbox" name="establecer_clave_temporal"> Exigir cambio de contraseña en el próximo ingreso</label>
+        <label style="display:grid;gap:6px;font-size:13px">Clave temporal (mínimo 10 caracteres)<input name="clave_temporal" type="password" minlength="10" autocomplete="new-password" placeholder="Definí una clave de un solo uso" style="padding:10px;background:#0b1220;color:white;border:1px solid #854d0e;border-radius:6px"></label>
+        <p style="font-size:12px;color:#fcd34d;line-height:1.5;margin-bottom:0">Entregala personalmente. Nunca se guarda en la bitácora ni en texto visible.</p>
+      </div>
+      <p style="font-size:12px;color:#9ca3af;line-height:1.5">Las cuentas nuevas se crean con invitación por correo. El superadministrador puede exigir un cambio de contraseña mediante una clave temporal.</p>
       <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="submit" style="padding:10px 14px;background:#1d4ed8;color:#fff;border:0;border-radius:7px;cursor:pointer">Guardar usuario</button><button id="usuario-cancelar" type="button" style="display:none;padding:10px 14px;background:#374151;color:#fff;border:0;border-radius:7px;cursor:pointer">Cancelar</button></div>
     </form>
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px"><input id="usuarios-busqueda" type="search" placeholder="Buscar nombre, correo, legajo o perfil…" style="flex:1;min-width:220px;padding:11px;background:#111827;color:white;border:1px solid #374151;border-radius:8px"><span id="usuarios-resumen" style="color:#9ca3af;font-size:13px"></span></div>
@@ -163,8 +176,16 @@ export async function cargarModuloAdministracionUsuarios(contenedor) {
     const values = new FormData(form);
     const payload = { nombre_completo: values.get("nombre_completo"), email: values.get("email"), legajo: values.get("legajo"), role: values.get("role") };
     ejecutar(contenedor, async () => {
-      if (values.get("user_id")) await llamar("update", { ...payload, user_id: values.get("user_id") });
-      else await llamar("create", payload);
+      if (values.get("user_id")) {
+        await llamar("update", { ...payload, user_id: values.get("user_id") });
+        if (values.get("establecer_clave_temporal") === "on") {
+          const clave = String(values.get("clave_temporal") || "");
+          if (obtenerRolActual() !== "superadministrador") throw new Error("Solo el Superadministrador puede asignar claves temporales.");
+          if (clave.length < 10) throw new Error("La clave temporal debe tener al menos 10 caracteres.");
+          await llamar("set_temporary_password", { user_id: values.get("user_id"), temporary_password: clave });
+        }
+      } else await llamar("create", payload);
+      if (form.elements.clave_temporal) form.elements.clave_temporal.value = "";
       form.style.display = "none"; nuevoUsuario(contenedor); await cargarUsuarios(contenedor);
       const msg = contenedor.querySelector("#usuarios-mensaje"); msg.textContent = "Operación completada."; msg.style.display = "block"; msg.style.background = "#14532d"; msg.style.borderColor = "#166534";
     });
