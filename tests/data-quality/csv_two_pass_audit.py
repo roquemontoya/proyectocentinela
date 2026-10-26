@@ -48,7 +48,7 @@ def repair_known_extinguisher_split(filename, delimiter, header, rows):
             continue
         if not re.search(r"\\b[NS]\\b.*\\b[EW]\\b", row[3], re.I):
             continue
-        fixed = row[:1] + [(row[1] + " " + row[2]).strip()] + row[3:]
+        fixed = row[:1] + [(row[1] + "," + row[2]).strip()] + row[3:]
         if len(fixed) != expected:
             continue
         rows[index] = fixed
