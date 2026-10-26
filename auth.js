@@ -63,6 +63,7 @@ function mostrarAplicacion(rol) {
 async function resolverRolAutenticado() {
   const { data, error } = await clienteSupabase.rpc('current_user_role');
   const rolesAdmitidos = new Set(['administrador', 'superadministrador', 'supervisor', 'bombero_inspector', 'mantenimiento', 'bomberos', 'bombero_referente', 'jefe_seguridad_patrimonial', 'jefe_guardia_fisica', 'jefe_prevencion_incendios', 'jefe_rhp', 'gerencia']);
+  if (!error && data === 'bomberos') return 'bombero_inspector';
   if (!error && typeof data === 'string' && rolesAdmitidos.has(data)) return data;
 
   // Compatibilidad temporal mientras la migración de roles se despliega en Supabase.
