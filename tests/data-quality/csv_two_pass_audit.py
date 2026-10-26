@@ -21,7 +21,7 @@ def read_csv(path):
         sample = f.read(8192)
         f.seek(0)
         try:
-            dialect = csv.Sniffer().sniff(sample, delimiters=",;\\t")
+            dialect = csv.Sniffer().sniff(sample, delimiters=",;\t")
         except csv.Error:
             dialect = csv.excel
         reader = csv.reader(f, delimiter=dialect.delimiter, quotechar='"', doublequote=True)
@@ -40,13 +40,13 @@ def repair_known_extinguisher_split(filename, delimiter, header, rows):
         # label ending in "3", next field beginning "5 Kg", and GPS in col 4.
         if len(row) != expected + 1 or len(row) < 4:
             continue
-        if not re.match(r"^POINT\\s*\\(", row[0], re.I):
+        if not re.match(r"^POINT\s*\(", row[0], re.I):
             continue
-        if not re.search(r"\\bExtintor\\s+\\d+\\s+\\w+\\s+3\\s*$", row[1], re.I):
+        if not re.search(r"\bExtintor\s+\d+\s+\w+\s+3\s*$", row[1], re.I):
             continue
-        if not re.match(r"^\\s*5\\s*Kg\\b", row[2], re.I):
+        if not re.match(r"^\s*5\s*Kg\b", row[2], re.I):
             continue
-        if not re.search(r"\\b[NS]\\b.*\\b[EW]\\b", row[3], re.I):
+        if not re.search(r"\b[NS]\b.*\b[EW]\b", row[3], re.I):
             continue
         fixed = row[:1] + [(row[1] + "," + row[2]).strip()] + row[3:]
         if len(fixed) != expected:
@@ -82,7 +82,7 @@ def main():
         after = Counter(len(r) for r in rows)
         target = output / path.name
         with target.open("w", encoding="utf-8-sig", newline="") as f:
-            writer = csv.writer(f, delimiter=delimiter, quoting=csv.QUOTE_MINIMAL, lineterminator="\\n")
+            writer = csv.writer(f, delimiter=delimiter, quoting=csv.QUOTE_MINIMAL, lineterminator="\n")
             writer.writerow(header)
             writer.writerows(rows)
         results.append({
