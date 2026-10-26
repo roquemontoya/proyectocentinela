@@ -266,7 +266,7 @@ serve(async (req: Request) => {
       const csvCell = (value: unknown) => {
         let raw = typeof value === "string" ? value : JSON.stringify(value ?? "");
         // Evita que valores de datos se interpreten como fórmulas al abrir CSV en Excel.
-        if (/^[\\u0000-\\u0020]*[=+@-]/.test(raw)) raw = "'" + raw;
+        if (/^[\u0000-\u0020]*[=+@-]/.test(raw)) raw = "'" + raw;
         return '"' + raw.replace(/"/g, '""') + '"';
       };
       const lines = [
