@@ -5,7 +5,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
-const rolesPermitidos = new Set(["administrador", "supervisor", "bombero_inspector", "mantenimiento", "superadministrador", "bombero_referente"]);
+const rolesPermitidos = new Set(["administrador", "supervisor", "bombero_inspector", "mantenimiento", "superadministrador", "bombero_referente", "bomberos", "jefe_seguridad_patrimonial", "jefe_guardia_fisica", "jefe_prevencion_incendios", "jefe_rhp", "gerencia"]);
 const responder = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
   status, headers: { ...corsHeaders, "Content-Type": "application/json" },
 });
