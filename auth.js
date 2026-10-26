@@ -62,7 +62,7 @@ function mostrarAplicacion(rol) {
 
 async function resolverRolAutenticado() {
   const { data, error } = await clienteSupabase.rpc('current_user_role');
-  const rolesAdmitidos = new Set(['administrador', 'superadministrador', 'supervisor', 'bombero_inspector', 'mantenimiento', 'bomberos', 'bombero_referente']);
+  const rolesAdmitidos = new Set(['administrador', 'superadministrador', 'supervisor', 'bombero_inspector', 'mantenimiento', 'bomberos', 'bombero_referente', 'jefe_seguridad_patrimonial', 'jefe_guardia_fisica', 'jefe_prevencion_incendios', 'jefe_rhp', 'gerencia']);
   if (!error && typeof data === 'string' && rolesAdmitidos.has(data)) return data;
 
   // Compatibilidad temporal mientras la migración de roles se despliega en Supabase.
@@ -268,7 +268,7 @@ export function verificarPermisoModulo(modulo) {
   if (rolActual === 'administrador' || rolActual === 'superadministrador') return true;
   if (nombre === 'mayordomo001') return false;
   if (['administracionusuarios', 'admincsv', 'gestortablas'].includes(nombre)) return false;
-  if (rolActual === 'bombero_referente') return new Set(['extintores','pulmon','bomberos','anomalias','historialfotos','hidrantes','ecas','valvulas','vecas','pecas','ipp']).has(nombre);
+  if (rolActual === 'bombero_referente' || esRolJefaturaSoloLectura(rolActual)) return new Set(['extintores','pulmon','bomberos','anomalias','historialfotos','hidrantes','ecas','valvulas','vecas','pecas','ipp','estadisticas','reportes','historialcontroles']).has(nombre);
   if (rolActual === 'bomberos' || rolActual === 'bombero_inspector') return MODULOS_BOMBEROS.has(nombre);
   return ['supervisor', 'mantenimiento'].includes(rolActual);
 }
@@ -276,7 +276,7 @@ export function verificarPermisoModulo(modulo) {
 export function aplicarPermisosInterfaz(rol = rolActual) {
   const esAdmin = rol === 'administrador' || rol === 'superadministrador';
   const esBombero = rol === 'bomberos' || rol === 'bombero_inspector';
-  const esReferente = rol === 'bombero_referente';
+  const esReferente = rol === 'bombero_referente' || esRolJefaturaSoloLectura(rol);
   document.querySelectorAll('#side-menu .drawer-list li, #main-content .card').forEach(elemento => {
     const accion = elemento.getAttribute('onclick') || '';
     const coincidencia = accion.match(/cargarModulo\\(['"]([^'"]+)['"]\\)/);
@@ -291,12 +291,12 @@ export function aplicarPermisosInterfaz(rol = rolActual) {
   if (botonSalir) botonSalir.textContent = 'Cerrar sesión';
 }
 
-function verificarPermisoModuloParaRol(rol, modulo) {
+function esRolJefaturaSoloLectura(rol) { return new Set(['jefe_seguridad_patrimonial','jefe_guardia_fisica','jefe_prevencion_incendios','jefe_rhp','gerencia']).has(rol); }\n\nfunction verificarPermisoModuloParaRol(rol, modulo) {
   const nombre = String(modulo || '').toLowerCase();
   if (rol === 'administrador' || rol === 'superadministrador') return true;
   if (nombre === 'mayordomo001') return false;
   if (['administracionusuarios', 'admincsv', 'gestortablas'].includes(nombre)) return false;
-  if (rol === 'bombero_referente') return new Set(['extintores','pulmon','bomberos','anomalias','historialfotos','hidrantes','ecas','valvulas','vecas','pecas','ipp']).has(nombre);
+  if (rol === 'bombero_referente' || esRolJefaturaSoloLectura(rol)) return new Set(['extintores','pulmon','bomberos','anomalias','historialfotos','hidrantes','ecas','valvulas','vecas','pecas','ipp','estadisticas','reportes','historialcontroles']).has(nombre);
   if (rol === 'bomberos' || rol === 'bombero_inspector') return MODULOS_BOMBEROS.has(nombre);
   return ['supervisor', 'mantenimiento'].includes(rol);
 }
