@@ -508,7 +508,7 @@ function inicializarMiniMapaPopup(popup, item) {
         }).addTo(mini));
         const grupo = L.featureGroup(figuras);
         if (grupo.getBounds().isValid()) mini.fitBounds(grupo.getBounds(), { padding: [4, 4], maxZoom: 17 });
-        else mini.setView([-31.4168, -64.1834], 10);
+        else mini.setView([-31.4694, -64.2427], 15);
     }
     setTimeout(() => mini.invalidateSize(), 100);
 }
@@ -727,7 +727,7 @@ export async function cargarModuloMapa(moduloKey, contenedor) {
         '<div id="gps-mapa-cercanos" style="margin-top:5px"></div></section>' +
         '<div id="mapa-diagnostico" role="status" style="position:absolute;z-index:500;left:10px;bottom:10px;max-width:calc(100% - 80px);background:rgba(15,23,42,.82);color:#fff;padding:6px 9px;border-radius:6px;font:11px Arial;box-shadow:0 2px 8px #0004;pointer-events:none"></div></div>';
 
-    mapaActivo = L.map('mapa-modulo', { zoomControl: true }).setView([-31.4168, -64.1834], 17);
+    mapaActivo = L.map('mapa-modulo', { zoomControl: true }).setView([-31.4694, -64.2427], 15); // Centro predeterminado: planta industrial Centinela
     agregarCapasBase(mapaActivo);
 
     const limites = [];
@@ -826,7 +826,7 @@ export async function cargarModuloMapa(moduloKey, contenedor) {
     if (limites.length) {
         mapaActivo.fitBounds(L.latLngBounds(limites), { padding: [35, 35], maxZoom: 19 });
     } else {
-        mapaActivo.setView([-31.4168, -64.1834], 15);
+        mapaActivo.setView([-31.4694, -64.2427], 15);
         const aviso = document.createElement('div');
         aviso.style.cssText = 'position:absolute;z-index:500;top:12px;left:50%;transform:translateX(-50%);background:#7f1d1d;color:white;padding:10px 14px;border-radius:6px;font:13px Arial;max-width:90%;text-align:center';
         aviso.textContent = activos.length
