@@ -1,0 +1,88 @@
+// Simulador visual de roles: exclusivo del Superadministrador.
+// No modifica la sesión, el rol de Supabase ni las políticas RLS.
+const ROLES = [
+  ['administrador', 'Administrador'], ['supervisor', 'Supervisor'],
+  ['bombero_inspector', 'Bombero / Inspector'], ['bomberos', 'Bombero'],
+  ['bombero_referente', 'Bombero Referente'], ['mantenimiento', 'Mantenimiento'],
+  ['jefe_seguridad_patrimonial', 'Jefe Seguridad Patrimonial'], ['jefe_guardia_fisica', 'Jefe Guardia Física'],
+  ['jefe_prevencion_incendios', 'Jefe Prevención de Incendios'], ['jefe_rhp', 'Jefe RHP'], ['gerencia', 'Gerencia']
+];
+const MODULOS_BOMBEROS = new Set(['ecas','extintores','hidrantes','valvulas','vecas','pecas','ipp','pulmon']);
+const SOLO_LECTURA = new Set(['bombero_referente','jefe_seguridad_patrimonial','jefe_guardia_fisica','jefe_prevencion_incendios','jefe_rhp','gerencia']);
+const MODULOS_LECTURA = new Set(['extintores','pulmon','bomberos','anomalias','historialfotos','hidrantes','ecas','valvulas','vecas','pecas','ipp','estadisticas','reportes','historialcontroles']);
+let rolReal = null;
+let rolSimulado = null;
+let panelMinimizado = false;
+
+export function obtenerRolSimulado() { return rolSimulado; }
+export function esSimulacionSoloLectura() { return Boolean(rolSimulado && SOLO_LECTURA.has(rolSimulado)); }
+export function moduloPermitidoEnSimulacion(modulo) { return !rolSimulado || permisoParaRol(rolSimulado, modulo); }
+function permisoParaRol(rol, modulo) {
+  const nombre = String(modulo || '').toLowerCase();
+  if (rol === 'administrador' || rol === 'superadministrador') return true;
+  if (nombre === 'mayordomo001' || ['administracionusuarios','admincsv','gestortablas'].includes(nombre)) return false;
+  if (SOLO_LECTURA.has(rol)) return MODULOS_LECTURA.has(nombre);
+  if (rol === 'bomberos' || rol === 'bombero_inspector') return MODULOS_BOMBEROS.has(nombre);
+  return ['supervisor','mantenimiento'].includes(rol);
+}
+function etiquetaRol(rol) { return ROLES.find(([id]) => id === rol)?.[1] || rol; }
+function asegurarPanel() {
+  if (document.getElementById('centinela-role-simulator')) return;
+  const panel = document.createElement('aside');
+  panel.id = 'centinela-role-simulator';
+  panel.className = 'role-simulator';
+  panel.innerHTML = '<div class="role-simulator-head"><strong>🧪 Simulador de roles</strong><button type="button" id="role-simulator-min" aria-label="Minimizar panel">−</button></div><div id="role-simulator-body"><label for="role-simulator-select">Ver Centinela como:</label><select id="role-simulator-select"><option value="">Superadministrador (real)</option></select><p id="role-simulator-status">Vista real de Superadministrador</p><button type="button" id="role-simulator-return">Volver a Superadministrador</button><small>Solo cambia la interfaz. La sesión y los permisos del servidor no cambian.</small></div>';
+  document.body.appendChild(panel);
+  const select = panel.querySelector('#role-simulator-select');
+  ROLES.forEach(([id, label]) => { const option = document.createElement('option'); option.value = id; option.textContent = label; select.appendChild(option); });
+  select.addEventListener('change', () => cambiarRol(select.value || null));
+  panel.querySelector('#role-simulator-return').addEventListener('click', () => { select.value = ''; cambiarRol(null); });
+  panel.querySelector('#role-simulator-min').addEventListener('click', () => {
+    panelMinimizado = !panelMinimizado;
+    panel.classList.toggle('is-minimized', panelMinimizado);
+    panel.querySelector('#role-simulator-min').textContent = panelMinimizado ? '+' : '−';
+  });
+}
+function cambiarRol(rol) {
+  rolSimulado = rol;
+  const panel = document.getElementById('centinela-role-simulator');
+  if (panel) {
+    panel.classList.toggle('is-simulating', Boolean(rol));
+    panel.querySelector('#role-simulator-status').textContent = rol ? 'Simulando: ' + etiquetaRol(rol) : 'Vista real de Superadministrador';
+    panel.querySelector('#role-simulator-select').value = rol || '';
+  }
+  aplicarVista(rol || rolReal);
+  const vista = document.getElementById('vista-dinamica');
+  if (vista && vista.style.display !== 'none') window.irInicio?.();
+}
+function aplicarVista(rol) {
+  document.querySelectorAll('#side-menu .drawer-list li, #main-content .card').forEach(el => {
+    const match = (el.getAttribute('onclick') || '').match(/cargarModulo\(['"]([^'"]+)['"]\)/);
+    if (match) el.style.display = permisoParaRol(rol, match[1]) ? '' : 'none';
+  });
+  const esAdmin = rol === 'administrador' || rol === 'superadministrador';
+  document.querySelectorAll('.menu-solo-admin').forEach(el => { el.style.display = esAdmin ? '' : 'none'; });
+  for (const id of ['nav-gestor-tablas','nav-cmu','nav-administracion-usuarios']) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = esAdmin ? '' : 'none';
+  }
+  const fotos = document.getElementById('nav-historial-fotos');
+  if (fotos) fotos.style.display = (rol === 'bomberos' || rol === 'bombero_inspector') ? 'none' : (permisoParaRol(rol,'historialFotos') ? '' : 'none');
+  const inicio = document.getElementById('main-content');
+  if (inicio) inicio.dataset.vistaRol = rol || '';
+  document.body.classList.toggle('role-view-simulated', Boolean(rolSimulado));
+}
+export function inicializarSimuladorRoles(rol) {
+  rolReal = rol;
+  const panel = document.getElementById('centinela-role-simulator');
+  if (rol !== 'superadministrador') {
+    if (panel) panel.remove();
+    rolSimulado = null;
+    return;
+  }
+  asegurarPanel();
+  const p = document.getElementById('centinela-role-simulator');
+  if (p) p.style.display = 'block';
+  aplicarVista(rolSimulado || rolReal);
+}
+window.centinelaSimuladorRoles = { obtenerRolSimulado, moduloPermitidoEnSimulacion, esSimulacionSoloLectura };
