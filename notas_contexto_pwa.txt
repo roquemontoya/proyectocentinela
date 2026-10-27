@@ -335,3 +335,142 @@ Plan de trabajo acordado
 8. Revisar resultados y abrir PR para revisión antes de fusionar a main; no desplegar ni corregir datos operativos hasta que las pruebas y permisos estén verificados.
 
 ============================================================
+
+
+============================================================
+IMPLEMENTACIÓN INICIAL — 27/10/2026
+CAQUITAS: AUDITORÍA INTEGRAL PRELIMINAR LEU EN RAMA DE PRUEBA
+============================================================
+
+- Se creó la rama de prueba `audit-leu-test` desde el commit de main `e1c459fb4adb6137b43d2cc6f15c954236a77709`.
+- Se añadió `supabase/functions/agente-caquitas-audit-leu/index.ts` (commit `6e9f57ebce57af86e1e7541b73d53c970556cc44`).
+- PR borrador #35: https://github.com/roquemontoya/proyectocentinela/pull/35
+- La función nueva exige el token interno, valida los identificadores de agente/coordinador/tarea, hace lecturas GET paginadas de 500 filas y devuelve inventario por tabla, conteos, estado de lectura y candidatos de duplicados preliminares.
+- Si una tabla falla, el informe queda incompleto y registra la tabla y el error; no debe presentarse como auditoría completa.
+- La función solo lee; no ejecuta INSERT/UPDATE/DELETE ni corrige registros.
+- Tablas previstas en el inventario: LEU y activos (Extintores, hidrantes, Valvulas, ecas, vecas, pecas, ipp, Bomberos), controles, anomalías, trazabilidad/movimientos/Pulmón, roles/permisos/usuarios y recorridos/GPS/territorios.
+- LIMITACIONES: no se desplegó en Supabase ni se conectó a la interfaz. Aún no está validada con typecheck o pruebas de extremo a extremo. El inventario debe cotejarse contra el esquema real; las relaciones FK y reglas de dominio no están aún auditadas. La regla de duplicados es preliminar y no demuestra corrupción.
+- No se modificó producción ni los datos de Supabase.
+- Siguiente paso: ejecutar pruebas de sintaxis y seguridad, comparar la lista de tablas con information_schema, extraer FK reales, implementar reglas de relación específicas y después integrar el wrapper autenticado de Mayordomo_001. Mantener PR en borrador hasta completar validaciones.
+
+
+
+AVANCE DE VALIDACIÓN — 27/10/2026
+- Se contrastó el inventario previsto contra `information_schema.tables` de Supabase. Las 36 tablas operativas públicas observadas están incluidas en la lista de la función; no se incluyen las vistas auxiliares PostGIS ni tablas de metadatos de migraciones.
+- Se consultaron las FK reales declaradas por PostgreSQL y se añadieron comprobaciones de referencias huérfanas para las relaciones confirmadas (activos LEU, controles, trazabilidad, roles/permisos, alvéolos, movimientos, reemplazos y GPS/territorios).
+- Se corrigió una regla de falsos positivos: `id_activo` ya no se toma como clave única genérica en tablas históricas, porque puede repetirse legítimamente entre controles.
+- Commit de ampliación: `f5e1135ac4453cb6a2165cce4db5d7332570078c` en `audit-leu-test`.
+- Estado: todavía no ejecutado el typecheck/build de Deno ni pruebas HTTP de extremo a extremo; no desplegado. La auditoría no debe etiquetarse como validada hasta completar esas pruebas.
+
+
+INTEGRACIÓN CONTROLADA DEL WRAPPER — 27/10/2026
+- Se modificó en la rama de prueba `supabase/functions/mayordomo-001-audit/index.ts` para que, después de validar sesión Supabase y rol `administrador`/`superadministrador`, permita enrutar la tarea `auditoria-integral-leu` a `agente-caquitas-audit-leu`.
+- La tarea histórica `auditoria-extintores-resumen` se mantiene como predeterminada si el cliente no envía `task_id`; solo se aceptan las dos tareas explícitas de una lista permitida. Cualquier otra tarea se rechaza.
+- Commit wrapper: `1364a7e9d47994dfb30d1171110a1a8b75ec3405`.
+- Validación pendiente: no se encontraron ejecuciones de workflow asociadas al commit y no se ha ejecutado Deno typecheck ni una prueba HTTP real. El cambio sigue únicamente en `audit-leu-test`, PR #35 en borrador; no desplegado ni fusionado a `main`.
+
+
+CI PARA AUDITORÍA INTEGRAL — 27/10/2026
+- Se agregó `.github/workflows/validate-caquitas-integral.yml` (commit `db7e07f51a7210b6fbfc01d0e3431bb6469d29c5`) para ejecutar `deno check` tanto sobre la nueva función integral como sobre el wrapper Mayordomo_001 en pushes a `audit-leu-test` y PR hacia `main`.
+- La ejecución de Actions para este commit aún no aparece en la consulta inmediata; por tanto, el typecheck específico de ambos archivos queda pendiente hasta ver el resultado del workflow nuevo.
+- Un workflow anterior de “Validar agentes de auditoría” terminó en éxito, pero sus pasos listados validan los agentes antiguos y no prueban expresamente la nueva función integral; no se toma como evidencia de typecheck de esta entrega.
+- No se hicieron llamadas HTTP al endpoint productivo ni se desplegó nada.
+
+
+VALIDACIÓN AUTOMÁTICA Y REGLAS DE DOMINIO — 27/10/2026
+- El workflow dedicado `Validar Caquitas integral (prueba)` ejecutó correctamente los pasos `Typecheck auditor integral` y `Typecheck wrapper Mayordomo` en el commit anterior de la rama (run #3, conclusión success). Esto valida sintaxis/tipos en esa revisión, no las nuevas reglas añadidas después.
+- Se agregaron comprobaciones de dominio preliminares en `agente-caquitas-audit-leu`: estado Libre/Ocupado de alvéolos frente a asignación de extintor; extintor asignado inexistente en tabla Extintores; vínculo cruzado de alvéolo discordante; mismo extintor asignado a varios alvéolos; reemplazos activos múltiples para un titular; reemplazo activo con fecha_fin; y matriz de compatibilidad PQS/Halon/CO2/K definida por el proyecto.
+- Commit de reglas: `75000fd34090d8ad5eaf3cb9f79d63b424d501de`. Debe ejecutarse otra vez el workflow dedicado para confirmar el typecheck de este commit y revisar falsos positivos con datos de prueba.
+- Reglas de expiración/vencimiento no agregadas todavía: el campo `Extintores.Vencimiento` es texto heredado con formatos no confirmados; no se debe interpretar automáticamente hasta perfilar sus valores reales y acordar el formato. No se corrigieron datos ni se desplegó la función.
+
+
+REGLAS DE VENCIMIENTO DEL PULMÓN — 27/10/2026
+- Se perfiló de forma estrictamente de lectura la columna `Extintores.Vencimiento` en producción: 420 registros, 419 con formato MM/YYYY y 1 con MM/YY; 0 vacíos y 0 valores fuera de esos formatos regex. Consulta SQL solo SELECT; no se alteraron datos.
+- Se añadió a Caquitas una regla para extintores con `alveolo_id` asignado: detectar vencimiento ausente/no interpretable, mes/año inválidos, ya vencidos, vencimiento durante el mes actual y vencimiento dentro de 30 días. La regla interpreta MM/YY como 20YY y calcula vigencia hasta el último día del mes indicado. Es una alerta de auditoría, no una acción operativa automática.
+- Commit: `459db341da73c11ab62bdfd52384c1cb2251ff77`. El workflow dedicado debe ejecutarse sobre esta versión; aún no se ha confirmado su resultado en esta anotación.
+
+
+CICLO DE VALIDACIÓN — CORRECCIÓN DE REGEX — 27/10/2026
+- La primera ejecución del workflow sobre la regla de vencimientos falló en `deno check` por doble escape de la expresión regular del formato MM/YY/MM/YYYY. Se inspeccionó el log real de GitHub Actions; no se asumió éxito.
+- Se corrigió la expresión regular en commit `8c867237f24e3ae9fd3630982e410909b39671c7`. La nueva ejecución de Actions debe confirmar que la corrección compila; aún no se afirma que pasó hasta ver el resultado.
+
+
+CICLO DE VALIDACIÓN — NORMALIZACIÓN UNICODE — 27/10/2026
+- Tras pasar los typechecks, la revisión estática detectó que la normalización de tipos de extintor tenía una clase regex con escape incorrecto para marcas diacríticas. Aunque compilaba, podía dejar acentos sin normalizar y provocar revisiones innecesarias.
+- Se corrigió la expresión para eliminar correctamente los diacríticos Unicode antes de comparar tipos (commit cf87f49749a4eb6f43cbaaad4188b2674b975d57).
+- Pendiente: confirmar CI de este commit y seguir con revisión de reglas de dominio y pruebas de borde. No se modificó producción ni datos.
+
+
+CICLO DE REVISIÓN — VÍNCULO ALVÉOLO / INVENTARIO — 27/10/2026
+- La revisión de reglas encontró un caso no cubierto: cuando el alvéolo referenciaba un extintor existente pero el registro de Extintores tenía alveolo_id nulo, la condición anterior no emitía discrepancia.
+- Se corrigió la comparación para detectar tanto vínculo cruzado distinto como vínculo ausente en inventario (commit b7129037dd7a2101d8a4b4b4544e189e88e3bdd8).
+- Se mantiene como hallazgo de auditoría, sin modificar ninguna fila. CI del nuevo commit pendiente de confirmación.
+
+
+PRUEBAS UNITARIAS REALES PARA REGLAS DE CAQUITAS — 27/10/2026
+- Se extrajeron las reglas puras a `supabase/functions/agente-caquitas-audit-leu/audit-rules.ts` para que las reglas auditadas por la función sean las mismas que se prueban, no una copia paralela.
+- Se añadieron pruebas Deno para formatos MM/YY y MM/YYYY, espacios, fechas ausentes/malformadas, meses 00/13, años fuera de rango, normalización Unicode y matriz de compatibilidad PQS/Halon/CO2/K.
+- El workflow `Validar Caquitas integral (prueba)` ejecutó con éxito: typecheck del auditor, typecheck del módulo de reglas y tests, y typecheck del wrapper Mayordomo_001.
+- Commit de refactor: 037e4f0190fc1738d57441cc4e2197ff16ba5517. Tests añadidos/corregidos: f68bde0428cea9dfb5efd9cf3d2d61a0869fe0ba y 648656bd4bc3c0eb91af82e98ba6224707834ce2. Workflow ampliado: 2c30f2d577483be8ca8bc30bf288dac0c5772448. Limpieza final de import: 2bc232ebaceb647e1cddeb5f66041c3128920863.
+- Ejecución confirmada: GitHub Actions run 40439826262, conclusión SUCCESS. Enlace: https://github.com/roquemontoya/proyectocentinela/actions/runs/40439826262
+- Esto valida las reglas puras y compilación, no prueba todavía el flujo HTTP completo con sesión/roles ni una ejecución de las 36 tablas contra un backend aislado. No se desplegó la función nueva ni se alteraron datos de producción.
+- Se excluyen de este alcance las tablas auxiliares QGIS/PostGIS, conforme a indicación del usuario.
+
+
+VALIDACIÓN DE PAGINACIÓN Y FALLAS DE LECTURA — 27/10/2026
+- Se extrajo la rutina de paginación a `read-all.ts`, utilizada por el auditor real y probada directamente mediante fetch simulado.
+- Pruebas agregadas en `read-all_test.ts`: 501 filas se recuperan en dos páginas (offset 0 y 500); tabla vacía retorna []; HTTP 403 falla explícitamente; respuesta JSON no-array falla explícitamente.
+- Workflow ampliado para ejecutar typecheck de todos los módulos y tests, tests de reglas de dominio y tests de paginación.
+- CI integral confirmado exitoso en run 40440087821: https://github.com/roquemontoya/proyectocentinela/actions/runs/40440087821
+- La suite de pruebas ahora cubre reglas de vencimiento/compatibilidad y paginación/fallo cerrado. Aún falta la prueba end-to-end autenticada del wrapper con JWT/roles reales o un proyecto Supabase de staging; no se inventan credenciales ni se despliega la nueva función en producción para simularlas.
+- No se modificaron datos de producción. Las tablas QGIS/PostGIS auxiliares continúan fuera del alcance.
+
+
+============================================================
+ACTUALIZACIÓN — 26/10/2026
+CAQUITAS — VALIDACIÓN TÉCNICA Y BLOQUEO DE INTEGRACIÓN REAL
+============================================================
+
+Estado confirmado en la rama `audit-leu-test`
+- Auditoría integral LEU implementada como función de solo lectura.
+- Reglas puras de vencimientos y compatibilidad con pruebas automatizadas.
+- Lectura paginada de tablas en bloques de 500 registros, con pruebas de 501 filas, tabla vacía, HTTP 403 y respuesta inválida.
+- Workflow dedicado de GitHub Actions aprobado: https://github.com/roquemontoya/proyectocentinela/actions/runs/40440087821
+- Comparación consultada: `audit-leu-test` está 30 commits adelante de `main`, 0 atrás en esa consulta.
+- PR de prueba: https://github.com/roquemontoya/proyectocentinela/pull/35 (draft, sin fusionar).
+
+Bloqueo que no debe ocultarse
+- La lista de Edge Functions activas de Supabase confirma que `mayordomo-001-audit` está desplegada en versión 2, pero `agente-caquitas-audit-leu` NO aparece desplegada.
+- Por lo tanto, la ruta de auditoría integral no puede considerarse integrada ni validada en vivo: si el wrapper intenta llamarla en el proyecto actual, el upstream no estará disponible hasta desplegar esa función.
+- No se desplegó la función nueva ni se modificaron datos de producción.
+- No se ha completado una prueba autenticada real con sesión de administrador/superadministrador y sesión válida de rol no autorizado.
+- Las pruebas existentes verifican reglas y paginación; todavía falta probar el handler HTTP completo con casos de token ausente/incorrecto, JSON inválido, tarea no permitida, configuración ausente y fallo parcial de tabla.
+
+Próximos pasos técnicos
+1. Refactorizar el handler del auditor para inyectar configuración y fetch, permitiendo pruebas HTTP deterministas sin secretos reales.
+2. Probar que el handler rechaza solicitudes incorrectas y que cualquier fallo de lectura devuelve estado `incomplete`, nunca éxito completo.
+3. Ejecutar CI y registrar el resultado.
+4. Preparar despliegue en entorno de prueba y ejecutar la matriz autenticada de roles cuando exista sesión de prueba; no desplegar en producción sin autorización explícita.
+5. No fusionar PR #35 a main mientras falte la prueba de extremo a extremo y la función upstream no esté desplegada en entorno de prueba.
+
+============================================================
+
+
+SUBACTUALIZACIÓN — 26/10/2026
+PRUEBAS DE SEGURIDAD HTTP PARA CAQUITAS
+- Se extrajo la validación inicial de solicitudes a `request-validation.ts`, utilizada directamente por la función integral.
+- Se agregaron pruebas para método no permitido, secreto no configurado, token ausente/incorrecto, JSON inválido, tarea no autorizada y sobre válido.
+- El workflow dedicado incluye ahora el typecheck y ejecución de estas pruebas.
+- Commit del último ajuste de workflow: `ead209226b8abea76bc8448f4c01f54f87fc91a5`.
+- Pendiente: verificar ejecución CI de esta nueva versión; no afirmar aprobado hasta ver el resultado.
+- Sigue vigente el bloqueo de integración real: la función `agente-caquitas-audit-leu` no está desplegada en Supabase. No se hicieron despliegues ni escrituras en producción.
+
+
+ACTUALIZACIÓN — 27/10/2026
+CI DE CAQUITAS: WORKFLOW REPARADO Y APROBADO
+- Se confirmó ejecución exitosa del workflow dedicado `Validar Caquitas integral (prueba)`, run 40440901848: https://github.com/roquemontoya/proyectocentinela/actions/runs/40440901848
+- Job `deno-check`: success. Incluye typecheck del auditor, módulos y pruebas; tests de reglas, paginación y validación HTTP; typecheck del wrapper.
+- Se corrigió el workflow tras detectar pasos YAML mal formados en intentos anteriores. La versión final del archivo se verificó directamente en GitHub.
+- Comparación de ramas verificada: `audit-leu-test` está 40 commits adelante de `main`, 0 atrás.
+- La función `agente-caquitas-audit-leu` sigue sin aparecer en las Edge Functions activas de Supabase. La integración real y la prueba autenticada E2E continúan pendientes.
+- No se desplegó la función integral ni se escribieron datos de producción. No fusionar PR #35 todavía.

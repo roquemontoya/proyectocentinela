@@ -1,0 +1,36 @@
+name: Validar Caquitas integral (prueba)
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "supabase/functions/agente-caquitas-audit-leu/**"
+      - "supabase/functions/mayordomo-001-audit/**"
+      - ".github/workflows/validate-caquitas-integral.yml"
+  push:
+    branches: [audit-leu-test]
+    paths:
+      - "supabase/functions/agente-caquitas-audit-leu/**"
+      - "supabase/functions/mayordomo-001-audit/**"
+      - ".github/workflows/validate-caquitas-integral.yml"
+
+jobs:
+  deno-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Typecheck auditor integral
+        run: deno check supabase/functions/agente-caquitas-audit-leu/index.ts
+      - name: Typecheck módulos y pruebas
+        run: deno check supabase/functions/agente-caquitas-audit-leu/audit-rules.ts supabase/functions/agente-caquitas-audit-leu/audit-rules_test.ts supabase/functions/agente-caquitas-audit-leu/read-all.ts supabase/functions/agente-caquitas-audit-leu/read-all_test.ts supabase/functions/agente-caquitas-audit-leu/request-validation.ts supabase/functions/agente-caquitas-audit-leu/request-validation_test.ts
+      - name: Probar reglas de vencimiento y compatibilidad
+        run: deno test supabase/functions/agente-caquitas-audit-leu/audit-rules_test.ts
+      - name: Probar paginación y fallos de lectura
+        run: deno test supabase/functions/agente-caquitas-audit-leu/read-all_test.ts
+      - name: Probar validación HTTP, token y tarea
+        run: deno test supabase/functions/agente-caquitas-audit-leu/request-validation_test.ts
+      - name: Typecheck wrapper Mayordomo
+        run: deno check supabase/functions/mayordomo-001-audit/index.ts

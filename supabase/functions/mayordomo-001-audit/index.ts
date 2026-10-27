@@ -66,13 +66,25 @@ serve(async (req: Request) => {
       return json(req, 403, { error: "insufficient_role" });
     }
 
-    const upstream = await fetch(new URL("/functions/v1/agente-caquitas-audit-report", baseUrl), {
+    let requestedTask = "auditoria-extintores-resumen";
+    try {
+      const incoming = await req.clone().json();
+      if (incoming && typeof incoming.task_id === "string") requestedTask = incoming.task_id;
+    } catch { /* Empty request body preserves the legacy report behavior. */ }
+    const allowedTasks: Record<string, string> = {
+      "auditoria-extintores-resumen": "agente-caquitas-audit-report",
+      "auditoria-integral-leu": "agente-caquitas-audit-leu",
+    };
+    const upstreamFunction = allowedTasks[requestedTask];
+    if (!upstreamFunction) return json(req, 400, { error: "task_not_allowed" });
+
+    const upstream = await fetch(new URL(`/functions/v1/${upstreamFunction}`, baseUrl), {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-agent-token": agentToken },
       body: JSON.stringify({
         agent_id: "AGENTE-CAQUITAS-001",
         mayordomo_id: "EL_MAYORDOMO_001",
-        task_id: "auditoria-extintores-resumen"
+        task_id: requestedTask
       })
     });
     if (!upstream.ok) {
