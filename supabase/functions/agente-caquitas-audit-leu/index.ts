@@ -161,7 +161,7 @@ serve(async (req: Request) => {
       assignedSlots.set(k, [...(assignedSlots.get(k) ?? []), slot]);
       const inventoryAsset = inventoryById.get(k);
       if (!inventoryAsset) findings.push({ severity: "alta", code: "PULMON_ASSET_NOT_IN_EXTINGUISHERS", table: "pulmon_alveolos", title: "Extintor asignado al Pulmón no aparece en inventario Extintores", count: 1, examples: [{ alveolo_id: slot.id, activo_extintor_id: activeId }] });
-      else if (inventoryAsset.alveolo_id != null && String(inventoryAsset.alveolo_id) !== String(slot.id)) findings.push({ severity: "media", code: "PULMON_ALVEOLUS_LINK_MISMATCH", table: "pulmon_alveolos", title: "Vínculo de alvéolo no coincide entre tablas", count: 1, examples: [{ alveolo_id: slot.id, inventario_alveolo_id: inventoryAsset.alveolo_id, activo_extintor_id: activeId }] });
+      else if (String(inventoryAsset.alveolo_id ?? "") !== String(slot.id)) findings.push({ severity: "media", code: "PULMON_ALVEOLUS_LINK_MISMATCH", table: "pulmon_alveolos", title: "Vínculo de alvéolo no coincide entre tablas", count: 1, examples: [{ alveolo_id: slot.id, inventario_alveolo_id: inventoryAsset.alveolo_id, activo_extintor_id: activeId }] });
     }
   }
   for (const [assetId, slots] of assignedSlots) if (slots.length > 1) findings.push({ severity: "alta", code: "PULMON_ASSET_ASSIGNED_MULTIPLE_SLOTS", table: "pulmon_alveolos", title: "Un extintor está asignado a más de un alvéolo", count: slots.length, examples: [{ activo_extintor_id: assetId, alveolos: slots.slice(0, 5).map(s => ({ id: s.id, codigo: s.codigo })) }] });
