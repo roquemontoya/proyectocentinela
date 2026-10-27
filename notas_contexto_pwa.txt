@@ -405,3 +405,13 @@ CICLO DE REVISIÓN — VÍNCULO ALVÉOLO / INVENTARIO — 27/10/2026
 - La revisión de reglas encontró un caso no cubierto: cuando el alvéolo referenciaba un extintor existente pero el registro de Extintores tenía alveolo_id nulo, la condición anterior no emitía discrepancia.
 - Se corrigió la comparación para detectar tanto vínculo cruzado distinto como vínculo ausente en inventario (commit b7129037dd7a2101d8a4b4b4544e189e88e3bdd8).
 - Se mantiene como hallazgo de auditoría, sin modificar ninguna fila. CI del nuevo commit pendiente de confirmación.
+
+
+PRUEBAS UNITARIAS REALES PARA REGLAS DE CAQUITAS — 27/10/2026
+- Se extrajeron las reglas puras a `supabase/functions/agente-caquitas-audit-leu/audit-rules.ts` para que las reglas auditadas por la función sean las mismas que se prueban, no una copia paralela.
+- Se añadieron pruebas Deno para formatos MM/YY y MM/YYYY, espacios, fechas ausentes/malformadas, meses 00/13, años fuera de rango, normalización Unicode y matriz de compatibilidad PQS/Halon/CO2/K.
+- El workflow `Validar Caquitas integral (prueba)` ejecutó con éxito: typecheck del auditor, typecheck del módulo de reglas y tests, y typecheck del wrapper Mayordomo_001.
+- Commit de refactor: 037e4f0190fc1738d57441cc4e2197ff16ba5517. Tests añadidos/corregidos: f68bde0428cea9dfb5efd9cf3d2d61a0869fe0ba y 648656bd4bc3c0eb91af82e98ba6224707834ce2. Workflow ampliado: 2c30f2d577483be8ca8bc30bf288dac0c5772448. Limpieza final de import: 2bc232ebaceb647e1cddeb5f66041c3128920863.
+- Ejecución confirmada: GitHub Actions run 40439826262, conclusión SUCCESS. Enlace: https://github.com/roquemontoya/proyectocentinela/actions/runs/40439826262
+- Esto valida las reglas puras y compilación, no prueba todavía el flujo HTTP completo con sesión/roles ni una ejecución de las 36 tablas contra un backend aislado. No se desplegó la función nueva ni se alteraron datos de producción.
+- Se excluyen de este alcance las tablas auxiliares QGIS/PostGIS, conforme a indicación del usuario.
