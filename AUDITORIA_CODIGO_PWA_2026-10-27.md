@@ -98,3 +98,40 @@ Se identificaron riesgos concretos de seguridad de DOM, oportunidades de rendimi
 4. Optimizar consultas de mapas, Pulmon e historial GPS con mediciones antes/despues.
 5. Normalizar identidad del inspector y revisar autorizacion efectiva/RLS de cada mutacion.
 6. Limpiar versionado y refactorizar modulos largos de forma incremental.
+
+
+## Hallazgos adicionales de la inspección ampliada
+
+### P1 — DOM XSS adicional por nombre de Bombero
+- Confirmación de detalle: `bomberos.js:53-56` y `controlesBase.js:102-105,127-130,148-151` insertan el nombre en nodos HTML y atributos `alt/title` sin escape. También se inserta `fotoUrl` como atributo HTML.
+- Esto debe corregirse con propiedades DOM (`textContent`, `alt`, `src`) en lugar de concatenar cadenas HTML.
+
+### P2 — Archivos residuales/artefactos de trabajo dentro del repositorio
+- `tore app.js` no es un módulo JavaScript: contiene texto de diff Git de un cambio antiguo (84 líneas), incluyendo marcas ANSI de terminal.
+- `controles.js.bak` es una copia de respaldo de código anterior que puede confundir futuras revisiones.
+- Recomendación: verificar referencias y eliminar/archivar estos artefactos en una limpieza controlada. No se borraron durante la auditoría.
+
+### P2 — Ausencia de configuración estándar de análisis frontend
+- En el árbol revisado no se encontró `package.json`, configuración de ESLint/TypeScript ni un comando único de test/lint para toda la PWA.
+- Hay workflows y tests puntuales (Deno para Edge Functions, pruebas de contrato, seguridad y responsive), pero no evidencia de una verificación estática integral de los módulos frontend.
+- Recomendación: agregar una herramienta de análisis compatible con ES Modules sin migrar el stack; primero inventariar imports/exports y establecer CI que no dependa de despliegues Vercel.
+
+### P2 — URL de foto construida desde datos y HTML en tarjetas
+- En `bomberos.js:38-44,53-55` y `controlesBase.js:91-104` se construye la URL de Storage desde `b.Foto` y se interpola en HTML.
+- Recomendación: aceptar únicamente URL HTTPS del bucket/origen previsto o construir la URL desde una clave validada; no aceptar atributos HTML desde el valor de base de datos.
+
+### P2 — El estado operativo de hidrantes se resuelve recorriendo todo el historial
+- Confirmado en `mapas.js:348-363`: se recorren páginas completas de `controles_h` para obtener el último estado por activo. La consulta está ordenada por fecha e id, lo que es correcto para desempatar, pero no escala bien con historial creciente.
+- Recomendación: optimizar con consulta/vista/RPC de último control por activo después de validar esquema e índices; no sustituirlo por una aproximación que cambie el estado mostrado.
+
+### P2 — Errores mostrados mediante HTML dinámico
+- `moduloPulmon.js:24-26` y `bomberos.js:25-27` insertan `error.message` en `innerHTML` sin escape. En otros módulos el error sí se escapa, por lo que el patrón es inconsistente.
+- Recomendación: mostrar texto seguro y registrar detalles técnicos solo en consola/logs apropiados, sin datos sensibles.
+
+## Cobertura por áreas inspeccionadas
+- Entrada y navegación: `index.html`, `app.js`, `auth.js`, `supabaseClient.js`.
+- Inventario y mapas: `mapas.js`, `mapaBase.js`, `gpsActivosCercanos.js`, `editorUbicaciones.js`, `editorTerritorios.js`, `panelGeograficoAdmin.js`.
+- Controles y datos: `controlesBase.js`, `controlesExtintores.js`, `controlesHidrantes.js`, `controlesOtros.js`, `formularioCorreccionEcas.js`, `gestorTablas.js`, `moduloPulmon.js`, `pulmonAlveolos.js`.
+- Usuarios/seguridad: `administracionUsuarios.js`, `miCuenta.js`, `seguridadCuenta.js`, `bomberos.js`, `anomalias.js`, `historialFotos.js`.
+- Seguimiento/ingesta: `recorridosGps.js`, `conversorMaestroUniversal.js`, `simulacionControlin.js`, `simuladorRoles.js`, `preferenciasVisuales.js`.
+- Funciones y base: Edge Functions de Caquitas/Mayordomo/administración, migraciones SQL y tests existentes.
