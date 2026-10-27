@@ -521,3 +521,17 @@ Instrucciones permanentes del usuario para Proyecto Centinela
 
 Este acuerdo reemplaza la práctica previa de abrir ramas rutinariamente y hacer despliegues intermedios. Mantener historial auditable en esta bitácora.
 ============================================================
+
+
+============================================================
+AUDITORIA ESTATICA INICIAL DE LA PWA — 27/10/2026
+============================================================
+- Se revisó el árbol de main (91 archivos) y se inspeccionaron módulos principales de navegación, autenticación, mapas, controles, Pulmón, tablas, GPS, cuenta, usuarios y Edge Functions.
+- Informe: `AUDITORIA_CODIGO_PWA_2026-10-27.md`.
+- Plan permanente para auditorías futuras y agentes de prueba: `PLAN_AUDITORIAS_CENTINELA.txt` en la raíz, junto a esta bitácora.
+- Hallazgos principales: potencial XSS por datos de Bomberos interpolados sin escape en `bomberos.js` y `controlesBase.js`; mensajes de error interpolados en HTML; editor genérico de tablas convierte valores a texto y permite borrar filas; consultas `select('*')` y carga masiva de historial/puntos GPS; no se encontraron manifest ni service worker en el árbol de main.
+- También se registró que `Version.txt` contiene una orden Git en vez de un número de versión.
+- No se modificaron datos de Supabase ni se desplegó la aplicación durante esta auditoría.
+- Esta revisión es estática inicial; quedan pendientes ejecución de tests completos, recorridos autenticados por rol, pruebas de navegador y mediciones de rendimiento reales.
+- Próximo orden sugerido: corregir DOM/XSS, restringir el gestor universal de tablas, definir alcance PWA/offline, luego optimizar consultas y renderizado con pruebas de regresión.
+============================================================
