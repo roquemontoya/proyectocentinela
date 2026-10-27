@@ -335,3 +335,20 @@ Plan de trabajo acordado
 8. Revisar resultados y abrir PR para revisión antes de fusionar a main; no desplegar ni corregir datos operativos hasta que las pruebas y permisos estén verificados.
 
 ============================================================
+
+
+============================================================
+IMPLEMENTACIÓN INICIAL — 27/10/2026
+CAQUITAS: AUDITORÍA INTEGRAL PRELIMINAR LEU EN RAMA DE PRUEBA
+============================================================
+
+- Se creó la rama de prueba `audit-leu-test` desde el commit de main `e1c459fb4adb6137b43d2cc6f15c954236a77709`.
+- Se añadió `supabase/functions/agente-caquitas-audit-leu/index.ts` (commit `6e9f57ebce57af86e1e7541b73d53c970556cc44`).
+- PR borrador #35: https://github.com/roquemontoya/proyectocentinela/pull/35
+- La función nueva exige el token interno, valida los identificadores de agente/coordinador/tarea, hace lecturas GET paginadas de 500 filas y devuelve inventario por tabla, conteos, estado de lectura y candidatos de duplicados preliminares.
+- Si una tabla falla, el informe queda incompleto y registra la tabla y el error; no debe presentarse como auditoría completa.
+- La función solo lee; no ejecuta INSERT/UPDATE/DELETE ni corrige registros.
+- Tablas previstas en el inventario: LEU y activos (Extintores, hidrantes, Valvulas, ecas, vecas, pecas, ipp, Bomberos), controles, anomalías, trazabilidad/movimientos/Pulmón, roles/permisos/usuarios y recorridos/GPS/territorios.
+- LIMITACIONES: no se desplegó en Supabase ni se conectó a la interfaz. Aún no está validada con typecheck o pruebas de extremo a extremo. El inventario debe cotejarse contra el esquema real; las relaciones FK y reglas de dominio no están aún auditadas. La regla de duplicados es preliminar y no demuestra corrupción.
+- No se modificó producción ni los datos de Supabase.
+- Siguiente paso: ejecutar pruebas de sintaxis y seguridad, comparar la lista de tablas con information_schema, extraer FK reales, implementar reglas de relación específicas y después integrar el wrapper autenticado de Mayordomo_001. Mantener PR en borrador hasta completar validaciones.
