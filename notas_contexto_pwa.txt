@@ -454,3 +454,13 @@ Próximos pasos técnicos
 5. No fusionar PR #35 a main mientras falte la prueba de extremo a extremo y la función upstream no esté desplegada en entorno de prueba.
 
 ============================================================
+
+
+SUBACTUALIZACIÓN — 26/10/2026
+PRUEBAS DE SEGURIDAD HTTP PARA CAQUITAS
+- Se extrajo la validación inicial de solicitudes a `request-validation.ts`, utilizada directamente por la función integral.
+- Se agregaron pruebas para método no permitido, secreto no configurado, token ausente/incorrecto, JSON inválido, tarea no autorizada y sobre válido.
+- El workflow dedicado incluye ahora el typecheck y ejecución de estas pruebas.
+- Commit del último ajuste de workflow: `ead209226b8abea76bc8448f4c01f54f87fc91a5`.
+- Pendiente: verificar ejecución CI de esta nueva versión; no afirmar aprobado hasta ver el resultado.
+- Sigue vigente el bloqueo de integración real: la función `agente-caquitas-audit-leu` no está desplegada en Supabase. No se hicieron despliegues ni escrituras en producción.
