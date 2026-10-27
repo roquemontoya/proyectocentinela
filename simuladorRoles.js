@@ -54,7 +54,8 @@ function asegurarPanel() {
   panel.id = 'centinela-role-simulator';
   panel.className = 'role-simulator-inline';
   panel.innerHTML = '<summary>🧪 Simulador de roles</summary><div class="role-simulator-body"><label for="role-simulator-select">Ver Centinela como:</label><select id="role-simulator-select"><option value="">Superadministrador (real)</option></select><p id="role-simulator-status">Vista real de Superadministrador</p><button type="button" id="role-simulator-return">Volver a Superadministrador</button><small>Solo cambia la interfaz. La sesión y los permisos del servidor no cambian.</small></div>';
-  navUsuarios.insertAdjacentElement('afterend', panel);
+  navUsuarios.appendChild(panel);
+  panel.addEventListener('click', event => event.stopPropagation());
   const select = panel.querySelector('#role-simulator-select');
   ROLES.forEach(([id, label]) => { const option = document.createElement('option'); option.value = id; option.textContent = label; select.appendChild(option); });
   select.addEventListener('change', () => cambiarRol(select.value || null));
