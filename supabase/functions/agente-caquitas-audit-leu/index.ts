@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { isCompatibleReplacement, parseExpiry } from "./audit-rules.ts";
+import { readAll } from "./read-all.ts";
 
 const headers = {
   "Content-Type": "application/json; charset=utf-8",
@@ -27,21 +28,6 @@ function equalSecret(a: string, b: string) {
   if (x.length !== y.length) return false;
   let diff = 0; for (let i = 0; i < x.length; i++) diff |= x[i] ^ y[i];
   return diff === 0;
-}
-async function readAll(base: string, key: string, table: string): Promise<Row[]> {
-  const result: Row[] = [], size = 500;
-  for (let offset = 0; ; offset += size) {
-    const url = new URL("/rest/v1/" + encodeURIComponent(table), base);
-    url.searchParams.set("select", "*");
-    url.searchParams.set("limit", String(size));
-    url.searchParams.set("offset", String(offset));
-    const res = await fetch(url, { headers: { apikey: key, Accept: "application/json" } });
-    if (!res.ok) throw new Error("read_failed:" + table + ":" + res.status);
-    const page = await res.json();
-    if (!Array.isArray(page)) throw new Error("invalid_response:" + table);
-    result.push(...page);
-    if (page.length < size) return result;
-  }
 }
 function keyField(rows: Row[]): string | null {
   if (!rows.length) return null;
