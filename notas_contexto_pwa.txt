@@ -361,3 +361,10 @@ AVANCE DE VALIDACIÓN — 27/10/2026
 - Se corrigió una regla de falsos positivos: `id_activo` ya no se toma como clave única genérica en tablas históricas, porque puede repetirse legítimamente entre controles.
 - Commit de ampliación: `f5e1135ac4453cb6a2165cce4db5d7332570078c` en `audit-leu-test`.
 - Estado: todavía no ejecutado el typecheck/build de Deno ni pruebas HTTP de extremo a extremo; no desplegado. La auditoría no debe etiquetarse como validada hasta completar esas pruebas.
+
+
+INTEGRACIÓN CONTROLADA DEL WRAPPER — 27/10/2026
+- Se modificó en la rama de prueba `supabase/functions/mayordomo-001-audit/index.ts` para que, después de validar sesión Supabase y rol `administrador`/`superadministrador`, permita enrutar la tarea `auditoria-integral-leu` a `agente-caquitas-audit-leu`.
+- La tarea histórica `auditoria-extintores-resumen` se mantiene como predeterminada si el cliente no envía `task_id`; solo se aceptan las dos tareas explícitas de una lista permitida. Cualquier otra tarea se rechaza.
+- Commit wrapper: `1364a7e9d47994dfb30d1171110a1a8b75ec3405`.
+- Validación pendiente: no se encontraron ejecuciones de workflow asociadas al commit y no se ha ejecutado Deno typecheck ni una prueba HTTP real. El cambio sigue únicamente en `audit-leu-test`, PR #35 en borrador; no desplegado ni fusionado a `main`.
