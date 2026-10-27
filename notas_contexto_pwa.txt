@@ -382,3 +382,9 @@ VALIDACIÓN AUTOMÁTICA Y REGLAS DE DOMINIO — 27/10/2026
 - Se agregaron comprobaciones de dominio preliminares en `agente-caquitas-audit-leu`: estado Libre/Ocupado de alvéolos frente a asignación de extintor; extintor asignado inexistente en tabla Extintores; vínculo cruzado de alvéolo discordante; mismo extintor asignado a varios alvéolos; reemplazos activos múltiples para un titular; reemplazo activo con fecha_fin; y matriz de compatibilidad PQS/Halon/CO2/K definida por el proyecto.
 - Commit de reglas: `75000fd34090d8ad5eaf3cb9f79d63b424d501de`. Debe ejecutarse otra vez el workflow dedicado para confirmar el typecheck de este commit y revisar falsos positivos con datos de prueba.
 - Reglas de expiración/vencimiento no agregadas todavía: el campo `Extintores.Vencimiento` es texto heredado con formatos no confirmados; no se debe interpretar automáticamente hasta perfilar sus valores reales y acordar el formato. No se corrigieron datos ni se desplegó la función.
+
+
+REGLAS DE VENCIMIENTO DEL PULMÓN — 27/10/2026
+- Se perfiló de forma estrictamente de lectura la columna `Extintores.Vencimiento` en producción: 420 registros, 419 con formato MM/YYYY y 1 con MM/YY; 0 vacíos y 0 valores fuera de esos formatos regex. Consulta SQL solo SELECT; no se alteraron datos.
+- Se añadió a Caquitas una regla para extintores con `alveolo_id` asignado: detectar vencimiento ausente/no interpretable, mes/año inválidos, ya vencidos, vencimiento durante el mes actual y vencimiento dentro de 30 días. La regla interpreta MM/YY como 20YY y calcula vigencia hasta el último día del mes indicado. Es una alerta de auditoría, no una acción operativa automática.
+- Commit: `459db341da73c11ab62bdfd52384c1cb2251ff77`. El workflow dedicado debe ejecutarse sobre esta versión; aún no se ha confirmado su resultado en esta anotación.
