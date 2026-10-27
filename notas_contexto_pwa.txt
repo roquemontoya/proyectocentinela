@@ -474,3 +474,31 @@ CI DE CAQUITAS: WORKFLOW REPARADO Y APROBADO
 - Comparación de ramas verificada: `audit-leu-test` está 40 commits adelante de `main`, 0 atrás.
 - La función `agente-caquitas-audit-leu` sigue sin aparecer en las Edge Functions activas de Supabase. La integración real y la prueba autenticada E2E continúan pendientes.
 - No se desplegó la función integral ni se escribieron datos de producción. No fusionar PR #35 todavía.
+
+
+============================================================
+INTEGRACIÓN EN MAIN Y PRIMERA PRUEBA CON DATOS EXISTENTES — 27/10/2026
+CAQUITAS / MAYORDOMO_001
+============================================================
+
+Integración
+- PR #35 fusionado a `main` mediante squash. Commit de main: `6e471736ba3263e97777161d1e89b44c21f267e9`.
+- PR: https://github.com/roquemontoya/proyectocentinela/pull/35
+- CI dedicado de Caquitas aprobado: https://github.com/roquemontoya/proyectocentinela/actions/runs/40440901848
+- Se desplegó la Edge Function `agente-caquitas-audit-leu` en Supabase, versión 1, ACTIVE, `verify_jwt=false` porque exige su token interno propio y solo acepta POST/tarea autorizada.
+- Se desplegó `mayordomo-001-audit` versión 3, ACTIVE, `verify_jwt=true`; conserva validación de sesión y rol, y enruta la tarea integral al nuevo agente. El token interno no se expone al cliente.
+- No se realizaron INSERT/UPDATE/DELETE ni se corrigió ningún activo.
+
+Prueba de datos reales mediante SQL estrictamente de lectura
+- Se compararon las tablas que audita Caquitas con las tablas base existentes de `public`. El inventario incluye las 36 tablas operativas de la función; se excluye `spatial_ref_sys` (tabla auxiliar PostGIS).
+- Conteos actuales consultados: `leu` 2.899; `controles_e` 1.415; `controles_h` 467; `extintores_trazabilidad` 1.410; `Extintores` 420; `pulmon_alveolos` 420; `anomalias` 61; `Bomberos` 43; `app_roles` 11; `app_permissions` 18; `app_role_permissions` 101; `territorios_dinamicos` 18; `recorridos_gps` 1. Otras tablas operativas están vacías, lo cual se informa como tal y no se interpreta automáticamente como error.
+- Perfil de alvéolos/inventario en el estado actual de la base: 420 extintores con alvéolo; cero alvéolos ocupados sin extintor; cero libres con extintor; cero referencias de alvéolo a extintor inexistente; cero diferencias entre el alvéolo asignado en ambas tablas; cero extintores asignados a varios alvéolos; cero vencimientos vacíos o con formato no reconocido.
+- Perfil de vencimiento con fecha actual de ejecución 27/10/2026: entre los 420 extintores vinculados a alvéolos, la consulta detecta 38 vencidos y 53 con vencimiento en el mes actual. Esos hallazgos se basan en el snapshot real, que el usuario indicó expresamente que es histórico/desactualizado; son alertas para validar capacidad de lectura, no órdenes de trabajo ni correcciones. La PWA/auditor no debe modificar esos registros automáticamente.
+- La consulta SQL es una validación real de solo lectura sobre datos existentes, pero no equivale a tener una respuesta de ejecución HTTP de Caquitas que confirme que todas las 36 lecturas PostgREST completaron correctamente. La ejecución autenticada de la ruta del wrapper con un usuario administrador aún requiere una sesión válida de prueba disponible; no inventar un resultado de endpoint.
+
+Estado Vercel
+- La última implementación de producción visible antes del merge apuntaba al commit anterior de `main` (`e1c459fb...`). No apareció un despliegue de producción para el nuevo commit `6e471736...` en la consulta posterior.
+- Vercel ya había reportado límite de más de 100 deployments en 24 horas (`api-deployments-free-per-day`). Por tanto, no afirmar que la interfaz web se haya redeplegado con este merge. Las Edge Functions de Supabase sí están desplegadas.
+- Próximo paso: confirmar el resultado del despliegue automático de Vercel cuando se renueve la cuota, y ejecutar una prueba de interfaz/sesión real para que Mayordomo_001 llame al auditor integral. No hacer escrituras ni correcciones de activos como parte de la prueba.
+
+============================================================
