@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { isCompatibleReplacement, normalizeExtinguisherType, parseExpiry } from "./audit-rules.ts";
+import { isCompatibleReplacement, parseExpiry } from "./audit-rules.ts";
 
 const headers = {
   "Content-Type": "application/json; charset=utf-8",
