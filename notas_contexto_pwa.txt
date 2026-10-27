@@ -424,3 +424,33 @@ VALIDACIÓN DE PAGINACIÓN Y FALLAS DE LECTURA — 27/10/2026
 - CI integral confirmado exitoso en run 40440087821: https://github.com/roquemontoya/proyectocentinela/actions/runs/40440087821
 - La suite de pruebas ahora cubre reglas de vencimiento/compatibilidad y paginación/fallo cerrado. Aún falta la prueba end-to-end autenticada del wrapper con JWT/roles reales o un proyecto Supabase de staging; no se inventan credenciales ni se despliega la nueva función en producción para simularlas.
 - No se modificaron datos de producción. Las tablas QGIS/PostGIS auxiliares continúan fuera del alcance.
+
+
+============================================================
+ACTUALIZACIÓN — 26/10/2026
+CAQUITAS — VALIDACIÓN TÉCNICA Y BLOQUEO DE INTEGRACIÓN REAL
+============================================================
+
+Estado confirmado en la rama `audit-leu-test`
+- Auditoría integral LEU implementada como función de solo lectura.
+- Reglas puras de vencimientos y compatibilidad con pruebas automatizadas.
+- Lectura paginada de tablas en bloques de 500 registros, con pruebas de 501 filas, tabla vacía, HTTP 403 y respuesta inválida.
+- Workflow dedicado de GitHub Actions aprobado: https://github.com/roquemontoya/proyectocentinela/actions/runs/40440087821
+- Comparación consultada: `audit-leu-test` está 30 commits adelante de `main`, 0 atrás en esa consulta.
+- PR de prueba: https://github.com/roquemontoya/proyectocentinela/pull/35 (draft, sin fusionar).
+
+Bloqueo que no debe ocultarse
+- La lista de Edge Functions activas de Supabase confirma que `mayordomo-001-audit` está desplegada en versión 2, pero `agente-caquitas-audit-leu` NO aparece desplegada.
+- Por lo tanto, la ruta de auditoría integral no puede considerarse integrada ni validada en vivo: si el wrapper intenta llamarla en el proyecto actual, el upstream no estará disponible hasta desplegar esa función.
+- No se desplegó la función nueva ni se modificaron datos de producción.
+- No se ha completado una prueba autenticada real con sesión de administrador/superadministrador y sesión válida de rol no autorizado.
+- Las pruebas existentes verifican reglas y paginación; todavía falta probar el handler HTTP completo con casos de token ausente/incorrecto, JSON inválido, tarea no permitida, configuración ausente y fallo parcial de tabla.
+
+Próximos pasos técnicos
+1. Refactorizar el handler del auditor para inyectar configuración y fetch, permitiendo pruebas HTTP deterministas sin secretos reales.
+2. Probar que el handler rechaza solicitudes incorrectas y que cualquier fallo de lectura devuelve estado `incomplete`, nunca éxito completo.
+3. Ejecutar CI y registrar el resultado.
+4. Preparar despliegue en entorno de prueba y ejecutar la matriz autenticada de roles cuando exista sesión de prueba; no desplegar en producción sin autorización explícita.
+5. No fusionar PR #35 a main mientras falte la prueba de extremo a extremo y la función upstream no esté desplegada en entorno de prueba.
+
+============================================================
