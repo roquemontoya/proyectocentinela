@@ -550,3 +550,16 @@ RAMAS, AGENTES DE PRUEBA Y DESPLIEGUES
 - No declarar éxito sin evidencia de CI, prueba de agente, despliegue o lectura real. Cuando falte acceso a sesión/token de prueba, explicar ese bloqueo concreto y continuar con el resto del trabajo posible.
 - Este acuerdo prevalece sobre la costumbre anterior de abrir ramas de prueba rutinariamente. La rama `audit-leu-test` y PR #35 se consideran antecedentes del trabajo de Caquitas; la integración fue fusionada a `main`.
 ============================================================
+
+
+VALIDACIÓN DE SOLO LECTURA SOBRE REGISTROS REALES — 27/10/2026
+- Después de integrar Caquitas a `main`, se consultó el esquema real de PostgreSQL y se ejecutaron perfiles SQL exclusivamente SELECT, sin cambios de datos.
+- Snapshot observado: `Extintores` = 420 filas; `pulmon_alveolos` = 420 filas; los 420 extintores tienen `alveolo_id` no nulo.
+- Comprobaciones de relación en el snapshot: 0 alvéolos “ocupados” sin extintor, 0 alvéolos “libres” con extintor, 0 asignaciones a IDs ausentes de `Extintores`, 0 discrepancias entre `pulmon_alveolos.activo_extintor_id` y `Extintores.alveolo_id`, 0 extintores asignados a múltiples alvéolos.
+- Perfil de vencimientos sobre las filas asociadas a alvéolos: 0 vacíos/no interpretables, 38 con fecha de vencimiento anterior al 27/10/2026, 53 que vencen durante octubre de 2026. Las categorías pueden solaparse por definición; no sumar como grupos exclusivos.
+- IMPORTANTE: son hallazgos del snapshot consultado, no confirmación del estado operativo actual en planta. El usuario indicó que esos datos corresponden a principios de mes y ya cambiaron.
+- La consulta inicial intentó contar una columna `pulmon_alveolos.extintor_id` que no existe; no se ejecutó ninguna escritura. Se inspeccionó el esquema y se corrigió la consulta para usar el campo real `activo_extintor_id`.
+- Estado de Edge Functions verificado después de la integración: `agente-caquitas-audit-leu` ACTIVE versión 1; `mayordomo-001-audit` ACTIVE versión 3. Esto confirma que existen desplegadas, pero no equivale a haber probado el flujo autenticado completo desde la PWA.
+- La prueba real de extremo a extremo con JWT y roles queda pendiente de sesión de prueba disponible; no se debe afirmar que se verificó autorización real sin esa evidencia.
+- No se insertó, actualizó ni borró ninguna fila.
+============================================================
