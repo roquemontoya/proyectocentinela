@@ -275,3 +275,12 @@ ACTUALIZACIÓN — 26/10/2026 — SIMULADOR MOVIDO A USUARIOS Y PERMISOS
 - El simulador sigue disponible solo para la sesión real de Superadministrador y se oculta junto con el acceso de administración al simular perfiles inferiores. La selección de rol continúa siendo visual y no modifica permisos del servidor.
 - Archivos: simuladorRoles.js y style.css.
 - Cambios guardados en main. Falta validación visual en navegador y móvil.
+
+
+ACTUALIZACIÓN — 26/10/2026 — OCULUS Y CONFIGURACIÓN VISUAL COMPARTIDA
+- Se añadió config/rolesConfig.js como fuente declarativa compartida para etiquetas de roles, tarjetas del dashboard, perfiles de solo lectura y reglas de presentación.
+- simuladorRoles.js ahora consume la configuración común en vez de mantener una segunda matriz independiente.
+- Se separó la lógica del inspector en oculus.js y oculus.html la carga como módulo; Oculus consume la misma configuración para la vista previa responsive y la auditoría estática.
+- La configuración compartida es exclusivamente visual y declarativa: auth.js y las políticas RLS de Supabase continúan siendo la autoridad de seguridad. No se modificaron roles reales, RLS ni datos de Supabase.
+- La vista desktop/móvil de Oculus sigue siendo una maqueta. No se capturaron pantallas del runtime real ni se ejecutaron pruebas autenticadas/API. Antes de fusionar, revisar el despliegue de la rama y validar la interfaz en navegador.
+- Rama: feature/oculus-inspector. Archivos añadidos/modificados: config/rolesConfig.js, simuladorRoles.js, oculus.js, oculus.html y esta bitácora.
