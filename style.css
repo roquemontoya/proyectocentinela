@@ -229,3 +229,16 @@ body.role-view-simulated #main-content:before{content:'VISTA SIMULADA · ' attr(
 #main-content .card{font:inherit;text-align:initial;color:inherit;padding:0;background:#1e1e1e;border:1px solid #353535;}
 #main-content .card .card-img{width:100%;display:flex;align-items:center;justify-content:center;font-size:45px;margin:0;}
 #main-content .card .card-title{width:100%;box-sizing:border-box;}
+
+
+/* FIX: el drawer debe quedar por encima de Leaflet y de controles temporales de recorridos.
+   Leaflet asigna z-index propios a controles/panes; el menú móvil tiene prioridad mientras está abierto. */
+.side-drawer { z-index: 5000 !important; }
+.overlay { z-index: 4990 !important; }
+.leaflet-container { z-index: 0; }
+.leaflet-pane { z-index: 400; }
+.leaflet-top, .leaflet-bottom { z-index: 800 !important; }
+/* Evitar que overlays auxiliares del módulo de recorridos invadan el drawer abierto. */
+body.drawer-open .leaflet-container,
+body.drawer-open [class*="recorrido"],
+body.drawer-open [id*="recorrido"] { isolation: auto; }
