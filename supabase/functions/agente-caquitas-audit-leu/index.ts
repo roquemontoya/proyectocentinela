@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { isCompatibleReplacement, normalizeExtinguisherType, parseExpiry } from "./audit-rules.ts";
 
 const headers = {
   "Content-Type": "application/json; charset=utf-8",
@@ -172,18 +173,12 @@ serve(async (req: Request) => {
   for (const asset of extinguisherInventory) {
     if (asset.alveolo_id == null || String(asset.alveolo_id).trim() === "") continue;
     const raw = String(asset.Vencimiento ?? "").trim();
-    const match = raw.match(/^(\d{1,2})\/(\d{2}|\d{4})$/);
-    if (!match) {
+    const parsedExpiry = parseExpiry(raw);
+    if (!parsedExpiry) {
       findings.push({ severity: "alta", code: "PULMON_EXPIRY_MISSING_OR_UNPARSEABLE", table: "Extintores", field: "Vencimiento", title: "Vencimiento de extintor del Pulmón ausente o no interpretable", count: 1, examples: [{ id: asset.id, alveolo_id: asset.alveolo_id, vencimiento: raw || null }] });
       continue;
     }
-    const month = Number(match[1]);
-    let year = Number(match[2]);
-    if (match[2].length === 2) year += 2000;
-    if (month < 1 || month > 12 || year < 2000 || year > 2200) {
-      findings.push({ severity: "alta", code: "PULMON_EXPIRY_INVALID_VALUE", table: "Extintores", field: "Vencimiento", title: "Valor de vencimiento inválido", count: 1, examples: [{ id: asset.id, alveolo_id: asset.alveolo_id, vencimiento: raw }] });
-      continue;
-    }
+    const { month, year } = parsedExpiry;
     const expiryUtc = Date.UTC(year, month, 0);
     const daysLeft = Math.floor((expiryUtc - todayUtc) / 86400000);
     if (daysLeft < 0) findings.push({ severity: "alta", code: "PULMON_EXTINGUISHER_EXPIRED", table: "Extintores", field: "Vencimiento", title: "Extintor del Pulmón vencido", count: 1, examples: [{ id: asset.id, alveolo_id: asset.alveolo_id, vencimiento: raw, dias_desde_vencimiento: Math.abs(daysLeft) }] });
@@ -193,21 +188,13 @@ serve(async (req: Request) => {
 
   const replacements = dataByTable.get("reemplazos_temporales_extintores") ?? [];
   const activeByTitular = new Map<string, Row[]>();
-  const normalizeType = (v: unknown) => String(v ?? "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  const compatible = (titular: string, replacement: string) => {
-    if (titular === "pqs") return ["pqs", "halon", "co2"].includes(replacement);
-    if (titular === "halon") return replacement === "halon";
-    if (titular === "co2") return ["co2", "halon"].includes(replacement);
-    if (titular === "k") return replacement === "k";
-    return null;
-  };
   for (const replacement of replacements) {
     const isActive = String(replacement.estado ?? "").trim().toLowerCase() === "activo";
     if (!isActive) continue;
     const titularId = String(replacement.activo_titular_id ?? "");
     activeByTitular.set(titularId, [...(activeByTitular.get(titularId) ?? []), replacement]);
     if (replacement.fecha_fin != null && String(replacement.fecha_fin).trim() !== "") findings.push({ severity: "media", code: "ACTIVE_REPLACEMENT_HAS_END_DATE", table: "reemplazos_temporales_extintores", title: "Reemplazo activo con fecha de fin cargada", count: 1, examples: [{ id: replacement.id, fecha_fin: replacement.fecha_fin }] });
-    const rule = compatible(normalizeType(replacement.tipo_titular), normalizeType(replacement.tipo_reemplazo));
+    const rule = isCompatibleReplacement(replacement.tipo_titular, replacement.tipo_reemplazo);
     if (rule === false) findings.push({ severity: "alta", code: "INCOMPATIBLE_EXTINGUISHER_REPLACEMENT_TYPE", table: "reemplazos_temporales_extintores", title: "Tipo de reemplazo posiblemente incompatible", count: 1, examples: [{ id: replacement.id, titular: replacement.tipo_titular, reemplazo: replacement.tipo_reemplazo }] });
     if (rule === null) findings.push({ severity: "informativa", code: "REPLACEMENT_TYPE_REQUIRES_REVIEW", table: "reemplazos_temporales_extintores", title: "Tipo de extintor no reconocido por la matriz de compatibilidad", count: 1, examples: [{ id: replacement.id, titular: replacement.tipo_titular, reemplazo: replacement.tipo_reemplazo }] });
   }
