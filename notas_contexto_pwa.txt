@@ -502,3 +502,22 @@ Estado Vercel
 - Próximo paso: confirmar el resultado del despliegue automático de Vercel cuando se renueve la cuota, y ejecutar una prueba de interfaz/sesión real para que Mayordomo_001 llame al auditor integral. No hacer escrituras ni correcciones de activos como parte de la prueba.
 
 ============================================================
+
+
+============================================================
+ACUERDO DE TRABAJO — RAMAS, AGENTES Y DESPLIEGUES — 27/10/2026
+============================================================
+
+Instrucciones permanentes del usuario para Proyecto Centinela
+1. Minimizar ramas. No crear una rama nueva por defecto ni por cada modificación.
+2. Si el cambio y las pruebas son no destructivos, trabajar directamente en `main`.
+3. Crear rama separada únicamente cuando exista un riesgo real: migración destructiva, cambio irreversible, riesgo de seguridad/privacidad, alteración de datos operativos, o cuando haga falta aislar una prueba que no pueda ejecutarse con seguridad en main.
+4. Para cambios importantes, completar el circuito entero antes de pedir revisión: implementación, pruebas automatizadas, revisión de seguridad, agentes de prueba/usuarios simulados cuando estén disponibles, comprobaciones de regresión y documentación/bitácora.
+5. Los agentes deben funcionar como usuarios de prueba para validar flujos completos, permisos, rutas, datos y errores; no limitarse a redactar resúmenes. Si faltan credenciales/sesiones o infraestructura, registrar ese bloqueo concreto y avanzar todo lo posible sin inventar resultados.
+6. Agrupar cambios y evitar despliegues intermedios innecesarios. Hacer un único despliegue final coherente después de completar pruebas. Antes de desplegar, comprobar límites/cuotas de Vercel y estado del deployment; no disparar despliegues por cada pequeño commit.
+7. No pausar a cada dos pasos para solicitar al usuario que diga “continúa”. Seguir trabajando autónomamente hasta alcanzar un estado verificable, y luego dar un resumen claro con evidencias, riesgos restantes y enlaces.
+8. No afirmar que un despliegue, prueba de agente o prueba real terminó sin verificarlo en la herramienta correspondiente.
+9. Priorizar datos reales existentes para pruebas de lectura cuando el usuario lo autorice expresamente, pero nunca alterar esos datos como parte de una prueba no destructiva. Separar claramente los hallazgos del snapshot histórico de los problemas operativos actuales.
+
+Este acuerdo reemplaza la práctica previa de abrir ramas rutinariamente y hacer despliegues intermedios. Mantener historial auditable en esta bitácora.
+============================================================
