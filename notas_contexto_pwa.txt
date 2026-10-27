@@ -399,3 +399,9 @@ CICLO DE VALIDACIÓN — NORMALIZACIÓN UNICODE — 27/10/2026
 - Tras pasar los typechecks, la revisión estática detectó que la normalización de tipos de extintor tenía una clase regex con escape incorrecto para marcas diacríticas. Aunque compilaba, podía dejar acentos sin normalizar y provocar revisiones innecesarias.
 - Se corrigió la expresión para eliminar correctamente los diacríticos Unicode antes de comparar tipos (commit cf87f49749a4eb6f43cbaaad4188b2674b975d57).
 - Pendiente: confirmar CI de este commit y seguir con revisión de reglas de dominio y pruebas de borde. No se modificó producción ni datos.
+
+
+CICLO DE REVISIÓN — VÍNCULO ALVÉOLO / INVENTARIO — 27/10/2026
+- La revisión de reglas encontró un caso no cubierto: cuando el alvéolo referenciaba un extintor existente pero el registro de Extintores tenía alveolo_id nulo, la condición anterior no emitía discrepancia.
+- Se corrigió la comparación para detectar tanto vínculo cruzado distinto como vínculo ausente en inventario (commit b7129037dd7a2101d8a4b4b4544e189e88e3bdd8).
+- Se mantiene como hallazgo de auditoría, sin modificar ninguna fila. CI del nuevo commit pendiente de confirmación.
