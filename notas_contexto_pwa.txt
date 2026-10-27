@@ -464,3 +464,13 @@ PRUEBAS DE SEGURIDAD HTTP PARA CAQUITAS
 - Commit del último ajuste de workflow: `ead209226b8abea76bc8448f4c01f54f87fc91a5`.
 - Pendiente: verificar ejecución CI de esta nueva versión; no afirmar aprobado hasta ver el resultado.
 - Sigue vigente el bloqueo de integración real: la función `agente-caquitas-audit-leu` no está desplegada en Supabase. No se hicieron despliegues ni escrituras en producción.
+
+
+ACTUALIZACIÓN — 27/10/2026
+CI DE CAQUITAS: WORKFLOW REPARADO Y APROBADO
+- Se confirmó ejecución exitosa del workflow dedicado `Validar Caquitas integral (prueba)`, run 40440901848: https://github.com/roquemontoya/proyectocentinela/actions/runs/40440901848
+- Job `deno-check`: success. Incluye typecheck del auditor, módulos y pruebas; tests de reglas, paginación y validación HTTP; typecheck del wrapper.
+- Se corrigió el workflow tras detectar pasos YAML mal formados en intentos anteriores. La versión final del archivo se verificó directamente en GitHub.
+- Comparación de ramas verificada: `audit-leu-test` está 40 commits adelante de `main`, 0 atrás.
+- La función `agente-caquitas-audit-leu` sigue sin aparecer en las Edge Functions activas de Supabase. La integración real y la prueba autenticada E2E continúan pendientes.
+- No se desplegó la función integral ni se escribieron datos de producción. No fusionar PR #35 todavía.
