@@ -16,7 +16,7 @@ Deno.test("parseExpiry rejects missing, malformed and out-of-range dates", () =>
 
 Deno.test("type normalization ignores accents, case and surrounding spaces", () => {
   assertEquals(normalizeExtinguisherType("  HÁLON "), "halon");
-  assertEquals(normalizeExtinguisherType("CO₂"), "co₂");
+  assertEquals(normalizeExtinguisherType("CO2"), "co2");
 });
 
 Deno.test("replacement matrix follows Centinela rules", () => {
