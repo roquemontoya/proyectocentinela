@@ -172,7 +172,7 @@ serve(async (req: Request) => {
   for (const asset of extinguisherInventory) {
     if (asset.alveolo_id == null || String(asset.alveolo_id).trim() === "") continue;
     const raw = String(asset.Vencimiento ?? "").trim();
-    const match = raw.match(/^(\\d{1,2})\\/(\\d{2}|\\d{4})$/);
+    const match = raw.match(/^(\d{1,2})\/(\d{2}|\d{4})$/);
     if (!match) {
       findings.push({ severity: "alta", code: "PULMON_EXPIRY_MISSING_OR_UNPARSEABLE", table: "Extintores", field: "Vencimiento", title: "Vencimiento de extintor del Pulmón ausente o no interpretable", count: 1, examples: [{ id: asset.id, alveolo_id: asset.alveolo_id, vencimiento: raw || null }] });
       continue;
