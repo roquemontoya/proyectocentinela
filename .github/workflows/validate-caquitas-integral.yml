@@ -1,0 +1,28 @@
+name: Validar Caquitas integral (prueba)
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "supabase/functions/agente-caquitas-audit-leu/**"
+      - "supabase/functions/mayordomo-001-audit/**"
+      - ".github/workflows/validate-caquitas-integral.yml"
+  push:
+    branches: [audit-leu-test]
+    paths:
+      - "supabase/functions/agente-caquitas-audit-leu/**"
+      - "supabase/functions/mayordomo-001-audit/**"
+      - ".github/workflows/validate-caquitas-integral.yml"
+
+jobs:
+  deno-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Typecheck auditor integral
+        run: deno check supabase/functions/agente-caquitas-audit-leu/index.ts
+      - name: Typecheck wrapper Mayordomo
+        run: deno check supabase/functions/mayordomo-001-audit/index.ts
