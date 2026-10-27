@@ -44,7 +44,7 @@ async function readAll(base: string, key: string, table: string): Promise<Row[]>
 }
 function keyField(rows: Row[]): string | null {
   if (!rows.length) return null;
-  for (const candidate of ["id", "id_activo", "fid", "user_id"]) {
+  for (const candidate of ["id", "fid", "user_id"]) {
     if (rows.every(r => Object.prototype.hasOwnProperty.call(r, candidate))) return candidate;
   }
   return null;
@@ -70,11 +70,35 @@ serve(async (req: Request) => {
   if (!base || !key) return json(503, { error: "server_access_not_configured" });
 
   const generatedAt = new Date().toISOString();
+  const fkRules = [
+    ["Extintores","activo_leu_id","leu","id"],["Extintores","alveolo_id","pulmon_alveolos","id"],
+    ["anomalias","id_activo","leu","id"],["app_role_permissions","permission_id","app_permissions","id"],
+    ["app_role_permissions","role_id","app_roles","id"],["app_user_roles","role_id","app_roles","id"],
+    ["caminos_internos","recorrido_origen_id","recorridos_gps","id"],
+    ["controles_c","id_activo","leu","id"],["controles_e","id_activo","leu","id"],
+    ["controles_ecas","id_activo","leu","id"],["controles_es","id_activo","leu","id"],
+    ["controles_h","id_activo","leu","id"],["controles_pc","id_activo","leu","id"],
+    ["controles_pecas","id_activo","leu","id"],["controles_pfp","id_activo","leu","id"],
+    ["controles_v","id_activo","leu","id"],["controles_vecas","id_activo","leu","id"],
+    ["extintores_trazabilidad","id_activo","leu","id"],["movimientos_extintores","id_activo","leu","id"],
+    ["movimientos_reemplazos_extintores","activo_titular_id","leu","id"],
+    ["movimientos_reemplazos_extintores","reemplazo_id","reemplazos_temporales_extintores","id"],
+    ["pulmon_alveolos","activo_extintor_id","Extintores","id"],
+    ["puntos_recorrido_gps","recorrido_id","recorridos_gps","id"],
+    ["reemplazos_temporales_extintores","activo_reemplazo_id","leu","id"],
+    ["reemplazos_temporales_extintores","activo_titular_id","leu","id"],
+    ["reemplazos_temporales_extintores","control_fin_id","controles_e","id"],
+    ["reemplazos_temporales_extintores","control_inicio_id","controles_e","id"],
+    ["territorios_dinamicos","padre_id","territorios_dinamicos","id"]
+  ] as const;
+
   const tables: Record<string, unknown>[] = [], findings: Record<string, unknown>[] = [];
   const errors: { table: string; error: string }[] = [];
+  const dataByTable = new Map<string, Row[]>();
   for (const table of TABLES) {
     try {
       const rows = await readAll(base, key, table);
+      dataByTable.set(table, rows);
       const field = keyField(rows);
       const duplicateValues = new Map<string, number>();
       if (field) for (const row of rows) {
@@ -103,6 +127,23 @@ serve(async (req: Request) => {
       tables.push({ table, status: "error", rows: null, error: message });
     }
   }
+
+  for (const [childTable, childField, parentTable, parentField] of fkRules) {
+    const children = dataByTable.get(childTable), parents = dataByTable.get(parentTable);
+    if (!children || !parents) continue;
+    const parentKeys = new Set(parents.map(r => r[parentField]).filter(v => v !== null && v !== undefined && String(v).trim() !== "").map(v => String(v)));
+    const orphans = children.filter(r => {
+      const v = r[childField];
+      return v !== null && v !== undefined && String(v).trim() !== "" && !parentKeys.has(String(v));
+    });
+    if (orphans.length) findings.push({
+      severity: "alta", code: "FK_ORPHAN_REFERENCE", table: childTable,
+      field: childField, referenced_table: parentTable, referenced_field: parentField,
+      title: "Referencias sin registro padre", count: orphans.length,
+      detail: "Referencia basada en una FK declarada en PostgreSQL; revisar antes de corregir.",
+      examples: orphans.slice(0, 5).map(r => ({ value: r[childField], id: r.id ?? null }))
+    });
+  }
   const checked = tables.filter(t => t.status === "checked").length;
   const complete = errors.length === 0 && checked === TABLES.length;
   return json(200, {
@@ -113,8 +154,8 @@ serve(async (req: Request) => {
     coverage: { planned_tables: TABLES.length, checked_tables: checked, failed_tables: errors.length },
     tables, findings, errors,
     caveats: [
-      "Esta primera versión inventaría tablas y aplica una regla preliminar de duplicados; no declara validadas todas las relaciones de LEU.",
-      "Las relaciones entre identificadores no se infieren por nombres. La siguiente fase debe incorporar las FK reales y reglas de dominio verificadas.",
+      "Audita candidatos de claves repetidas y las FK declaradas incluidas en fkRules; las reglas de dominio requieren fases adicionales.",
+      "Las comprobaciones FK se limitan a restricciones verificadas e incluidas en fkRules; no se infieren relaciones por nombres.",
       "Los duplicados son candidatos, no prueba automática de corrupción.",
       "El endpoint solo realiza GET; no modifica tablas ni ejecuta correcciones.",
       "La función debe probarse en un entorno de prueba antes de desplegarse o conectarse a la interfaz."
