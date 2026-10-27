@@ -368,3 +368,10 @@ INTEGRACIÓN CONTROLADA DEL WRAPPER — 27/10/2026
 - La tarea histórica `auditoria-extintores-resumen` se mantiene como predeterminada si el cliente no envía `task_id`; solo se aceptan las dos tareas explícitas de una lista permitida. Cualquier otra tarea se rechaza.
 - Commit wrapper: `1364a7e9d47994dfb30d1171110a1a8b75ec3405`.
 - Validación pendiente: no se encontraron ejecuciones de workflow asociadas al commit y no se ha ejecutado Deno typecheck ni una prueba HTTP real. El cambio sigue únicamente en `audit-leu-test`, PR #35 en borrador; no desplegado ni fusionado a `main`.
+
+
+CI PARA AUDITORÍA INTEGRAL — 27/10/2026
+- Se agregó `.github/workflows/validate-caquitas-integral.yml` (commit `db7e07f51a7210b6fbfc01d0e3431bb6469d29c5`) para ejecutar `deno check` tanto sobre la nueva función integral como sobre el wrapper Mayordomo_001 en pushes a `audit-leu-test` y PR hacia `main`.
+- La ejecución de Actions para este commit aún no aparece en la consulta inmediata; por tanto, el typecheck específico de ambos archivos queda pendiente hasta ver el resultado del workflow nuevo.
+- Un workflow anterior de “Validar agentes de auditoría” terminó en éxito, pero sus pasos listados validan los agentes antiguos y no prueban expresamente la nueva función integral; no se toma como evidencia de typecheck de esta entrega.
+- No se hicieron llamadas HTTP al endpoint productivo ni se desplegó nada.
