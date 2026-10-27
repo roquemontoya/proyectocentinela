@@ -535,3 +535,18 @@ AUDITORIA ESTATICA INICIAL DE LA PWA — 27/10/2026
 - Esta revisión es estática inicial; quedan pendientes ejecución de tests completos, recorridos autenticados por rol, pruebas de navegador y mediciones de rendimiento reales.
 - Próximo orden sugerido: corregir DOM/XSS, restringir el gestor universal de tablas, definir alcance PWA/offline, luego optimizar consultas y renderizado con pruebas de regresión.
 ============================================================
+
+
+ACUERDO OPERATIVO EXPLÍCITO DEL USUARIO — 27/10/2026
+RAMAS, AGENTES DE PRUEBA Y DESPLIEGUES
+- El usuario indicó expresamente que se reduzca la cantidad de ramas al mínimo indispensable.
+- Regla por defecto: toda modificación no destructiva va directamente a `main`. No crear ramas de rutina por precaución. Crear una rama solo cuando el cambio sea destructivo, de alto riesgo, requiera aislamiento real, o el usuario lo pida.
+- Las pruebas de solo lectura, de validación, análisis de datos históricos y regresión que no alteren registros deben ejecutarse contra `main` y/o los datos reales autorizados, con resultados claramente identificados como snapshot histórico cuando corresponda.
+- Para modificaciones importantes, utilizar los agentes de prueba como usuarios/roles de ensayo y automatizar recorridos completos, validaciones, regresiones y comprobaciones de seguridad. No detenerse cada dos pasos para pedir “continúa” ni entregar resúmenes intermedios rutinarios.
+- Completar el cambio de punta a punta, corregir fallos encontrados, ejecutar el conjunto de pruebas y verificar los resultados antes de informar al usuario.
+- Agrupar cambios en un único despliegue significativo después de las validaciones. No disparar despliegues de Vercel por cada commit o ajuste menor. Antes de desplegar, comprobar cuota/límite y si el cambio requiere realmente un deployment.
+- Un despliegue de Vercel es una compilación/publicación de un estado del proyecto, normalmente disparada por pushes/PRs o comandos de deploy; no equivale a cada vez que se comparte un enlace. Un enlace a una deployment existente no genera por sí solo otra publicación.
+- Mantener separadas las pruebas no destructivas de cualquier corrección/escritura operativa. Los datos reales autorizados se leen, no se editan, salvo solicitud explícita.
+- No declarar éxito sin evidencia de CI, prueba de agente, despliegue o lectura real. Cuando falte acceso a sesión/token de prueba, explicar ese bloqueo concreto y continuar con el resto del trabajo posible.
+- Este acuerdo prevalece sobre la costumbre anterior de abrir ramas de prueba rutinariamente. La rama `audit-leu-test` y PR #35 se consideran antecedentes del trabajo de Caquitas; la integración fue fusionada a `main`.
+============================================================
