@@ -415,3 +415,12 @@ PRUEBAS UNITARIAS REALES PARA REGLAS DE CAQUITAS — 27/10/2026
 - Ejecución confirmada: GitHub Actions run 40439826262, conclusión SUCCESS. Enlace: https://github.com/roquemontoya/proyectocentinela/actions/runs/40439826262
 - Esto valida las reglas puras y compilación, no prueba todavía el flujo HTTP completo con sesión/roles ni una ejecución de las 36 tablas contra un backend aislado. No se desplegó la función nueva ni se alteraron datos de producción.
 - Se excluyen de este alcance las tablas auxiliares QGIS/PostGIS, conforme a indicación del usuario.
+
+
+VALIDACIÓN DE PAGINACIÓN Y FALLAS DE LECTURA — 27/10/2026
+- Se extrajo la rutina de paginación a `read-all.ts`, utilizada por el auditor real y probada directamente mediante fetch simulado.
+- Pruebas agregadas en `read-all_test.ts`: 501 filas se recuperan en dos páginas (offset 0 y 500); tabla vacía retorna []; HTTP 403 falla explícitamente; respuesta JSON no-array falla explícitamente.
+- Workflow ampliado para ejecutar typecheck de todos los módulos y tests, tests de reglas de dominio y tests de paginación.
+- CI integral confirmado exitoso en run 40440087821: https://github.com/roquemontoya/proyectocentinela/actions/runs/40440087821
+- La suite de pruebas ahora cubre reglas de vencimiento/compatibilidad y paginación/fallo cerrado. Aún falta la prueba end-to-end autenticada del wrapper con JWT/roles reales o un proyecto Supabase de staging; no se inventan credenciales ni se despliega la nueva función en producción para simularlas.
+- No se modificaron datos de producción. Las tablas QGIS/PostGIS auxiliares continúan fuera del alcance.
