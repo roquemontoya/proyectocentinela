@@ -47,21 +47,18 @@ function renderDashboard(rol){
 }
 
 function asegurarPanel() {
+  const navUsuarios = document.getElementById('nav-administracion-usuarios');
+  if (!navUsuarios) return;
   if (document.getElementById('centinela-role-simulator')) return;
-  const panel = document.createElement('aside');
+  const panel = document.createElement('details');
   panel.id = 'centinela-role-simulator';
-  panel.className = 'role-simulator';
-  panel.innerHTML = '<div class="role-simulator-head"><strong>🧪 Simulador de roles</strong><button type="button" id="role-simulator-min" aria-label="Minimizar panel">−</button></div><div id="role-simulator-body"><label for="role-simulator-select">Ver Centinela como:</label><select id="role-simulator-select"><option value="">Superadministrador (real)</option></select><p id="role-simulator-status">Vista real de Superadministrador</p><button type="button" id="role-simulator-return">Volver a Superadministrador</button><small>Solo cambia la interfaz. La sesión y los permisos del servidor no cambian.</small></div>';
-  document.body.appendChild(panel);
+  panel.className = 'role-simulator-inline';
+  panel.innerHTML = '<summary>🧪 Simulador de roles</summary><div class="role-simulator-body"><label for="role-simulator-select">Ver Centinela como:</label><select id="role-simulator-select"><option value="">Superadministrador (real)</option></select><p id="role-simulator-status">Vista real de Superadministrador</p><button type="button" id="role-simulator-return">Volver a Superadministrador</button><small>Solo cambia la interfaz. La sesión y los permisos del servidor no cambian.</small></div>';
+  navUsuarios.insertAdjacentElement('afterend', panel);
   const select = panel.querySelector('#role-simulator-select');
   ROLES.forEach(([id, label]) => { const option = document.createElement('option'); option.value = id; option.textContent = label; select.appendChild(option); });
   select.addEventListener('change', () => cambiarRol(select.value || null));
   panel.querySelector('#role-simulator-return').addEventListener('click', () => { select.value = ''; cambiarRol(null); });
-  panel.querySelector('#role-simulator-min').addEventListener('click', () => {
-    panelMinimizado = !panelMinimizado;
-    panel.classList.toggle('is-minimized', panelMinimizado);
-    panel.querySelector('#role-simulator-min').textContent = panelMinimizado ? '+' : '−';
-  });
 }
 function cambiarRol(rol) {
   rolSimulado = rol;
