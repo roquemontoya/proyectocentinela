@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { isCompatibleReplacement, parseExpiry } from "./audit-rules.ts";
 import { readAll } from "./read-all.ts";
+import { validateAuditRequest } from "./request-validation.ts";
 
 const headers = {
   "Content-Type": "application/json; charset=utf-8",
@@ -23,12 +24,6 @@ type Row = Record<string, unknown>;
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), { status, headers });
 }
-function equalSecret(a: string, b: string) {
-  const x = new TextEncoder().encode(a), y = new TextEncoder().encode(b);
-  if (x.length !== y.length) return false;
-  let diff = 0; for (let i = 0; i < x.length; i++) diff |= x[i] ^ y[i];
-  return diff === 0;
-}
 function keyField(rows: Row[]): string | null {
   if (!rows.length) return null;
   for (const candidate of ["id", "fid", "user_id"]) {
@@ -41,16 +36,12 @@ function examples(rows: Row[], field: string) {
 }
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers });
-  if (req.method !== "POST") return json(405, { error: "method_not_allowed" });
-  const expected = Deno.env.get("AGENTE_CAQ_AUDIT_TOKEN") ?? "";
-  const supplied = req.headers.get("x-agent-token") ?? "";
-  if (!expected) return json(503, { error: "agent_token_not_configured" });
-  if (!supplied || !equalSecret(expected, supplied)) return json(401, { error: "unauthorized" });
-  let body: Row;
-  try { body = await req.json(); } catch { return json(400, { error: "invalid_json" }); }
-  if (body.agent_id !== "AGENTE-CAQUITAS-001" ||
-      body.mayordomo_id !== "EL_MAYORDOMO_001" ||
-      body.task_id !== "auditoria-integral-leu") return json(400, { error: "task_not_allowed" });
+  const validation = await validateAuditRequest(
+    req,
+    Deno.env.get("AGENTE_CAQ_AUDIT_TOKEN") ?? "",
+  );
+  if (!validation.ok) return json(validation.status, { error: validation.error });
+  const body = validation.body;
 
   const base = Deno.env.get("SUPABASE_URL") ?? "";
   const key = Deno.env.get("SUPABASE_SECRET_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
