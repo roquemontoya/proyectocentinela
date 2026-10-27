@@ -144,6 +144,50 @@ serve(async (req: Request) => {
       examples: orphans.slice(0, 5).map(r => ({ value: r[childField], id: r.id ?? null }))
     });
   }
+  // Reglas de dominio preliminares basadas en columnas y restricciones observadas.
+  const alveoli = dataByTable.get("pulmon_alveolos") ?? [];
+  const extinguisherInventory = dataByTable.get("Extintores") ?? [];
+  const inventoryById = new Map(extinguisherInventory.map(r => [String(r.id), r]));
+  const assignedSlots = new Map<string, Row[]>();
+  for (const slot of alveoli) {
+    const activeId = slot.activo_extintor_id;
+    const state = String(slot.estado ?? "").trim().toLowerCase();
+    const hasAsset = activeId !== null && activeId !== undefined && String(activeId).trim() !== "";
+    if ((state === "ocupado" && !hasAsset) || (state === "libre" && hasAsset)) {
+      findings.push({ severity: "media", code: "PULMON_SLOT_STATE_MISMATCH", table: "pulmon_alveolos", title: "Estado del alvéolo no coincide con su asignación", count: 1, examples: [{ id: slot.id, codigo: slot.codigo, estado: slot.estado, activo_extintor_id: activeId ?? null }], detail: "Un alvéolo ocupado debería tener extintor asignado y uno libre no debería conservar una asignación." });
+    }
+    if (hasAsset) {
+      const k = String(activeId);
+      assignedSlots.set(k, [...(assignedSlots.get(k) ?? []), slot]);
+      const inventoryAsset = inventoryById.get(k);
+      if (!inventoryAsset) findings.push({ severity: "alta", code: "PULMON_ASSET_NOT_IN_EXTINGUISHERS", table: "pulmon_alveolos", title: "Extintor asignado al Pulmón no aparece en inventario Extintores", count: 1, examples: [{ alveolo_id: slot.id, activo_extintor_id: activeId }] });
+      else if (inventoryAsset.alveolo_id != null && String(inventoryAsset.alveolo_id) !== String(slot.id)) findings.push({ severity: "media", code: "PULMON_ALVEOLUS_LINK_MISMATCH", table: "pulmon_alveolos", title: "Vínculo de alvéolo no coincide entre tablas", count: 1, examples: [{ alveolo_id: slot.id, inventario_alveolo_id: inventoryAsset.alveolo_id, activo_extintor_id: activeId }] });
+    }
+  }
+  for (const [assetId, slots] of assignedSlots) if (slots.length > 1) findings.push({ severity: "alta", code: "PULMON_ASSET_ASSIGNED_MULTIPLE_SLOTS", table: "pulmon_alveolos", title: "Un extintor está asignado a más de un alvéolo", count: slots.length, examples: [{ activo_extintor_id: assetId, alveolos: slots.slice(0, 5).map(s => ({ id: s.id, codigo: s.codigo })) }] });
+
+  const replacements = dataByTable.get("reemplazos_temporales_extintores") ?? [];
+  const activeByTitular = new Map<string, Row[]>();
+  const normalizeType = (v: unknown) => String(v ?? "").trim().toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g, "");
+  const compatible = (titular: string, replacement: string) => {
+    if (titular === "pqs") return ["pqs", "halon", "co2"].includes(replacement);
+    if (titular === "halon") return replacement === "halon";
+    if (titular === "co2") return ["co2", "halon"].includes(replacement);
+    if (titular === "k") return replacement === "k";
+    return null;
+  };
+  for (const replacement of replacements) {
+    const isActive = String(replacement.estado ?? "").trim().toLowerCase() === "activo";
+    if (!isActive) continue;
+    const titularId = String(replacement.activo_titular_id ?? "");
+    activeByTitular.set(titularId, [...(activeByTitular.get(titularId) ?? []), replacement]);
+    if (replacement.fecha_fin != null && String(replacement.fecha_fin).trim() !== "") findings.push({ severity: "media", code: "ACTIVE_REPLACEMENT_HAS_END_DATE", table: "reemplazos_temporales_extintores", title: "Reemplazo activo con fecha de fin cargada", count: 1, examples: [{ id: replacement.id, fecha_fin: replacement.fecha_fin }] });
+    const rule = compatible(normalizeType(replacement.tipo_titular), normalizeType(replacement.tipo_reemplazo));
+    if (rule === false) findings.push({ severity: "alta", code: "INCOMPATIBLE_EXTINGUISHER_REPLACEMENT_TYPE", table: "reemplazos_temporales_extintores", title: "Tipo de reemplazo posiblemente incompatible", count: 1, examples: [{ id: replacement.id, titular: replacement.tipo_titular, reemplazo: replacement.tipo_reemplazo }] });
+    if (rule === null) findings.push({ severity: "informativa", code: "REPLACEMENT_TYPE_REQUIRES_REVIEW", table: "reemplazos_temporales_extintores", title: "Tipo de extintor no reconocido por la matriz de compatibilidad", count: 1, examples: [{ id: replacement.id, titular: replacement.tipo_titular, reemplazo: replacement.tipo_reemplazo }] });
+  }
+  for (const [titularId, rows] of activeByTitular) if (titularId && rows.length > 1) findings.push({ severity: "alta", code: "MULTIPLE_ACTIVE_REPLACEMENTS_PER_TITULAR", table: "reemplazos_temporales_extintores", title: "Un titular tiene más de un reemplazo temporal activo", count: rows.length, examples: rows.slice(0, 5).map(r => ({ id: r.id, activo_titular_id: titularId, activo_reemplazo_id: r.activo_reemplazo_id })) });
+
   const checked = tables.filter(t => t.status === "checked").length;
   const complete = errors.length === 0 && checked === TABLES.length;
   return json(200, {
