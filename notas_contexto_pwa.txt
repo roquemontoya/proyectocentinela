@@ -388,3 +388,8 @@ REGLAS DE VENCIMIENTO DEL PULMÓN — 27/10/2026
 - Se perfiló de forma estrictamente de lectura la columna `Extintores.Vencimiento` en producción: 420 registros, 419 con formato MM/YYYY y 1 con MM/YY; 0 vacíos y 0 valores fuera de esos formatos regex. Consulta SQL solo SELECT; no se alteraron datos.
 - Se añadió a Caquitas una regla para extintores con `alveolo_id` asignado: detectar vencimiento ausente/no interpretable, mes/año inválidos, ya vencidos, vencimiento durante el mes actual y vencimiento dentro de 30 días. La regla interpreta MM/YY como 20YY y calcula vigencia hasta el último día del mes indicado. Es una alerta de auditoría, no una acción operativa automática.
 - Commit: `459db341da73c11ab62bdfd52384c1cb2251ff77`. El workflow dedicado debe ejecutarse sobre esta versión; aún no se ha confirmado su resultado en esta anotación.
+
+
+CICLO DE VALIDACIÓN — CORRECCIÓN DE REGEX — 27/10/2026
+- La primera ejecución del workflow sobre la regla de vencimientos falló en `deno check` por doble escape de la expresión regular del formato MM/YY/MM/YYYY. Se inspeccionó el log real de GitHub Actions; no se asumió éxito.
+- Se corrigió la expresión regular en commit `8c867237f24e3ae9fd3630982e410909b39671c7`. La nueva ejecución de Actions debe confirmar que la corrección compila; aún no se afirma que pasó hasta ver el resultado.
