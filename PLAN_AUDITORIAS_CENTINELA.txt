@@ -1,0 +1,53 @@
+PLAN DE AUDITORIAS Y VALIDACION — PROYECTO CENTINELA
+Actualizado: 27/10/2026
+Ubicacion: raiz del repositorio, junto a notas_contexto_pwa.txt
+
+OBJETIVO
+Usar una rutina de auditoria repetible para que los agentes prueben cambios importantes como usuarios de prueba, reducir ramas y evitar despliegues intermedios innecesarios.
+
+REGLAS DE TRABAJO
+1. Rama predeterminada: main.
+2. No crear ramas nuevas para cambios no destructivos. Usar main y tests automatizados.
+3. Crear rama aislada solo cuando el cambio sea destructivo, implique migracion irreversible, altere datos operativos, cambie permisos/RLS de alto riesgo o requiera probar un contrato incompatible.
+4. No publicar un despliegue por cada ajuste. Agrupar cambios relacionados y desplegar una sola vez cuando el conjunto este validado y el limite de Vercel lo permita.
+5. No desplegar a produccion para ejecutar pruebas que puedan hacerse con tests, mocks, preview o lecturas de solo lectura.
+6. Los agentes de prueba deben actuar como usuarios por rol y recorrer flujos completos, no limitarse a resumir codigo.
+7. No afirmar que una prueba paso si no hay evidencia visible de CI, respuesta del sistema o resultado reproducible.
+8. Datos reales existentes: usar consultas SELECT y auditorias de solo lectura cuando sea suficiente. No corregir ni eliminar datos operativos sin una orden explicita y un plan de recuperacion.
+9. Antes de una modificacion importante, revisar contratos, roles, RLS, esquema, historial, UI movil y efectos colaterales.
+10. Al finalizar, actualizar esta lista y notas_contexto_pwa.txt con cambios, pruebas, resultados, bloqueos y despliegues.
+
+CICLO DE AUDITORIA
+A. Inventario: listar archivos, modulos, Edge Functions, migraciones, tablas, rutas y dependencias.
+B. Calidad estatica: errores de sintaxis/tipos, referencias rotas, codigo muerto, duplicacion, TODO/FIXME, archivos backup, nombres incoherentes y errores silenciosos.
+C. Seguridad: XSS/HTML dinamico, autenticacion, autorizacion de servidor, RLS, secretos, almacenamiento local, CORS, validacion de entrada, uploads y operaciones destructivas.
+D. Datos: columnas consultadas, paginacion, orden estable, relaciones, nulos, formatos heredados, limites, duplicados y consistencia entre LEU e inventario.
+E. Rendimiento: select('*'), consultas repetidas, carga masiva, render de miles de nodos, mapas y marcadores, listeners, fotos, solicitudes firmadas, caches y recursos CDN.
+F. PWA: manifest, service worker, instalabilidad, cache segura, modo offline, actualizacion de assets, accesibilidad y responsive.
+G. Pruebas: unitarias, contrato, integracion, roles, errores de red, paginacion >500, datos vacios, fallos parciales y navegacion movil.
+H. Agentes: recorrer flujos como administrador, superadministrador, bombero, bombero referente, jefaturas y usuarios de solo lectura; comprobar que los permisos efectivos los impone el servidor.
+I. Validacion final: CI verde, revision de diff, consulta de solo lectura a datos reales si corresponde, un despliegue agrupado y verificacion post-despliegue.
+J. Cierre: actualizar informe y bitacora, indicar explicitamente que se probo y que sigue pendiente.
+
+PUERTA DE SALIDA
+- No hay errores de sintaxis/typecheck ni pruebas fallidas.
+- Las operaciones sensibles estan autorizadas en servidor/RLS.
+- No hay hallazgos criticos abiertos sin mitigacion.
+- La auditoria no escribe ni modifica datos de produccion.
+- El despliegue se hace una sola vez por conjunto validado, salvo rollback o hotfix.
+- El resultado post-despliegue se verifica antes de declarar terminado.
+
+AGENTES / ROLES DE PRUEBA
+- Administrador: modulos administrativos, usuarios, tablas, informes.
+- Superadministrador: privilegios ampliados y controles de seguridad.
+- Bombero: controles permitidos y flujo de Pulmon segun permisos.
+- Bombero Referente y jefaturas: lectura; confirmar que no puedan escribir llamando directamente a la API.
+- Usuario sin sesion/rol: acceso denegado a rutas y operaciones protegidas.
+- Auditor Caquitas: solo lectura, informe incompleto ante cualquier tabla inaccesible.
+- Mayordomo_001: autentica sesion, valida rol y enruta solo tareas permitidas.
+
+LIMITACIONES / CUIDADOS
+- No usar datos reales en pruebas que escriban, salvo que se haya acordado un sandbox con datos anonimizados.
+- No exponer service-role keys ni tokens internos en frontend, logs, reportes o archivos.
+- No cambiar politicas RLS ni ejecutar DDL sobre tablas de sistema/PostGIS sin revision explicita.
+- El numero de despliegues de Vercel debe gestionarse como presupuesto; evitar deploys automaticos repetidos durante la iteracion.
