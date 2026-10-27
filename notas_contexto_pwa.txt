@@ -375,3 +375,10 @@ CI PARA AUDITORÍA INTEGRAL — 27/10/2026
 - La ejecución de Actions para este commit aún no aparece en la consulta inmediata; por tanto, el typecheck específico de ambos archivos queda pendiente hasta ver el resultado del workflow nuevo.
 - Un workflow anterior de “Validar agentes de auditoría” terminó en éxito, pero sus pasos listados validan los agentes antiguos y no prueban expresamente la nueva función integral; no se toma como evidencia de typecheck de esta entrega.
 - No se hicieron llamadas HTTP al endpoint productivo ni se desplegó nada.
+
+
+VALIDACIÓN AUTOMÁTICA Y REGLAS DE DOMINIO — 27/10/2026
+- El workflow dedicado `Validar Caquitas integral (prueba)` ejecutó correctamente los pasos `Typecheck auditor integral` y `Typecheck wrapper Mayordomo` en el commit anterior de la rama (run #3, conclusión success). Esto valida sintaxis/tipos en esa revisión, no las nuevas reglas añadidas después.
+- Se agregaron comprobaciones de dominio preliminares en `agente-caquitas-audit-leu`: estado Libre/Ocupado de alvéolos frente a asignación de extintor; extintor asignado inexistente en tabla Extintores; vínculo cruzado de alvéolo discordante; mismo extintor asignado a varios alvéolos; reemplazos activos múltiples para un titular; reemplazo activo con fecha_fin; y matriz de compatibilidad PQS/Halon/CO2/K definida por el proyecto.
+- Commit de reglas: `75000fd34090d8ad5eaf3cb9f79d63b424d501de`. Debe ejecutarse otra vez el workflow dedicado para confirmar el typecheck de este commit y revisar falsos positivos con datos de prueba.
+- Reglas de expiración/vencimiento no agregadas todavía: el campo `Extintores.Vencimiento` es texto heredado con formatos no confirmados; no se debe interpretar automáticamente hasta perfilar sus valores reales y acordar el formato. No se corrigieron datos ni se desplegó la función.
