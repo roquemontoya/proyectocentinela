@@ -193,7 +193,7 @@ serve(async (req: Request) => {
 
   const replacements = dataByTable.get("reemplazos_temporales_extintores") ?? [];
   const activeByTitular = new Map<string, Row[]>();
-  const normalizeType = (v: unknown) => String(v ?? "").trim().toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g, "");
+  const normalizeType = (v: unknown) => String(v ?? "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   const compatible = (titular: string, replacement: string) => {
     if (titular === "pqs") return ["pqs", "halon", "co2"].includes(replacement);
     if (titular === "halon") return replacement === "halon";
