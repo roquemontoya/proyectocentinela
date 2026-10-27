@@ -352,3 +352,12 @@ CAQUITAS: AUDITORÍA INTEGRAL PRELIMINAR LEU EN RAMA DE PRUEBA
 - LIMITACIONES: no se desplegó en Supabase ni se conectó a la interfaz. Aún no está validada con typecheck o pruebas de extremo a extremo. El inventario debe cotejarse contra el esquema real; las relaciones FK y reglas de dominio no están aún auditadas. La regla de duplicados es preliminar y no demuestra corrupción.
 - No se modificó producción ni los datos de Supabase.
 - Siguiente paso: ejecutar pruebas de sintaxis y seguridad, comparar la lista de tablas con information_schema, extraer FK reales, implementar reglas de relación específicas y después integrar el wrapper autenticado de Mayordomo_001. Mantener PR en borrador hasta completar validaciones.
+
+
+
+AVANCE DE VALIDACIÓN — 27/10/2026
+- Se contrastó el inventario previsto contra `information_schema.tables` de Supabase. Las 36 tablas operativas públicas observadas están incluidas en la lista de la función; no se incluyen las vistas auxiliares PostGIS ni tablas de metadatos de migraciones.
+- Se consultaron las FK reales declaradas por PostgreSQL y se añadieron comprobaciones de referencias huérfanas para las relaciones confirmadas (activos LEU, controles, trazabilidad, roles/permisos, alvéolos, movimientos, reemplazos y GPS/territorios).
+- Se corrigió una regla de falsos positivos: `id_activo` ya no se toma como clave única genérica en tablas históricas, porque puede repetirse legítimamente entre controles.
+- Commit de ampliación: `f5e1135ac4453cb6a2165cce4db5d7332570078c` en `audit-leu-test`.
+- Estado: todavía no ejecutado el typecheck/build de Deno ni pruebas HTTP de extremo a extremo; no desplegado. La auditoría no debe etiquetarse como validada hasta completar esas pruebas.
