@@ -166,6 +166,31 @@ serve(async (req: Request) => {
   }
   for (const [assetId, slots] of assignedSlots) if (slots.length > 1) findings.push({ severity: "alta", code: "PULMON_ASSET_ASSIGNED_MULTIPLE_SLOTS", table: "pulmon_alveolos", title: "Un extintor está asignado a más de un alvéolo", count: slots.length, examples: [{ activo_extintor_id: assetId, alveolos: slots.slice(0, 5).map(s => ({ id: s.id, codigo: s.codigo })) }] });
 
+  // Vencimientos del Pulmón: la columna heredada es texto, pero el perfil actual mostró MM/YYYY y un caso MM/YY.
+  const now = new Date();
+  const todayUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  for (const asset of extinguisherInventory) {
+    if (asset.alveolo_id == null || String(asset.alveolo_id).trim() === "") continue;
+    const raw = String(asset.Vencimiento ?? "").trim();
+    const match = raw.match(/^(\\d{1,2})\\/(\\d{2}|\\d{4})$/);
+    if (!match) {
+      findings.push({ severity: "alta", code: "PULMON_EXPIRY_MISSING_OR_UNPARSEABLE", table: "Extintores", field: "Vencimiento", title: "Vencimiento de extintor del Pulmón ausente o no interpretable", count: 1, examples: [{ id: asset.id, alveolo_id: asset.alveolo_id, vencimiento: raw || null }] });
+      continue;
+    }
+    const month = Number(match[1]);
+    let year = Number(match[2]);
+    if (match[2].length === 2) year += 2000;
+    if (month < 1 || month > 12 || year < 2000 || year > 2200) {
+      findings.push({ severity: "alta", code: "PULMON_EXPIRY_INVALID_VALUE", table: "Extintores", field: "Vencimiento", title: "Valor de vencimiento inválido", count: 1, examples: [{ id: asset.id, alveolo_id: asset.alveolo_id, vencimiento: raw }] });
+      continue;
+    }
+    const expiryUtc = Date.UTC(year, month, 0);
+    const daysLeft = Math.floor((expiryUtc - todayUtc) / 86400000);
+    if (daysLeft < 0) findings.push({ severity: "alta", code: "PULMON_EXTINGUISHER_EXPIRED", table: "Extintores", field: "Vencimiento", title: "Extintor del Pulmón vencido", count: 1, examples: [{ id: asset.id, alveolo_id: asset.alveolo_id, vencimiento: raw, dias_desde_vencimiento: Math.abs(daysLeft) }] });
+    else if (year === now.getUTCFullYear() && month === now.getUTCMonth() + 1) findings.push({ severity: "alta", code: "PULMON_EXPIRY_IN_CURRENT_MONTH", table: "Extintores", field: "Vencimiento", title: "Extintor del Pulmón vence durante el mes actual", count: 1, examples: [{ id: asset.id, alveolo_id: asset.alveolo_id, vencimiento: raw, dias_hasta_fin_vigencia: daysLeft }] });
+    else if (daysLeft <= 30) findings.push({ severity: "alta", code: "PULMON_EXPIRY_WITHIN_30_DAYS", table: "Extintores", field: "Vencimiento", title: "Extintor del Pulmón vence dentro de 30 días", count: 1, examples: [{ id: asset.id, alveolo_id: asset.alveolo_id, vencimiento: raw, dias_hasta_fin_vigencia: daysLeft }] });
+  }
+
   const replacements = dataByTable.get("reemplazos_temporales_extintores") ?? [];
   const activeByTitular = new Map<string, Row[]>();
   const normalizeType = (v: unknown) => String(v ?? "").trim().toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g, "");
