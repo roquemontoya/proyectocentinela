@@ -284,3 +284,54 @@ ACTUALIZACIÓN — 26/10/2026 — OCULUS Y CONFIGURACIÓN VISUAL COMPARTIDA
 - La configuración compartida es exclusivamente visual y declarativa: auth.js y las políticas RLS de Supabase continúan siendo la autoridad de seguridad. No se modificaron roles reales, RLS ni datos de Supabase.
 - La vista desktop/móvil de Oculus sigue siendo una maqueta. No se capturaron pantallas del runtime real ni se ejecutaron pruebas autenticadas/API. Antes de fusionar, revisar el despliegue de la rama y validar la interfaz en navegador.
 - Rama: feature/oculus-inspector. Archivos añadidos/modificados: config/rolesConfig.js, simuladorRoles.js, oculus.js, oculus.html y esta bitácora.
+
+============================================================
+ACTUALIZACIÓN — 26/10/2026
+ARQUITECTURA COORDINADA DE AGENTES Y AMPLIACIÓN DE CAQUITAS A TODO LEU
+============================================================
+
+Decisión confirmada por el usuario
+- J.A.R.V.I.S. será el mando central: coordina las áreas, recibe las solicitudes, deriva cada tarea al módulo adecuado y consolida los resultados.
+- Caquitas será la capacidad/módulo auditor: buscará errores, inconsistencias y relaciones rotas en el conjunto LEU completo y sus tablas relacionadas. La auditoría existente de Extintores fue una primera etapa por ser la tabla más compleja, no el límite definitivo de alcance.
+- S.P.O.C.K. queda como nombre propuesto para el módulo intérprete: analiza hallazgos ambiguos, explica impacto y evidencia, propone prioridad y recomienda acciones. Es una propuesta de nombre/expansión, pendiente de confirmación explícita del usuario.
+- Mayordomo_001 será el operador técnico controlado: verifica identidad/rol/permisos, ejecuta solo acciones autorizadas, registra cambios y verifica el resultado. No debe realizar correcciones autónomas en datos de seguridad industrial.
+- Oculus sigue siendo panel de inspección visual y pruebas; no es un agente de IA adicional.
+
+Principio de eficiencia
+- Implementar una sola coordinación central con capacidades especializadas, no tres modelos autónomos ejecutándose constantemente.
+- Resolver comprobaciones deterministas con SQL/código y reservar la interpretación con IA para hallazgos ambiguos, análisis de impacto o explicación en lenguaje natural.
+- No invocar IA para cada fila si una regla verificable puede resolverse de forma determinista.
+- Medir latencia y consumo real antes de afirmar ahorros concretos.
+- Mantener auditoría en solo lectura por defecto. Ninguna modificación de registros operativos sin autorización explícita, evidencia, trazabilidad y comprobación posterior.
+
+Alcance de la auditoría integral
+- Caquitas debe ampliar la auditoría desde Extintores, extintores_trazabilidad y pulmon_alveolos a todas las tablas del conjunto LEU y sus tablas relacionadas.
+- Inventario inicial observado en el esquema public de Supabase el 26/10/2026:
+  Bomberos, Extintores, Valvulas, anomalias, app_permissions, app_role_permissions, app_roles, app_user_audit, app_user_profiles, app_user_roles, caminos_internos, controles_c, controles_e, controles_ecas, controles_es, controles_h, controles_pc, controles_pecas, controles_pfp, controles_v, controles_vecas, ecas, extintores_trazabilidad, hidrantes, inicio, ipp, leu, movimientos_extintores, movimientos_reemplazos_extintores, pecas, pulmon_alveolos, puntos_recorrido_gps, recorridos_gps, reemplazos_temporales_extintores, territorios_dinamicos y vecas.
+- También se observó supabase_migrations.schema_migrations, que es metadato de migraciones y no debe tratarse como activo operativo.
+- Este inventario es una primera fotografía del esquema, no certifica que todas las tablas estén auditadas ni define por sí solo todas sus relaciones.
+- Antes de crear reglas cruzadas, inspeccionar columnas, claves primarias/foráneas, restricciones, índices y semántica de los identificadores. No inferir equivalencias entre LEU.id, Extintores.id, activo_leu_id, trazabilidad.id_activo ni IDs de otras tablas sin evidencia.
+- Agrupar las reglas por dominio: activos maestros LEU y capas de activos; controles e historiales por tipo; anomalías y sus referencias; Extintores, Pulmón, movimientos, reemplazos temporales y trazabilidad; usuarios/roles/permisos y auditoría de usuarios; recorridos GPS, puntos, caminos y territorios.
+- Incluir reglas estructurales (campos/estados/formato), referencias huérfanas, duplicados con claves semánticas justificadas, coherencia entre maestro y controles, consistencia temporal, estados operativos y relaciones de ida/vuelta cuando la semántica esté confirmada.
+- No clasificar una tabla vacía como error por sí misma; aceptar cero filas como resultado válido. Si una fuente falla, el informe debe declararse fallido/incompleto y no presentarse como auditoría integral satisfactoria.
+- El resultado debe identificar tablas revisadas y no revisadas, reglas ejecutadas, conteos completos, ejemplos acotados, severidad, limitaciones y fecha del análisis. No declarar cobertura integral hasta comprobar que todas las tablas previstas fueron consultadas correctamente.
+
+Estado técnico conocido al momento de esta nota
+- En Supabase permanecen activas las Edge Functions agente-caquitas-audit-read v10, agente-caquitas-audit-report v5 y mayordomo-001-audit v2.
+- La auditoría desplegada existente lee Extintores, extintores_trazabilidad y pulmon_alveolos con selectores fijos y consultas GET; el informe es de solo lectura.
+- mayordomo-001-audit valida sesión/rol y delega en el informe de Caquitas; actualmente no constituye por sí solo un coordinador general de todas las áreas ni un motor de corrección.
+- El token interno de Caquitas no debe exponerse en el frontend ni escribirse en la bitácora.
+- Las funciones read/report tienen verify_jwt=false y dependen de token propio; mantener pruebas de rechazo con token ausente/incorrecto y revisar su configuración de seguridad antes de ampliar el acceso.
+- No se han confirmado en esta actualización cambios de código, despliegues nuevos ni modificaciones de datos en Supabase. Esta entrada registra la decisión y el plan; no afirma que la ampliación integral ya esté implementada.
+
+Plan de trabajo acordado
+1. Inventariar todas las tablas public relevantes, sus columnas, PK/FK, restricciones e índices; distinguir datos operativos, seguridad/roles y metadatos.
+2. Documentar el mapa de relaciones LEU y sus tablas asociadas, identificando las relaciones confirmadas y las que requieren validación humana.
+3. Diseñar un catálogo versionado de reglas de auditoría por dominio y severidad, con evidencia y ejemplos reproducibles.
+4. Ampliar Caquitas en una rama de prueba, manteniendo solo lectura y sin tocar datos productivos.
+5. Probar tablas vacías, fallos de fuente, campos ausentes, duplicados, huérfanos, paginación >500 filas, datos hostiles, determinismo, exportación CSV y límites de acceso.
+6. Añadir S.P.O.C.K. como interpretación opcional de los hallazgos, no como sustituto de las reglas deterministas. El nombre queda pendiente de aprobación del usuario.
+7. Integrar la coordinación de J.A.R.V.I.S. y el flujo de Mayordomo_001 solo después de verificar el contrato de autorización, aislamiento de roles y registro de acciones.
+8. Revisar resultados y abrir PR para revisión antes de fusionar a main; no desplegar ni corregir datos operativos hasta que las pruebas y permisos estén verificados.
+
+============================================================
