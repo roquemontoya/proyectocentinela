@@ -24,9 +24,11 @@ jobs:
           deno-version: v2.x
       - name: Typecheck auditor integral
         run: deno check supabase/functions/agente-caquitas-audit-leu/index.ts
-      - name: Typecheck reglas puras y pruebas
-        run: deno check supabase/functions/agente-caquitas-audit-leu/audit-rules.ts supabase/functions/agente-caquitas-audit-leu/audit-rules_test.ts
+      - name: Typecheck módulos y pruebas
+        run: deno check supabase/functions/agente-caquitas-audit-leu/audit-rules.ts supabase/functions/agente-caquitas-audit-leu/audit-rules_test.ts supabase/functions/agente-caquitas-audit-leu/read-all.ts supabase/functions/agente-caquitas-audit-leu/read-all_test.ts
       - name: Probar reglas de vencimiento y compatibilidad
         run: deno test supabase/functions/agente-caquitas-audit-leu/audit-rules_test.ts
+      - name: Probar paginación y fallos de lectura
+        run: deno test supabase/functions/agente-caquitas-audit-leu/read-all_test.ts
       - name: Typecheck wrapper Mayordomo
         run: deno check supabase/functions/mayordomo-001-audit/index.ts
