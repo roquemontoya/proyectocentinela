@@ -262,3 +262,9 @@ ACTUALIZACIÓN — 26/10/2026 — MATRIZ DE PANTALLA PRINCIPAL POR ROL
 - La pantalla principal deja de usar un conjunto fijo de tarjetas idéntico para todos los roles.
 - No se cambiaron roles reales, RLS ni datos de Supabase. La matriz necesita revisión visual en navegador para confirmar la correspondencia de cada módulo y ajustar cualquier acceso que no sea aplicable a un rol.
 - Archivos modificados: index.html, simuladorRoles.js, style.css y bitácora.
+
+
+ACTUALIZACIÓN — 26/10/2026 — FIX DE SUPERPOSICIÓN MAPA / MENÚ LATERAL
+- Se elevó la prioridad visual del drawer y del overlay respecto de los controles Leaflet; se normalizó el z-index del contenedor y panes Leaflet para evitar que zoom +/- y controles flotantes del mapa se dibujen por encima del menú abierto.
+- Archivo: style.css.
+- No se modificaron datos ni permisos de Supabase. Código guardado en main; falta confirmar visualmente en navegador que también queden correctamente cubiertos el selector de recorridos y la línea de tiempo, porque esos elementos pueden pertenecer al módulo de recorridos y no a Leaflet.
