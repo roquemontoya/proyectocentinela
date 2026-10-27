@@ -268,3 +268,10 @@ ACTUALIZACIÓN — 26/10/2026 — FIX DE SUPERPOSICIÓN MAPA / MENÚ LATERAL
 - Se elevó la prioridad visual del drawer y del overlay respecto de los controles Leaflet; se normalizó el z-index del contenedor y panes Leaflet para evitar que zoom +/- y controles flotantes del mapa se dibujen por encima del menú abierto.
 - Archivo: style.css.
 - No se modificaron datos ni permisos de Supabase. Código guardado en main; falta confirmar visualmente en navegador que también queden correctamente cubiertos el selector de recorridos y la línea de tiempo, porque esos elementos pueden pertenecer al módulo de recorridos y no a Leaflet.
+
+
+ACTUALIZACIÓN — 26/10/2026 — SIMULADOR MOVIDO A USUARIOS Y PERMISOS
+- Se reemplaza el panel flotante fijo por una subsección desplegable anidada en el elemento «Usuarios y permisos» del menú lateral, para evitar que ocupe espacio útil en móviles.
+- El simulador sigue disponible solo para la sesión real de Superadministrador y se oculta junto con el acceso de administración al simular perfiles inferiores. La selección de rol continúa siendo visual y no modifica permisos del servidor.
+- Archivos: simuladorRoles.js y style.css.
+- Cambios guardados en main. Falta validación visual en navegador y móvil.
