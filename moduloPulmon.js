@@ -15,6 +15,14 @@ export async function cargarModuloPulmon(contenedor) {
     
     contenedor.innerHTML = `<div style="text-align: center; color: #fff; font-family: Arial; padding: 40px; font-size: 16px;">🔄 Cargando inventario del Pulmón y Recargas...</div>`;
 
+    const [permisoRotacion, permisoGestion, permisoTecnico] = await Promise.all([
+        clienteSupabase.rpc('current_user_has_permission', { p_permission: 'pulmon.rotate' }),
+        clienteSupabase.rpc('current_user_has_permission', { p_permission: 'pulmon.manage' }),
+        clienteSupabase.rpc('current_user_has_permission', { p_permission: 'pulmon.update' })
+    ]);
+    const puedeAdministrarPulmon = permisoGestion.data === true || permisoTecnico.data === true;
+    const puedeRotarPulmon = puedeAdministrarPulmon || permisoRotacion.data === true;
+
     // 1. Traer todos los extintores que NO estén en planta
     const { data, error } = await clienteSupabase
         .from('Extintores')
