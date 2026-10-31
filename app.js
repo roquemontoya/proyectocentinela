@@ -76,7 +76,7 @@ window.renderizarInicioCentinela = function() {
  const accesos=ACCESOS_INICIO.filter(x=>x.personal||(verificarPermisoModulo(x.modulo)&&moduloPermitidoEnSimulacion(x.modulo)));
  if(!accesos.length){const aviso=document.createElement('p');aviso.textContent='Tu perfil no tiene módulos de inicio asignados. Contactá al administrador del sistema.';aviso.style.cssText='grid-column:1/-1;color:#cbd5e1;text-align:center;padding:36px 16px;';inicio.appendChild(aviso);return;}
  for(const item of accesos){
-  const tarjeta=document.createElement('button');tarjeta.type='button';tarjeta.className='card';tarjeta.setAttribute('aria-label',item.titulo);tarjeta.setAttribute('onclick',`cargarModulo('${item.modulo}')`);tarjeta.addEventListener('click',()=>window.cargarModulo(item.modulo));
+  const tarjeta=document.createElement('button');tarjeta.type='button';tarjeta.className='card';tarjeta.setAttribute('aria-label',item.titulo);tarjeta.setAttribute('onclick',`cargarModulo('${item.modulo}')`);
   const imagen=document.createElement('span');imagen.className='card-img';imagen.textContent=item.icono;imagen.setAttribute('aria-hidden','true');
   const titulo=document.createElement('span');titulo.className='card-title';titulo.textContent=item.titulo;
   const detalle=document.createElement('small');detalle.textContent=item.detalle;detalle.style.cssText='display:block;padding:0 10px 12px;text-align:center;color:#9ca3af;font-size:11px;line-height:1.35;';
