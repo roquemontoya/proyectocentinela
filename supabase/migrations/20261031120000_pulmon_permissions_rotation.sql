@@ -148,9 +148,9 @@ create or replace function public.registrar_instalacion_reemplazo_pulmon(
   p_activo_titular_id bigint,
   p_inventario_reemplazo_id bigint,
   p_bombero text,
-  p_motivo text,
-  p_tipo_titular text,
-  p_tipo_reemplazo text,
+  p_motivo text default null,
+  p_tipo_titular text default 'Extintor titular',
+  p_tipo_reemplazo text default 'Extintor Pulmón',
   p_observaciones text default null
 )
 returns jsonb
