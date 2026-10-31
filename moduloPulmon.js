@@ -94,15 +94,15 @@ export async function cargarModuloPulmon(contenedor) {
 
             // Botón dinámico según estado y vencimiento.
             let botonAccion = '';
-            if (estaEnPulmon && requiereRecarga) {
+            if (puedeAdministrarPulmon && estaEnPulmon && requiereRecarga) {
                 botonAccion += `
                     <button onclick="window.enviarPulmonARecarga('${ext.id}', '${String(etiqueta).replace(/'/g, "\\'")}')" style="background: #f59e0b; color: #111; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px; margin-right: 5px;">📤 Enviar a recarga</button>
                 `;
             }
-            if (estaEnPulmon && diasRestantes === null) {
+            if (puedeAdministrarPulmon && estaEnPulmon && diasRestantes === null) {
                 botonAccion += `<span title="No se pudo interpretar el vencimiento; revisar antes de asignar" style="display:inline-block;background:#7f1d1d;color:#fee2e2;padding:5px 7px;border-radius:4px;font-size:11px;margin-right:5px;">⚠️ Revisar fecha</span>`;
             }
-            if (prp.toLowerCase().includes('recarga')) {
+            if (puedeAdministrarPulmon && prp.toLowerCase().includes('recarga')) {
                 // Si está en recarga, el botón permite registrar que el proveedor lo devolvió al pulmón
                 botonAccion = `
                     <button onclick="window.marcarRecibidoPulmon('${ext.id}', '${etiqueta.replace(/'/g, "\\'")}')" style="background: #eab308; color: #000; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px; margin-right: 5px;">📥 Recibido de Recarga</button>
@@ -146,7 +146,7 @@ export async function cargarModuloPulmon(contenedor) {
         .order('fecha_hora_inicio', { ascending: true });
     if (errorActivos) {
         contenedor.insertAdjacentHTML('beforeend', `<p style="color:#f87171;margin:16px auto;max-width:1100px;">No se pudieron cargar los reemplazos activos: ${errorActivos.message}</p>`);
-    } else if (activos?.length) {
+    } else if (puedeRotarPulmon && activos?.length) {
         const idsTitulares = [...new Set(activos.map(x => x.activo_titular_id))];
         const idsStock = [...new Set(activos.map(x => x.inventario_reemplazo_id).filter(Boolean))];
         const [{ data: titulares }, { data: stock }, { data: bomberos }] = await Promise.all([
@@ -204,7 +204,9 @@ export async function cargarModuloPulmon(contenedor) {
         .in('PRP',['En Pulmon','En Pulmón']).not('activo_leu_id','is',null).not('alveolo_id','is',null).order('ETIQUETA');
     const { data: responsablesReemplazo } = await clienteSupabase.from('Bomberos').select('Bombero').eq('Estado','Activo').order('Bombero');
     const titularesElegibles = (titularesReemplazo || []).filter(t => !((t.atributos_tecnicos || {}).reemplazo_temporal_id));
-    if (errTitulares || errStock) {
+    if (!puedeRotarPulmon) {
+        // Este perfil solo consulta el inventario.
+    } else if (errTitulares || errStock) {
         contenedor.insertAdjacentHTML('beforeend', '<p style="color:#f87171;max-width:1100px;margin:18px auto">No se pudo preparar el formulario de instalación. Revisá los permisos y actualizá el módulo.</p>');
     } else {
         const sectionInstalacion = document.createElement('section');
