@@ -563,3 +563,19 @@ VALIDACIÓN DE SOLO LECTURA SOBRE REGISTROS REALES — 27/10/2026
 - La prueba real de extremo a extremo con JWT y roles queda pendiente de sesión de prueba disponible; no se debe afirmar que se verificó autorización real sin esa evidencia.
 - No se insertó, actualizó ni borró ninguna fila.
 ============================================================
+
+
+============================================================
+ACUERDO FUNCIONAL — PERMISOS DEL PULMÓN — 31/10/2026
+============================================================
+
+El usuario definió la siguiente matriz operativa, que prevalece sobre propuestas anteriores de exigir autorización individual por cada reemplazo:
+- Bombero Inspector: puede rotar extintores desde Pulmón hacia Producción y desde Producción hacia Pulmón. Puede consultar el stock estrictamente necesario para elegir un extintor disponible y compatible. No puede crear, cambiar ni eliminar extintores del inventario ni crear, cambiar o eliminar alvéolos.
+- Bombero Referente y niveles superiores de la jerarquía operativa: pueden crear, cambiar y eliminar alvéolos y extintores del inventario, además de realizar rotaciones.
+- Administrador y Superadministrador conservan capacidades administrativas.
+- Mantenimiento es un rol técnico separado de la jerarquía operativa; no se lo debe clasificar automáticamente como Bombero Referente. Su alcance debe quedar explícito al implementar la matriz.
+- No se requiere autorización individual previa para cada recambio. El permiso se concede al rol; cada movimiento debe registrar usuario autenticado, fecha/hora, extintor titular, reemplazo, origen, destino y motivo.
+- La operación de rotación debe validar compatibilidad, disponibilidad, ausencia de doble asignación y vigencia mayor a 30 días; el permiso no habilita administración general del inventario.
+Estado: decisión funcional acordada; todavía no implementada en RLS ni verificada en producción. La política actual observada utiliza `pulmon.update` para INSERT en `reemplazos_temporales_extintores` y `movimientos_reemplazos_extintores`, mientras Bombero Inspector solo tiene `pulmon.read`; hace falta introducir permiso granular de rotación y revisar políticas de todas las tablas involucradas.
+El usuario autorizó eliminar los registros ficticios generados en la prueba: control `controles_e.id=1430` y anomalía `anomalias.id=78` (activo LEU 2232, Controlin, 31/10/2026). Intento de ejecución de borrado bloqueado por herramienta; no afirmar que fueron eliminados. Reintentar con mecanismo autorizado y verificar conteos antes/después, sin tocar otros registros.
+============================================================
