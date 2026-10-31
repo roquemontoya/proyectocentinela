@@ -452,76 +452,31 @@ export async function guardarControlExtintor(event) {
         });
         if (error) throw new Error(error.message);
 
-        // Registrar el reemplazo como una entidad transversal, separada del control histórico.
-        // El control original conserva su tipo; el provisorio conserva su propio tipo e inventario.
+        // La instalación se ejecuta mediante RPC transaccional: valida pulmon.rotate,
+        // identidad, compatibilidad, vencimiento, stock y alvéolo, y registra toda la operación.
         if (condicion === 'Vencido' && itemReemplazo) {
             const tipoTitular = valorAtributo(attrs, 'Tipo de Extintor', 'TipoExtintor') || tipoExtintor;
             const tipoProvisorio = itemReemplazo.TIPO || itemReemplazo.TipoExtintor || itemReemplazo['Tipo de Extintor'] || 'Sin especificar';
             const resultadoControl = Array.isArray(resultado) ? resultado[0] : resultado;
-            const idControlInicio = resultadoControl?.id_control || null;
-            const { data: ciclo, error: errorCiclo } = await clienteSupabase
-                .from('reemplazos_temporales_extintores')
-                .insert({
-                    activo_titular_id: idActivo,
-                    inventario_reemplazo_id: Number(itemReemplazo.id),
-                    control_inicio_id: idControlInicio,
-                    tipo_titular: String(tipoTitular),
-                    tipo_reemplazo: String(tipoProvisorio),
-                    fecha_inicio: hoy,
-                    fecha_hora_inicio: new Date().toISOString(),
-                    motivo: 'Reemplazo temporal por extintor vencido',
-                    responsable_inicio: realizo,
-                    bombero_entrega_reemplazo_id: realizo,
-                    estado: 'Activo',
-                    observaciones: observacion || null,
-                    creado_por: realizo
-                })
-                .select('id')
-                .single();
-            if (errorCiclo) {
-                throw new Error('El control se guardó, pero no se pudo registrar el ciclo de reemplazo. No retires físicamente el equipo hasta resolverlo. Detalle: ' + errorCiclo.message);
+            const idControlInicio = Number(resultadoControl?.id_control || resultadoControl?.id || 0) || null;
+            const { data: instalacion, error: errorInstalacion } = await clienteSupabase.rpc(
+                'registrar_instalacion_reemplazo_pulmon',
+                {
+                    p_activo_titular_id: idActivo,
+                    p_inventario_reemplazo_id: Number(itemReemplazo.id),
+                    p_bombero: realizo,
+                    p_motivo: 'Reemplazo temporal por extintor vencido',
+                    p_tipo_titular: String(tipoTitular),
+                    p_tipo_reemplazo: String(tipoProvisorio),
+                    p_observaciones: observacion || null,
+                    p_control_inicio_id: idControlInicio
+                }
+            );
+            if (errorInstalacion) {
+                throw new Error('El control quedó guardado, pero la instalación del reemplazo fue rechazada y no se modificó el stock. No retires físicamente ningún equipo. Detalle: ' + errorInstalacion.message);
             }
-
-            const { error: errorMovimiento } = await clienteSupabase
-                .from('movimientos_reemplazos_extintores')
-                .insert({
-                    reemplazo_id: ciclo.id,
-                    tipo_movimiento: 'Instalacion',
-                    activo_titular_id: idActivo,
-                    inventario_reemplazo_id: Number(itemReemplazo.id),
-                    bombero: realizo,
-                    fecha_hora: new Date().toISOString(),
-                    estado_titular: 'Vencido',
-                    estado_reemplazo: 'Instalado como provisorio',
-                    observaciones: observacion || null
-                });
-            if (errorMovimiento) {
-                await clienteSupabase.from('reemplazos_temporales_extintores').delete().eq('id', ciclo.id);
-                throw new Error('El control se guardó, pero falló la bitácora de instalación. El ciclo fue revertido; revisá antes de mover el equipo. Detalle: ' + errorMovimiento.message);
-            }
-
-            const { error: errorStock } = await clienteSupabase
-                .from('Extintores')
-                .update({ PRP: 'Instalado como provisorio' })
-                .eq('id', itemReemplazo.id)
-                .in('PRP', ['En Pulmon', 'En Pulmón']);
-            if (errorStock) {
-                throw new Error('Se registró el reemplazo, pero no se pudo bloquear el stock del Pulmón. No uses ese equipo para otro reemplazo hasta corregir el estado de inventario. Detalle: ' + errorStock.message);
-            }
-
-            // La ubicación del Pulmón queda libre al salir el activo físico.
-            const { data: ubicacionEquipo, error: errorUbicacion } = await clienteSupabase
-                .from('Extintores').select('alveolo_id').eq('id', itemReemplazo.id).maybeSingle();
-            if (errorUbicacion) throw new Error('Reemplazo registrado, pero no se pudo consultar su alvéolo: ' + errorUbicacion.message);
-            if (ubicacionEquipo?.alveolo_id) {
-                const { error: errorAlveolo } = await clienteSupabase
-                    .from('pulmon_alveolos')
-                    .update({ estado: 'Libre', activo_extintor_id: null, actualizado_en: new Date().toISOString() })
-                    .eq('id', ubicacionEquipo.alveolo_id).eq('activo_extintor_id', Number(itemReemplazo.id));
-                if (errorAlveolo) throw new Error('Reemplazo bloqueado en stock, pero no se pudo liberar el alvéolo: ' + errorAlveolo.message);
-                const { error: errorDesvincular } = await clienteSupabase
-                    .from('Extintores').update({ alveolo_id: null, UBICACION: 'FUERA DEL PULMÓN' }).eq('id', itemReemplazo.id);
-                if (errorDesvincular) throw new Error('Alvéolo liberado, pero no se pudo actualizar la ubicación del equipo: ' + errorDesvincular.message);
+            if (!instalacion?.ok || !instalacion?.ciclo_id) {
+                throw new Error('El control quedó guardado, pero el servidor no confirmó el ciclo de reemplazo. No retires físicamente ningún equipo y solicitá revisión.');
             }
         }
 

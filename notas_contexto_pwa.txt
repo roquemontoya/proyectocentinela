@@ -652,3 +652,16 @@ RESTAURACIÓN DEL TABLERO PRINCIPAL POR PERFIL — 31/10/2026
 - auth.js solicita el renderizado después de resolver el rol. Volver a Inicio reconstruye las tarjetas.
 - Mi cuenta permanece disponible para cualquier usuario autenticado; los módulos administrativos solo aparecen cuando el permiso los habilita. No se ampliaron permisos ni se modificaron datos operativos.
 - La prueba E2E con sesiones reales de cada rol queda pendiente; se verificará sintaxis y matriz de permisos antes de considerar cerrada la corrección.
+
+
+============================================================
+CORRECCIÓN DEL CIRCUITO DE INSTALACIÓN DE REEMPLAZOS — 31/10/2026
+============================================================
+
+- Incidente confirmado por logs de Postgres: 2026-10-31 09:29:13 UTC, INSERT rechazado por RLS en reemplazos_temporales_extintores. El control quedó guardado como controles_e.id=1431 para LEU 2402; no se encontró ciclo de reemplazo. No se alteró ni eliminó ese control de prueba.
+- Causa raíz: la UI aún hacía INSERT/UPDATE directos en tablas de ciclo, movimientos, inventario y alvéolos, pero la migración pulmon_permissions_rotation había cerrado esas escrituras directas al rol Bombero Inspector. El rol posee pulmon.rotate y debe operar exclusivamente mediante RPC.
+- Se creó la sobrecarga registrar_instalacion_reemplazo_pulmon(..., p_control_inicio_id bigint), que mantiene validación de sesión, permisos, identidad, compatibilidad, vencimiento (>30 días), disponibilidad e integridad. Ejecuta ciclo, movimientos, LEU, stock y alvéolo en una sola transacción y vincula el control inicial.
+- Se reemplazaron las escrituras directas de controlesExtintores.js por la llamada al RPC. No se amplían políticas RLS ni se otorgan escrituras directas al Inspector.
+- La función previa de 7 argumentos permanece por compatibilidad; la nueva firma de 8 argumentos revoca EXECUTE a public/anon y lo concede solo a authenticated.
+- Pendiente: prueba autenticada end-to-end de instalación/devolución en entorno seguro. No repetir pruebas ficticias en producción hasta verificar estado físico y autorizar la operación.
+
