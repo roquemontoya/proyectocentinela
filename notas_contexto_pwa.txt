@@ -641,3 +641,14 @@ ADMINISTRACIÓN CRUD DEL PULMÓN — 31/10/2026
 
 
 - Refuerzo adicional del CRUD Pulmón: la política de baja de Extintores también exige que el activo LEU no tenga movimientos en `movimientos_extintores`, además de no tener alvéolo ni historial de reemplazos. Aplicada en Supabase como `pulmon_delete_requires_no_operational_history`.
+
+
+============================================================
+RESTAURACIÓN DEL TABLERO PRINCIPAL POR PERFIL — 31/10/2026
+============================================================
+
+- Se detectó que #main-content estaba vacío y el login solo lo hacía visible. El problema afectaba a todos los perfiles autenticados, no solo a Controlin.
+- app.js ahora genera tarjetas de acceso con DOM seguro y textContent, filtradas por los permisos efectivos del usuario y las restricciones del simulador.
+- auth.js solicita el renderizado después de resolver el rol. Volver a Inicio reconstruye las tarjetas.
+- Mi cuenta permanece disponible para cualquier usuario autenticado; los módulos administrativos solo aparecen cuando el permiso los habilita. No se ampliaron permisos ni se modificaron datos operativos.
+- La prueba E2E con sesiones reales de cada rol queda pendiente; se verificará sintaxis y matriz de permisos antes de considerar cerrada la corrección.

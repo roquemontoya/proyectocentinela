@@ -87,6 +87,7 @@ function mostrarAplicacion(rol) {
   if (principal) principal.style.display = 'grid';
   actualizarIdentidadHeader();
   aplicarPermisosInterfaz(rol);
+  window.renderizarInicioCentinela?.();
   window.inicializarSimuladorRoles?.(rol);
 }
 
