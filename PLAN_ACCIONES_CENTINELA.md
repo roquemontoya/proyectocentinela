@@ -1,6 +1,6 @@
 # Proyecto Centinela — Plan maestro de acciones
 
-**Versión:** 1.0  
+**Versión:** 1.1  
 **Fecha de creación:** 31/10/2026  
 **Rama de referencia:** `main`  
 **Estado:** Plan vivo; sujeto a revisión y reordenamiento según hallazgos, prioridades operativas y restricciones de infraestructura.
@@ -85,7 +85,8 @@ Reglas permanentes:
 **Prioridad:** Crítica  
 **Estado:** Pendiente; parcialmente cubierta por matriz informativa.
 
-- [ ] Definir matriz de acciones esperadas por rol: Superadministrador, Administrador, Mantenimiento (TI), Gerente, Jefaturas, Supervisor, Bombero Referente y Bombero.
+- [x] Definir criterio funcional de permisos del Pulmón (acuerdo del usuario, 31/10/2026): Bombero Referente y niveles superiores pueden administrar extintores y alvéolos; Bombero Inspector solo puede ejecutar rotaciones de extintores entre Pulmón y Producción, con trazabilidad obligatoria y sin permisos de administración del inventario.
+- [ ] Traducir el criterio a permisos granulares y políticas RLS verificadas. No reutilizar `pulmon.update` para el Inspector.
 - [ ] Probar cada acción en interfaz y directamente contra API/RPC/Edge Functions.
 - [ ] Verificar RLS, grants, funciones SECURITY DEFINER, políticas de Storage y validación de roles en Edge Functions.
 - [ ] Probar acceso a controles, anomalías, inventario, trazabilidad, usuarios, reportes, fotos/archivos y movimientos.
@@ -129,6 +130,22 @@ Reglas permanentes:
 **Criterio de cierre:** cada instalación contemplada tiene identificación, control, persistencia, historial, anomalías y permisos probados.
 
 ## Fase 5 — Pulmón: inventario, movimientos y ciclo de vida
+
+### Matriz de permisos acordada (31/10/2026)
+
+| Perfil | Crear/cambiar/eliminar alvéolos | Crear/cambiar/eliminar extintores del inventario | Rotar extintores Pulmón ↔ Producción |
+|---|---:|---:|---:|
+| Bombero Inspector | No | No | Sí |
+| Bombero Referente | Sí | Sí | Sí |
+| Supervisor y jefaturas superiores | Sí | Sí | Sí |
+| Gerencia | Sí, por jerarquía acordada | Sí, por jerarquía acordada | Sí |
+| Administrador / Superadministrador | Sí | Sí | Sí |
+
+**Alcance de la rotación del Bombero Inspector:** consultar el stock necesario para elegir un equipo, seleccionar un reemplazo compatible, registrar la salida del Pulmón y la instalación en Producción; registrar el movimiento inverso cuando el extintor titular vuelva al Pulmón. Debe quedar identificado el usuario autenticado, fecha/hora, equipo titular, equipo reemplazante, origen, destino y motivo. El permiso no habilita altas/bajas/cambios generales de inventario ni creación/edición/eliminación de alvéolos.
+
+**Regla de operación:** no se exige autorización individual previa para cada recambio. La autorización se concede al rol; la trazabilidad y las validaciones automáticas constituyen el control posterior. El sistema debe bloquear incompatibilidades, doble asignación, equipo no disponible y vencimiento con 30 días o menos (o fecha no verificable).
+
+**Nota de jerarquía:** `Mantenimiento` es un rol técnico separado de la línea jerárquica operativa; su alcance sobre el Pulmón debe conservarse/revisarse explícitamente, no inferirse como si fuera Bombero Referente. Los perfiles Administrador y Superadministrador mantienen sus capacidades administrativas.
 
 **Prioridad:** Alta  
 **Estado:** Parcial; requiere consolidación funcional.
@@ -204,6 +221,7 @@ El orden no es rígido: un riesgo crítico nuevo puede adelantar una tarea; una 
 | Fecha | Versión | Cambio |
 |---|---|---|
 | 31/10/2026 | 1.0 | Creación del plan maestro a partir de auditoría estática, pendientes de validación y hoja de ruta funcional. |
+| 31/10/2026 | 1.1 | Se incorpora matriz explícita de permisos Pulmón: Bombero Inspector rota; Bombero Referente y niveles superiores administran inventario y alvéolos. Sin autorización individual por recambio; trazabilidad obligatoria. |
 
 ## Enlaces de referencia
 
