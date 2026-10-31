@@ -1,6 +1,6 @@
 # Proyecto Centinela — Plan maestro de acciones
 
-**Versión:** 1.2  
+**Versión:** 1.3  
 **Fecha de creación:** 31/10/2026  
 **Rama de referencia:** `main`  
 **Estado:** Plan vivo; sujeto a revisión y reordenamiento según hallazgos, prioridades operativas y restricciones de infraestructura.
@@ -236,3 +236,11 @@ El orden no es rígido: un riesgo crítico nuevo puede adelantar una tarea; una 
 - [Bitácora](https://github.com/roquemontoya/proyectocentinela/blob/main/notas_contexto_pwa.txt)
 - [Auditoría estática inicial](https://github.com/roquemontoya/proyectocentinela/blob/main/AUDITORIA_CODIGO_PWA_2026-10-27.md)
 - [Plan de auditorías](https://github.com/roquemontoya/proyectocentinela/blob/main/PLAN_AUDITORIAS_CENTINELA.txt)
+
+
+### Actualización 31/10/2026 — CRUD Pulmón
+- [x] RPC transaccional para crear alvéolos con ID concurrente seguro.
+- [x] RPC transaccional para incorporar un activo LEU extintor al inventario y ocupar un alvéolo libre.
+- [x] UI de alta de alvéolos y extintores; edición de código/observaciones de alvéolo; baja condicionada de alvéolos vacíos y extintores sin alvéolo y sin historial.
+- [ ] Edición de metadatos técnicos de extintores ya registrados.
+- [ ] Pruebas E2E por rol en navegador; no se escribieron datos ficticios en producción.

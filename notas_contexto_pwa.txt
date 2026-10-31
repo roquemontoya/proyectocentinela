@@ -622,3 +622,19 @@ Vercel
 - No se inició un despliegue manual. Para próximos cambios, agrupar commits en una sola actualización para reducir despliegues automáticos.
 
 ============================================================
+
+
+============================================================
+ADMINISTRACIÓN CRUD DEL PULMÓN — 31/10/2026
+============================================================
+
+- Se aplicó en Supabase la migración `pulmon_admin_crud_rpc`.
+- Se añadieron RPC transaccionales `crear_alveolo_pulmon` y `crear_extintor_stock_pulmon`, ambas verifican sesión y permiso `pulmon.manage` o el permiso técnico `pulmon.update`.
+- Los IDs heredados de Extintores y alvéolos no tienen secuencia. Las altas nuevas usan advisory locks y max(id)+1 dentro de la transacción para evitar colisiones concurrentes.
+- Alta de extintor exige un activo ya existente de categoría extintor en LEU, tipo PQS/Halón/CO2/K, vencimiento válido con más de 30 días y alvéolo libre. Crea inventario y ocupa el alvéolo atómicamente.
+- La UI de alvéolos incorpora alta de alvéolos, alta de extintores en Pulmón, edición de código/observaciones de alvéolos y eliminación condicionada de alvéolos libres y equipos sin alvéolo. La eliminación de equipos sigue bloqueada por RLS si hay ciclos o movimientos históricos.
+- No se crean activos maestros LEU desde el formulario Pulmón; solo se vinculan activos extintores ya existentes.
+- No se alteraron filas operativas durante esta implementación. Las pruebas de escritura funcional requieren ejecutarse desde cuenta Bombero Referente; no se generaron datos de prueba en producción.
+- Pendiente: agregar edición de datos técnicos del extintor ya inventariado y realizar pruebas E2E reales con Bombero Referente, Inspector y cuenta sin permiso. La UI actual permite alta y baja condicionada; la edición de metadatos del extintor aún no se incorporó.
+
+============================================================
