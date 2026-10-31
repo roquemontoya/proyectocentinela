@@ -3,11 +3,12 @@ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const inp='width:100%;box-sizing:border-box;padding:8px;background:#111827;color:#fff;border:1px solid #475569;border-radius:5px';
 const btn='padding:8px 11px;border:0;border-radius:5px;font-weight:600;cursor:pointer';
 function editorEquipo(e){
+ const tipoActual=String(e.TIPO||'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toUpperCase();
  return `<details style="margin-top:8px"><summary style="cursor:pointer;color:#93c5fd;font-size:12px">Editar datos técnicos del extintor</summary>
  <form data-ext-form="${e.id}" style="display:grid;gap:6px;margin-top:8px">
  <input name="etiqueta" maxlength="180" required value="${esc(e.ETIQUETA)}" aria-label="Etiqueta" style="${inp}">
  <select name="tipo" required style="${inp}">
- ${['PQS','HALON','CO2','K'].map(t=>`<option value="${t}" ${String(e.TIPO||'').toUpperCase()===t?'selected':''}>${t}</option>`).join('')}
+ ${['PQS','HALON','CO2','K'].map(t=>`<option value="${t}" ${tipoActual===t?'selected':''}>${t}</option>`).join('')}
  </select>
  <input name="vencimiento" value="${esc(e.Vencimiento||'')}" placeholder="Vencimiento MM/AA" style="${inp}">
  <input name="ph" type="number" min="1900" max="2200" step="1" value="${esc(e.PH??'')}" placeholder="Año prueba hidráulica" style="${inp}">
