@@ -121,7 +121,7 @@ export async function cargarModuloPulmon(contenedor) {
                     </td>
                     <td style="padding: 14px; text-align: center;">
                         ${botonAccion}
-                        <button onclick="window.abrirFormularioControl('Extintores', '${ext.id}', '${etiqueta.replace(/'/g, "\\'")}')" style="background: #2a2a2a; color: #fff; border: 1px solid #555; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;">✏️ Auditar</button>
+                        ${puedeAdministrarPulmon ? `<button onclick="window.abrirFormularioControl('Extintores', '${ext.id}', '${etiqueta.replace(/'/g, "\\'")}')" style="background: #2a2a2a; color: #fff; border: 1px solid #555; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;">✏️ Auditar</button>` : ''}
                     </td>
                 </tr>
             `;
