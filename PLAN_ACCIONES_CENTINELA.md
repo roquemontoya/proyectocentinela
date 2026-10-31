@@ -1,6 +1,6 @@
 # Proyecto Centinela — Plan maestro de acciones
 
-**Versión:** 1.1  
+**Versión:** 1.2  
 **Fecha de creación:** 31/10/2026  
 **Rama de referencia:** `main`  
 **Estado:** Plan vivo; sujeto a revisión y reordenamiento según hallazgos, prioridades operativas y restricciones de infraestructura.
@@ -86,7 +86,9 @@ Reglas permanentes:
 **Estado:** Pendiente; parcialmente cubierta por matriz informativa.
 
 - [x] Definir criterio funcional de permisos del Pulmón (acuerdo del usuario, 31/10/2026): Bombero Referente y niveles superiores pueden administrar extintores y alvéolos; Bombero Inspector solo puede ejecutar rotaciones de extintores entre Pulmón y Producción, con trazabilidad obligatoria y sin permisos de administración del inventario.
-- [ ] Traducir el criterio a permisos granulares y políticas RLS verificadas. No reutilizar `pulmon.update` para el Inspector.
+- [x] Implementado en Supabase: `pulmon.rotate` para Bombero Inspector; `pulmon.manage` para Bombero Referente, Supervisor, jefaturas, Gerencia y administradores. `pulmon.update` se conserva para Mantenimiento como rol técnico separado.
+- [x] Verificada la asignación efectiva de Controlin: `pulmon.rotate=true`, `pulmon.manage=false`, `pulmon.update=false`.
+- [ ] Completar prueba E2E desde navegador con Controlin y una cuenta real de Bombero Referente; verificar también denegación de escrituras directas.
 - [ ] Probar cada acción en interfaz y directamente contra API/RPC/Edge Functions.
 - [ ] Verificar RLS, grants, funciones SECURITY DEFINER, políticas de Storage y validación de roles en Edge Functions.
 - [ ] Probar acceso a controles, anomalías, inventario, trazabilidad, usuarios, reportes, fotos/archivos y movimientos.
@@ -148,7 +150,7 @@ Reglas permanentes:
 **Nota de jerarquía:** `Mantenimiento` es un rol técnico separado de la línea jerárquica operativa; su alcance sobre el Pulmón debe conservarse/revisarse explícitamente, no inferirse como si fuera Bombero Referente. Los perfiles Administrador y Superadministrador mantienen sus capacidades administrativas.
 
 **Prioridad:** Alta  
-**Estado:** Parcial; requiere consolidación funcional.
+**Estado:** Parcial; permisos de base implementados, falta completar interfaz administrativa y pruebas E2E.
 
 - [ ] Confirmar modelo de datos y relaciones entre inventario, alvéolos, trazabilidad y ubicaciones.
 - [ ] Mantener estados claros: disponible, en recarga, en uso/instalado, enviado a Bertolez y retornado.
@@ -167,7 +169,11 @@ Reglas permanentes:
 - [ ] Dimensionar alvéolos según inventario real validado, no según registros ficticios.
 - [ ] Probar concurrencia, bloqueos, devoluciones, fallos de red y trazabilidad completa.
 
-**Criterio de cierre:** ciclo completo de salida, reemplazo, recarga, devolución y reasignación trazable, sin dobles asignaciones ni movimientos perdidos.
+**Implementación de permisos (31/10/2026):** migración `20261031120000_pulmon_permissions_rotation.sql` aplicada en Supabase. El Inspector rota mediante RPC transaccionales, con identidad tomada de `app_user_profiles`, validación de compatibilidad PQS/HALON/CO2/K y vencimiento verificable superior a 30 días. La devolución del Inspector solo puede devolver el equipo al stock operativo. El permiso no habilita gestión de recargas ni edición directa de inventario. Las políticas RLS permiten administrar `Extintores` y alvéolos a `pulmon.manage` (y al rol técnico `pulmon.update`); la eliminación de alvéolos exige que estén libres y la eliminación de extintores exige que no tengan alvéolo, ciclo activo ni movimientos históricos.
+
+**Pendiente de interfaz:** el módulo Pulmón ya oculta al Inspector las acciones de auditoría y recarga, y muestra el flujo de rotación solo a quien tiene permiso. Todavía falta construir los formularios de alta/edición/baja administrativa de extintores y alvéolos para Bombero Referente y superiores; la autorización de base ya está preparada, pero no se debe confundir con una pantalla CRUD terminada.
+
+**Criterio de cierre:** ciclo completo de salida, reemplazo, devolución y reasignación trazable, sin dobles asignaciones ni movimientos perdidos; formularios CRUD administrativos completos; pruebas E2E por perfil.
 
 ## Fase 6 — Rendimiento, calidad y mantenimiento
 
@@ -222,6 +228,7 @@ El orden no es rígido: un riesgo crítico nuevo puede adelantar una tarea; una 
 |---|---|---|
 | 31/10/2026 | 1.0 | Creación del plan maestro a partir de auditoría estática, pendientes de validación y hoja de ruta funcional. |
 | 31/10/2026 | 1.1 | Se incorpora matriz explícita de permisos Pulmón: Bombero Inspector rota; Bombero Referente y niveles superiores administran inventario y alvéolos. Sin autorización individual por recambio; trazabilidad obligatoria. |
+| 31/10/2026 | 1.2 | Se aplica la matriz granular en RLS/RPC y se limita la interfaz del Inspector; quedan pendientes los formularios CRUD administrativos y las pruebas E2E por navegador/rol. |
 
 ## Enlaces de referencia
 

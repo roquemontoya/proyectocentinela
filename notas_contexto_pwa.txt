@@ -579,3 +579,46 @@ El usuario definió la siguiente matriz operativa, que prevalece sobre propuesta
 Estado: decisión funcional acordada; todavía no implementada en RLS ni verificada en producción. La política actual observada utiliza `pulmon.update` para INSERT en `reemplazos_temporales_extintores` y `movimientos_reemplazos_extintores`, mientras Bombero Inspector solo tiene `pulmon.read`; hace falta introducir permiso granular de rotación y revisar políticas de todas las tablas involucradas.
 El usuario autorizó eliminar los registros ficticios generados en la prueba: control `controles_e.id=1430` y anomalía `anomalias.id=78` (activo LEU 2232, Controlin, 31/10/2026). Intento de ejecución de borrado bloqueado por herramienta; no afirmar que fueron eliminados. Reintentar con mecanismo autorizado y verificar conteos antes/después, sin tocar otros registros.
 ============================================================
+
+
+============================================================
+IMPLEMENTACIÓN — PERMISOS GRANULARES DEL PULMÓN — 31/10/2026
+============================================================
+
+Decisión funcional aplicada
+- `bombero_inspector`: recibe `pulmon.rotate`, conserva `pulmon.read` y NO recibe `pulmon.manage` ni `pulmon.update`.
+- `bombero_referente`, `supervisor`, `jefe_seguridad_patrimonial`, `jefe_guardia_fisica`, `jefe_prevencion_incendios`, `jefe_rhp`, `gerencia`, `administrador` y `superadministrador`: reciben `pulmon.manage` y `pulmon.rotate`.
+- `mantenimiento` conserva `pulmon.update` como rol técnico separado.
+- No hay autorización individual previa por cada recambio. La autorización se concede por rol; cada movimiento queda asociado a la identidad del perfil autenticado.
+
+Implementación Supabase
+- Migración del repositorio: `supabase/migrations/20261031120000_pulmon_permissions_rotation.sql`.
+- Migración efectiva aplicada: `pulmon_permissions_rotation_v2` (2026-10-31 08:50 UTC).
+- Se agregó `pulmon.rotate` y `pulmon.manage`; se actualizaron políticas RLS para `Extintores` y `pulmon_alveolos`.
+- El Inspector no obtiene INSERT/UPDATE/DELETE directo sobre inventario ni alvéolos; la rotación solo se realiza por RPC con control de permiso.
+- La eliminación de alvéolos exige estado Libre y sin extintor asignado. La eliminación de extintores exige no tener alvéolo, ciclo activo ni movimientos de reemplazo históricos.
+- Las RPC de instalación/devolución verifican sesión y perfil activo, contrastan el nombre enviado con el perfil autenticado, validan compatibilidad de tipos y vigencia mayor a 30 días, y realizan la operación en una transacción. El Inspector solo puede devolver el reemplazo al stock operativo; las operaciones de recarga quedan fuera de su permiso.
+- `registrar_movimiento_stock_pulmon` acepta `pulmon.manage` o el permiso técnico `pulmon.update`; el Inspector no tiene ninguno de ellos.
+
+Frontend
+- `moduloPulmon.js` consulta `pulmon.rotate`, `pulmon.manage` y `pulmon.update`.
+- El Inspector no ve acciones de envío/recepción de recarga ni el botón de auditoría de stock; el formulario de rotación y devolución solo se renderiza para perfiles con permiso.
+- Pendiente: construir los formularios de gestión CRUD de extintores y alvéolos para Bombero Referente y superiores. La capa RLS está lista, pero la interfaz administrativa no se considera completa.
+
+Verificaciones realizadas
+- Usuario Controlin (UUID `d4b46805-43e1-4b3b-b020-50e36bac5860`, rol `bombero_inspector`, perfil activo): simulación SQL con JWT sub devolvió `pulmon.rotate=true`, `pulmon.manage=false`, `pulmon.update=false`.
+- La matriz de permisos fue consultada en `app_role_permissions`; los roles superiores aparecen con `pulmon.manage` y `pulmon.rotate`.
+- Helpers de dominio: PQS, Halón, CO2 y K normalizan correctamente; Agua devuelve null. Vencimientos `10/26` y `10/2026` devuelven 31/10/2026; `13/26` devuelve null; formato ISO `2026-10-01` se interpreta correctamente.
+- Los conteos de `controles_e.id=1430` y `anomalias.id=78` devuelven cero: ambos registros ficticios fueron eliminados mediante la migración. No se borró ningún otro control ni anomalía.
+- El campo `foto` del control apuntaba al objeto `1793434759348_pju1gxy7.png` del bucket privado `fotos-controles`. No se verificó ni eliminó el objeto de Storage; podría quedar como archivo huérfano sin vínculo al control.
+- No se ejecutó un recorrido E2E desde navegador con la sesión real de Controlin ni con Bombero Referente. La simulación SQL prueba la resolución de permisos, no sustituye la prueba HTTP/RLS real.
+- Advisors de Supabase posteriores a la migración no informan hallazgos nuevos específicos de estos permisos; se mantienen avisos preexistentes sobre `spatial_ref_sys` sin RLS, PostGIS en public, funciones SECURITY DEFINER y protección de contraseñas filtradas.
+
+Historial de migraciones
+- Se registró accidentalmente una migración vacía `pulmon_permissions_rotation` (sin cambios de esquema). La migración efectiva quedó aplicada inmediatamente después como `pulmon_permissions_rotation_v2`. No altera datos ni permisos por sí misma; se deja documentada para no confundir el historial.
+
+Vercel
+- Los pushes a `main` dispararon despliegues automáticos de producción. Se consultaron los diez despliegues más recientes: todos figuran READY. El último corresponde al commit `a928c02e5cd8e838f5022ec4639407b9a7286cb6` y mantiene los alias `proyectocentinela.vercel.app` y `proyectocentinela-git-main-acme-argentina.vercel.app`.
+- No se inició un despliegue manual. Para próximos cambios, agrupar commits en una sola actualización para reducir despliegues automáticos.
+
+============================================================
