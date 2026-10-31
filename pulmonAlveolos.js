@@ -2,6 +2,22 @@ import { clienteSupabase } from './supabaseClient.js';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const inp='width:100%;box-sizing:border-box;padding:8px;background:#111827;color:#fff;border:1px solid #475569;border-radius:5px';
 const btn='padding:8px 11px;border:0;border-radius:5px;font-weight:600;cursor:pointer';
+function editorEquipo(e){
+ return `<details style="margin-top:8px"><summary style="cursor:pointer;color:#93c5fd;font-size:12px">Editar datos técnicos del extintor</summary>
+ <form data-ext-form="${e.id}" style="display:grid;gap:6px;margin-top:8px">
+ <input name="etiqueta" maxlength="180" required value="${esc(e.ETIQUETA)}" aria-label="Etiqueta" style="${inp}">
+ <select name="tipo" required style="${inp}">
+ ${['PQS','HALON','CO2','K'].map(t=>`<option value="${t}" ${String(e.TIPO||'').toUpperCase()===t?'selected':''}>${t}</option>`).join('')}
+ </select>
+ <input name="vencimiento" value="${esc(e.Vencimiento||'')}" placeholder="Vencimiento MM/AA" style="${inp}">
+ <input name="ph" type="number" min="1900" max="2200" step="1" value="${esc(e.PH??'')}" placeholder="Año prueba hidráulica" style="${inp}">
+ <input name="numero_serie" value="${esc(e.numero_serie||'')}" placeholder="Número de serie" style="${inp}">
+ <input name="numero_tarjeta" value="${esc(e.numero_tarjeta||'')}" placeholder="Número de tarjeta" style="${inp}">
+ <input name="capacidad_kg" type="number" min="0.1" step="0.1" value="${esc(e.capacidad_kg??'')}" placeholder="Capacidad kg" style="${inp}">
+ <input name="marca" value="${esc(e.marca||'')}" placeholder="Marca" style="${inp}">
+ <button type="submit" style="${btn};background:#2563eb;color:white">Guardar datos del extintor</button>
+ </form></details>`;
+}
 export async function renderizarAlveolosPulmon(contenedor){
  const [pm,pt]=await Promise.all([
   clienteSupabase.rpc('current_user_has_permission',{p_permission:'pulmon.manage'}),
@@ -39,6 +55,7 @@ export async function renderizarAlveolosPulmon(contenedor){
    <strong style="color:#7dd3fc">${esc(a.codigo)}</strong><div style="font-size:12px;margin:7px 0;color:${estado==='Ocupado'?'#86efac':'#94a3b8'}">${estado==='Ocupado'?'● OCUPADO':estado==='Libre'?'○ LIBRE':'⚠ FUERA DE SERVICIO'}</div>
    <div style="font-size:12px;min-height:32px;overflow-wrap:anywhere">${esc(et||'Sin equipo asignado')}</div>
    ${e?`<div style="font-size:12px;color:#7dd3fc;margin-top:4px">${esc(tipo)} · ID ${e.id}</div>`:''}
+   ${e&&admin?editorEquipo(e):''}
    ${admin?`<details style="margin-top:10px"><summary style="cursor:pointer;color:#93c5fd;font-size:12px">Administrar alvéolo</summary>
    <form data-alveolo-form="${a.id}" style="display:grid;gap:6px;margin-top:8px">
    <input name="codigo" maxlength="80" required value="${esc(a.codigo)}" aria-label="Código" style="${inp}">
@@ -67,7 +84,7 @@ export async function renderizarAlveolosPulmon(contenedor){
  <button type="submit" style="${btn};background:#15803d;color:white" ${libres.length?'':'disabled'}>Dar de alta en Pulmón</button>
  ${libres.length?'':'<small style="color:#fbbf24">Primero creá un alvéolo libre.</small>'}</form></div>
  ${sinAlveolo.length?`<h4 style="margin:20px 0 8px;color:#fbbf24">Extintores del stock sin alvéolo</h4><div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:500px"><thead><tr style="text-align:left;color:#94a3b8"><th style="padding:8px">Etiqueta</th><th>Tipo</th><th>Acción</th></tr></thead><tbody>
- ${sinAlveolo.map(e=>`<tr style="border-top:1px solid #475569"><td style="padding:8px">${esc(e.ETIQUETA)} · ${e.id}</td><td>${esc(e.TIPO)}</td><td><button type="button" data-delete-extintor="${e.id}" style="${btn};background:#7f1d1d;color:white">Eliminar</button></td></tr>`).join('')}</tbody></table></div>`:''}</section>`:''}`;
+ ${sinAlveolo.map(e=>`<tr style="border-top:1px solid #475569"><td style="padding:8px">${esc(e.ETIQUETA)} · ${e.id}</td><td>${esc(e.TIPO)}</td><td><details><summary style="cursor:pointer;color:#93c5fd">Editar</summary>${editorEquipo(e)}</details><button type="button" data-delete-extintor="${e.id}" style="${btn};background:#7f1d1d;color:white">Eliminar</button></td></tr>`).join('')}</tbody></table></div>`:''}</section>`:''}`;
  contenedor.appendChild(section);
  const filtrar=()=>{const q=section.querySelector('#filtro-alveolo').value.toLowerCase(),t=section.querySelector('#filtro-tipo-alveolo').value.toUpperCase(),s=section.querySelector('#filtro-estado-alveolo').value;section.querySelectorAll('[data-search]').forEach(card=>card.style.display=card.dataset.search.includes(q)&&(!t||card.dataset.type===t)&&(!s||card.dataset.state===s)?'':'none');};
  section.querySelector('#filtro-alveolo').addEventListener('input',filtrar);
@@ -96,6 +113,16 @@ export async function renderizarAlveolosPulmon(contenedor){
   const {data,error}=await clienteSupabase.from('pulmon_alveolos').update({codigo:String(v.get('codigo')||'').trim(),observaciones:String(v.get('observaciones')||'').trim()||null,actualizado_en:new Date().toISOString()}).eq('id',id).select('id').maybeSingle();
   if(error||!data)return alert('No se pudo actualizar el alvéolo: '+(error?.message||'sin confirmación'));
   alert('Alvéolo actualizado.');window.cargarModulo('pulmon');
+ }));
+ section.querySelectorAll('form[data-ext-form]').forEach(form=>form.addEventListener('submit',async ev=>{
+  ev.preventDefault();const v=new FormData(form),id=Number(form.dataset.extForm),rawPh=String(v.get('ph')||'').trim(),rawCap=String(v.get('capacidad_kg')||'').trim();
+  const payload={ETIQUETA:String(v.get('etiqueta')||'').trim(),TIPO:String(v.get('tipo')||''),Vencimiento:String(v.get('vencimiento')||'').trim()||null,
+   PH:rawPh?Number(rawPh):null,numero_serie:String(v.get('numero_serie')||'').trim()||null,numero_tarjeta:String(v.get('numero_tarjeta')||'').trim()||null,
+   capacidad_kg:rawCap?Number(rawCap):null,marca:String(v.get('marca')||'').trim()||null};
+  if(!payload.ETIQUETA||!['PQS','HALON','CO2','K'].includes(payload.TIPO))return alert('Revisá la etiqueta y el tipo del extintor.');
+  const {data,error}=await clienteSupabase.from('Extintores').update(payload).eq('id',id).select('id').maybeSingle();
+  if(error||!data)return alert('No se pudieron guardar los datos del extintor: '+(error?.message||'sin confirmación'));
+  alert('Datos técnicos actualizados.');window.cargarModulo('pulmon');
  }));
  section.querySelectorAll('[data-delete-alveolo]').forEach(button=>button.addEventListener('click',async()=>{
   const id=Number(button.dataset.deleteAlveolo),a=(alveolos||[]).find(x=>x.id===id);

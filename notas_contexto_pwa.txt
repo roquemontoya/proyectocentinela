@@ -635,6 +635,6 @@ ADMINISTRACIÓN CRUD DEL PULMÓN — 31/10/2026
 - La UI de alvéolos incorpora alta de alvéolos, alta de extintores en Pulmón, edición de código/observaciones de alvéolos y eliminación condicionada de alvéolos libres y equipos sin alvéolo. La eliminación de equipos sigue bloqueada por RLS si hay ciclos o movimientos históricos.
 - No se crean activos maestros LEU desde el formulario Pulmón; solo se vinculan activos extintores ya existentes.
 - No se alteraron filas operativas durante esta implementación. Las pruebas de escritura funcional requieren ejecutarse desde cuenta Bombero Referente; no se generaron datos de prueba en producción.
-- Pendiente: agregar edición de datos técnicos del extintor ya inventariado y realizar pruebas E2E reales con Bombero Referente, Inspector y cuenta sin permiso. La UI actual permite alta y baja condicionada; la edición de metadatos del extintor aún no se incorporó.
+- La UI incluye edición de metadatos técnicos del extintor (etiqueta, tipo, vencimiento, PH, serie, tarjeta, capacidad y marca), sin permitir cambiar PRP, alvéolo ni vínculo LEU desde el editor. Las bajas continúan condicionadas por RLS.
 
 ============================================================
