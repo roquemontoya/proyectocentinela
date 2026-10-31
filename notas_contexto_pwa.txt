@@ -638,3 +638,6 @@ ADMINISTRACIÓN CRUD DEL PULMÓN — 31/10/2026
 - La UI incluye edición de metadatos técnicos del extintor (etiqueta, tipo, vencimiento, PH, serie, tarjeta, capacidad y marca), sin permitir cambiar PRP, alvéolo ni vínculo LEU desde el editor. Las bajas continúan condicionadas por RLS.
 
 ============================================================
+
+
+- Refuerzo adicional del CRUD Pulmón: la política de baja de Extintores también exige que el activo LEU no tenga movimientos en `movimientos_extintores`, además de no tener alvéolo ni historial de reemplazos. Aplicada en Supabase como `pulmon_delete_requires_no_operational_history`.
